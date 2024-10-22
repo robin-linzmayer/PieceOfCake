@@ -1,4 +1,4 @@
-# Project 1: Timing Maze Game
+# Project 3: Piece of Cake
 
 ## Citation and License
 This project belongs to Department of Computer Science, Columbia University. It may be used for educational purposes under Creative Commons **with proper attribution and citation** for the author TAs **Divyang Mittal (First Author), Raavi Gupta and the Instructor, Prof. Kenneth Ross**.
@@ -7,7 +7,7 @@ This project belongs to Department of Computer Science, Columbia University. It 
 
 Course: COMS 4444 Programming and Problem Solving (Fall 2024)  
 Problem Description: https://www.cs.columbia.edu/~kar/4444f24/node18.html  
-Course Website: https://www.cs.columbia.edu/~kar/4444f24/  
+Course Website: https://www.cs.columbia.edu/~kar/4444f24/node20.html 
 University: Columbia University  
 Instructor: Prof. Kenneth Ross  
 Project Language: Python
@@ -48,9 +48,6 @@ python3 main.py [-m/--max_door_frequency] [-r/--radius] [-s/--seed] [-mz/--maze]
 The code generates a `log/debug.log` (detailed), `log/results.log` (minimal) and `log\<player_name>.log` 
 (logs from player) on every execution, detailing all the turns and steps in the game.
 
-python3 main.py -m 5 -r 40 -s 7 -mz "maps/default/simple.json" -ng
-
-maze_state = [[x1, y1, door_type_1, door_state_1], [x2, y2, door_type_2, door_state_2] [x, y, door_type_3, door_state_3]]
-
-# Make validate function with all the check cut conditions arrange in better manner 
-# Fix GUI scale constant to window size
+## Example Usage
+```bash
+python3 main.py -d 15 -rq "requests/default/easy.json" 
