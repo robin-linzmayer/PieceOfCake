@@ -37,6 +37,7 @@ brew install python-tk@3.X
 
 Setup miniball library
 ```bash
+git clone https://github.com/hbf/miniball
 cd miniball/python
 pip install .
 ```
