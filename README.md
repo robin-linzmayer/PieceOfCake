@@ -35,6 +35,12 @@ To install tkinter on macOS, run the following command:
 brew install python-tk@3.X
 ```
 
+Setup miniball library
+```bash
+cd miniball/python
+pip install .
+```
+
 ## Usage
 
 To view all options use python3 main.py -h
@@ -50,4 +56,5 @@ The code generates a `log/debug.log` (detailed), `log/results.log` (minimal) and
 
 ## Example Usage
 ```bash
-python3 main.py -d 15 -rq "requests/default/easy.json" 
+python3 main.py -d 15 -rq "requests/default/easy.json"
+``` 
