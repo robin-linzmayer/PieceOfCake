@@ -1,0 +1,11 @@
+[tool.black]
+
+include = '''
+.*\.py$
+'''
+
+force-exclude = '''
+^(?!\/players\/).*
+'''
+
+
