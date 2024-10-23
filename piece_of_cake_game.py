@@ -10,8 +10,6 @@ from shapely import points, centroid
 
 import miniball
 
-from pkg_resources import require
-
 from piece_of_cake_state import PieceOfCakeState
 from constants import *
 import constants
@@ -376,6 +374,8 @@ class PieceOfCakeGame:
         if action[0] < 1 or action[0] > 3:
             return False
         if type(action[1]) is not list:
+            return False
+        if action[0] == constants.INIT and self.turns != 1:
             return False
         if (action[0] == constants.INIT or action[0] == constants.CUT) and len(action[1]) != 2:
             return False
