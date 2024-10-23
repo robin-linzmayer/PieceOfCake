@@ -58,4 +58,4 @@ The code generates a `log/debug.log` (detailed), `log/results.log` (minimal) and
 ## Example Usage
 ```bash
 python3 main.py -d 15 -rq "requests/default/easy.json"
-``` 
+```
