@@ -64,7 +64,7 @@ class Player:
         if turn_number == 1:
             return constants.INIT, [0,0]
 
-        if len(polygons) != len(requests):
+        if len(polygons) < len(requests):
             if cur_pos[0] == 0:
                 return constants.CUT, [cake_width, round((cur_pos[1] + 5)%cake_len, 2)]
             else:
