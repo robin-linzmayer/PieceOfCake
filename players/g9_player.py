@@ -39,28 +39,24 @@ class Player:
         print(" ")
         print(f"----------------------------------- Turn {turn_number} -----------------------------------")
         vertical_cut_coords = get_vertical_cuts(requests, cake_len, cake_width, cake_area, noise)
-        print(f"Vertical Cuts: {len(vertical_cut_coords)}, {len(vertical_cut_coords)/2}, {vertical_cut_coords}")
+        cut_coords = inject_crumb_coords(vertical_cut_coords, cake_len, cake_width)
 
+        # First turn initialize knife to start at first vertical cut.
         if turn_number == 1:
-            # First turn initialize knife to start at first vertical cut.
-            print(f"RETURNS ROUND {turn_number} ---> {constants.INIT, vertical_cut_coords[turn_number-1]}")
-            return constants.INIT, vertical_cut_coords[turn_number-1]
+            print(f"Cut coordinates {len(cut_coords)}: {cut_coords}")
+            return constants.INIT, cut_coords[turn_number-1]
 
-        if len(polygons) < len(requests)+(round(len(requests)/3, 0)):
+        # Cut the cake
+        if turn_number < len(cut_coords)+1:
+            return constants.CUT, cut_coords[turn_number - 1]
 
-            # Every 3rd turn is crumbs
-            if turn_number % 3 == 0:
-                crumb_coord = get_crumb_coord(cur_pos, cake_len, cake_width)
-                return constants.CUT, crumb_coord
-
-            print(f"RETURNS ROUND {turn_number} ---> {vertical_cut_coords[turn_number - 1]}")
-            return constants.CUT, vertical_cut_coords[turn_number - 1]
-
-        assignment = []
-        for i in range(len(requests)):
-            assignment.append(i)
-
-        print(f"RETURNS ROUND {turn_number} ---> {constants.ASSIGN, assignment}")
+        # Assign polygons to each request
+        # Todo - this is not correctly assigning the largest pieces to the right request. The output form should be a list of length = number of requests where the value is the index of the polygon.
+        polygons_sorted = sorted(polygons, key=lambda polygons: polygons.area, reverse=True)
+        polygons_sorted = polygons_sorted[:len(requests)]
+        requests_sorted = sorted(requests, reverse=True)
+        # Todo - the issue is this list is tuples. The next step is to get the index related to each request and polygon from the original lists.
+        assignment = list(zip(polygons_sorted, requests_sorted))
         return constants.ASSIGN, assignment
 
 
@@ -74,29 +70,40 @@ def get_vertical_cuts(requests, cake_len, cake_width, cake_area, noise):
     perc_area = [(r + (noise * r)) / cake_area for r in requests]
 
     # Get the x coordinate needed for each piece
-    x_width = []
+    x_coords = []
     prev_x = 0
     for frac in perc_area:
-        next_x = round(cake_width * frac, 2)
-        x_width.append(round(prev_x + next_x, 2))
-        prev_x = prev_x + next_x
+        prev_x = round(prev_x + cake_width * frac, 2)
+        x_coords.append(prev_x)
 
-    # Translate the calculated width into coordinates where a vertical line is cut
-    coord_width = [[x_coord, 0] for x_coord in x_width]
-    coord_length = [[x_coord, cake_len] for x_coord in x_width]
+    # Duplicate the x coordinates because a single vertical cut will require two x coordinates.
+    x_coords = [x for x in x_coords for _ in range(2)]
 
-    # List of coordinates [cut1_top, cut1_bottom, ..., cutN_top, cutNbottom]
-    vertical_cuts = [val for pair in zip(coord_width, coord_length) for val in pair]
+    # Establish the cutting pattern of down then up (over 4 coordinates) which will repeat.
+    y_coords = [0, cake_len, cake_len, 0]
+
+    # Combine x and y coordinates to create tuples. two sets of consecutive coordinates represents a single vertical cut. These are already ordered.
+    vertical_cuts = [[x, y] for x, y in zip(x_coords, y_coords * (len(x_coords) // 4))]
 
     return vertical_cuts
 
-def get_crumb_coord(cur_pos, cake_len, cake_width):
+def inject_crumb_coords(vertical_cuts, cake_len, cake_width):
+    complete_cut_coords = []
+    for i, vert_coord in enumerate(vertical_cuts):
+        complete_cut_coords.append(vert_coord)
+        # Add an extra element after every second string
+        if (i + 1) % 2 == 0:
+            complete_cut_coords.append(get_crumb_coord(vert_coord, cake_len, cake_width))
+    return complete_cut_coords
+
+
+def get_crumb_coord(xy_coord, cake_len, cake_width):
 
     # Set x based on which half of the cake we are in
-    crumb_x = cake_width if cur_pos[0] > (cake_width / 2) else 0
+    crumb_x = cake_width if xy_coord[0] > (cake_width / 2) else 0
 
     # Set y based on if we are currently at the top or bottom of the cake
     knife_error = 0.02
-    crumb_y = cake_len-knife_error if cur_pos[1] == cake_len else knife_error
+    crumb_y = cake_len-knife_error if xy_coord[1] == cake_len else knife_error
 
     return [crumb_x, crumb_y]
