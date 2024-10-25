@@ -28,6 +28,7 @@ class G2_Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
+        self.move_queue = []
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -65,4 +66,9 @@ class G2_Player:
         for i in range(len(requests)):
             assignment.append(i)
 
+        print(assignment)
+
         return constants.ASSIGN, assignment
+    
+    def sneak(start_pos, goal_pos):
+        return
