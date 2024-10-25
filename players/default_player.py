@@ -62,6 +62,7 @@ class Player:
         cake_width = current_percept.cake_width
 
         if turn_number == 1:
+            print()
             return constants.INIT, [0,0]
 
         if len(polygons) < len(requests):
