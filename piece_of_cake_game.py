@@ -10,16 +10,18 @@ from shapely import points, centroid
 
 import miniball
 
-from pkg_resources import require
+# from pkg_resources import require
 
 from piece_of_cake_state import PieceOfCakeState
 from constants import *
 import constants
 from utils import *
 from players.default_player import Player as DefaultPlayer
+from players.g8_player import G8_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
+
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
@@ -46,15 +48,15 @@ class PieceOfCakeGame:
             self.log_dir = args.log_path
             if self.log_dir:
                 os.makedirs(self.log_dir, exist_ok=True)
-            fh = logging.FileHandler(os.path.join(self.log_dir, 'debug.log'), mode="w")
+            fh = logging.FileHandler(os.path.join(self.log_dir, "debug.log"), mode="w")
             fh.setLevel(logging.DEBUG)
-            fh.setFormatter(logging.Formatter('%(message)s'))
+            fh.setFormatter(logging.Formatter("%(message)s"))
             fh.addFilter(MainLoggingFilter(__name__))
             self.logger.addHandler(fh)
             result_path = os.path.join(self.log_dir, "results.log")
             rfh = logging.FileHandler(result_path, mode="w")
             rfh.setLevel(logging.INFO)
-            rfh.setFormatter(logging.Formatter('%(message)s'))
+            rfh.setFormatter(logging.Formatter("%(message)s"))
             rfh.addFilter(MainLoggingFilter(__name__))
             self.logger.addHandler(rfh)
         else:
@@ -66,14 +68,16 @@ class PieceOfCakeGame:
                     os.makedirs(self.log_dir, exist_ok=True)
                 rfh = logging.FileHandler(result_path, mode="w")
                 rfh.setLevel(logging.INFO)
-                rfh.setFormatter(logging.Formatter('%(message)s'))
+                rfh.setFormatter(logging.Formatter("%(message)s"))
                 rfh.addFilter(MainLoggingFilter(__name__))
                 self.logger.addHandler(rfh)
             else:
                 self.logger.setLevel(logging.ERROR)
                 self.logger.disabled = True
 
-        self.logger.info("Initialise random number generator with seed {}".format(args.seed))
+        self.logger.info(
+            "Initialise random number generator with seed {}".format(args.seed)
+        )
 
         self.rng = np.random.default_rng(args.seed)
 
@@ -105,7 +109,7 @@ class PieceOfCakeGame:
 
     def add_player(self, player_in):
         if player_in in constants.possible_players:
-            if player_in.lower() == 'd':
+            if player_in.lower() == "d":
                 player_class = DefaultPlayer
                 player_name = "Default Player"
             else:
@@ -113,7 +117,10 @@ class PieceOfCakeGame:
                 player_name = "Group {}".format(player_in)
 
             self.logger.info(
-                "Adding player {} from class {}".format(player_name, player_class.__module__))
+                "Adding player {} from class {}".format(
+                    player_name, player_class.__module__
+                )
+            )
             precomp_dir = os.path.join("precomp", player_name)
             os.makedirs(precomp_dir, exist_ok=True)
 
@@ -124,25 +131,38 @@ class PieceOfCakeGame:
                 signal.alarm(constants.timeout)
             try:
                 start_time = time.time()
-                player = player_class(rng=self.rng, logger=self.get_player_logger(player_name),
-                                      precomp_dir=precomp_dir, tolerance=self.tolerance)
+                player = player_class(
+                    rng=self.rng,
+                    logger=self.get_player_logger(player_name),
+                    precomp_dir=precomp_dir,
+                    tolerance=self.tolerance,
+                )
                 if self.use_timeout:
                     signal.alarm(0)  # Clear alarm
             except TimeoutException:
                 is_timeout = True
                 player = None
                 self.logger.error(
-                    "Initialization Timeout {} since {:.3f}s reached.".format(player_name, constants.timeout))
+                    "Initialization Timeout {} since {:.3f}s reached.".format(
+                        player_name, constants.timeout
+                    )
+                )
 
             init_time = time.time() - start_time
 
             if not is_timeout:
-                self.logger.info("Initializing player {} took {:.3f}s".format(player_name, init_time))
+                self.logger.info(
+                    "Initializing player {} took {:.3f}s".format(player_name, init_time)
+                )
             self.player = player
             self.player_name = player_name
 
         else:
-            self.logger.error("Failed to insert player {} since invalid player name provided.".format(player_in))
+            self.logger.error(
+                "Failed to insert player {} since invalid player name provided.".format(
+                    player_in
+                )
+            )
 
     def get_player_logger(self, player_name):
         player_logger = logging.getLogger("{}.{}".format(__name__, player_name))
@@ -150,9 +170,11 @@ class PieceOfCakeGame:
         if self.do_logging:
             player_logger.setLevel(logging.INFO)
             # add handler to self.logger with filtering
-            player_fh = logging.FileHandler(os.path.join(self.log_dir, '{}.log'.format(player_name)), mode="w")
+            player_fh = logging.FileHandler(
+                os.path.join(self.log_dir, "{}.log".format(player_name)), mode="w"
+            )
             player_fh.setLevel(logging.DEBUG)
-            player_fh.setFormatter(logging.Formatter('%(message)s'))
+            player_fh.setFormatter(logging.Formatter("%(message)s"))
             player_fh.addFilter(PlayerLoggingFilter(player_name))
             self.logger.addHandler(player_fh)
         else:
@@ -190,10 +212,23 @@ class PieceOfCakeGame:
         #
         # print(f"JSON file '{filename}' created successfully at {file_path}")
         self.polygon_list = [
-            Polygon([(0, 0), (0, self.cake_len), (self.cake_width, self.cake_len), (self.cake_width, 0)])]
+            Polygon(
+                [
+                    (0, 0),
+                    (0, self.cake_len),
+                    (self.cake_width, self.cake_len),
+                    (self.cake_width, 0),
+                ]
+            )
+        ]
 
         if self.use_gui:
-            self.canvas = tk.Canvas(self.root, height=self.canvas_height, width=self.canvas_width, bg="#FCF1E3")
+            self.canvas = tk.Canvas(
+                self.root,
+                height=self.canvas_height,
+                width=self.canvas_width,
+                bg="#FCF1E3",
+            )
             self.canvas.pack()
             self.draw_cake()
             self.root.mainloop()
@@ -237,7 +272,7 @@ class PieceOfCakeGame:
         self.cake_len = round(math.sqrt(1.05 * np.sum(self.requests) / 1.6), 2)
         self.cake_width = round(self.cake_len * 1.6, 2)
 
-        self.scale = 700/self.cake_len
+        self.scale = 700 / self.cake_len
         print("Cake size: ", self.cake_len * self.cake_width)
         return True
 
@@ -296,23 +331,32 @@ class PieceOfCakeGame:
         self.turns += 1
 
         # Create the state object for the player
-        before_state = PieceOfCakeState(self.polygon_list, self.cur_pos, self.turns, self.requests, self.cake_len, self.cake_width)
+        before_state = PieceOfCakeState(
+            self.polygon_list,
+            self.cur_pos,
+            self.turns,
+            self.requests,
+            self.cake_len,
+            self.cake_width,
+        )
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
             try:
                 # Call the player's move function for turn on this move
-                returned_action = self.player.move(
-                    current_percept=before_state
-                )
+                returned_action = self.player.move(current_percept=before_state)
             except Exception:
                 print("Exception in player code")
                 returned_action = None
 
             player_time_taken = time.time() - player_start
-            self.logger.debug("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
+            self.logger.debug(
+                "Player {} took {:.3f}s".format(self.player_name, player_time_taken)
+            )
             if player_time_taken > 10:
-                self.logger.warning("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
+                self.logger.warning(
+                    "Player {} took {:.3f}s".format(self.player_name, player_time_taken)
+                )
                 self.timeout_warning_count += 1
 
             self.player_time -= player_time_taken
@@ -327,14 +371,21 @@ class PieceOfCakeGame:
                 self.logger.debug("Received move from {}".format(self.player_name))
                 self.valid_moves += 1
             else:
-                self.logger.info("Invalid move from {} as it does not follow the rules".format(self.player_name))
+                self.logger.info(
+                    "Invalid move from {} as it does not follow the rules".format(
+                        self.player_name
+                    )
+                )
         else:
             print("Invalid move")
-            self.logger.info("Invalid move from {} as it doesn't follow the return format".format(self.player_name))
+            self.logger.info(
+                "Invalid move from {} as it doesn't follow the return format".format(
+                    self.player_name
+                )
+            )
 
         if self.use_gui:
             self.draw_cake()
-
 
         print("Turn {} complete".format(self.turns))
 
@@ -358,7 +409,11 @@ class PieceOfCakeGame:
             print("Timeout: Pieces not assigned...\n\n")
             self.game_state = "over"
             self.end_time = time.time()
-            print("\nTime taken: {}\nValid moves: {}\n".format(self.end_time - self.start_time, self.valid_moves))
+            print(
+                "\nTime taken: {}\nValid moves: {}\n".format(
+                    self.end_time - self.start_time, self.valid_moves
+                )
+            )
             return
 
     # Verify the action returned by the player
@@ -377,13 +432,21 @@ class PieceOfCakeGame:
             return False
         if type(action[1]) is not list:
             return False
-        if (action[0] == constants.INIT or action[0] == constants.CUT) and len(action[1]) != 2:
+        if (action[0] == constants.INIT or action[0] == constants.CUT) and len(
+            action[1]
+        ) != 2:
             return False
         # Check if action[1] is a list of float values with maximum 2 decimal places
-        if (action[0] == constants.INIT or action[0] == constants.CUT) and not all(isinstance(x, (int, float)) and x == round(x, 2) for x in action[1]):
+        if (action[0] == constants.INIT or action[0] == constants.CUT) and not all(
+            isinstance(x, (int, float)) and x == round(x, 2) for x in action[1]
+        ):
             return False
 
-        if (action[0] == constants.ASSIGN) and len(action[1]) != len(self.requests) and len(action[1]) != len(set(action[1])):
+        if (
+            (action[0] == constants.ASSIGN)
+            and len(action[1]) != len(self.requests)
+            and len(action[1]) != len(set(action[1]))
+        ):
             return False
 
         return True
@@ -391,7 +454,9 @@ class PieceOfCakeGame:
     def check_and_apply_action(self, action):
         if action[0] == constants.INIT:
             cur_x, cur_y = action[1]
-            if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_width):
+            if (cur_x != 0 and cur_x != self.cake_width) and (
+                cur_y != 0 and cur_y != self.cake_width
+            ):
                 return False
             self.cur_pos = action[1]
             return True
@@ -400,7 +465,9 @@ class PieceOfCakeGame:
 
             # Check if the next position is on the boundary of the cake
             print(self.cake_width, self.cake_len)
-            if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_len):
+            if (cur_x != 0 and cur_x != self.cake_width) and (
+                cur_y != 0 and cur_y != self.cake_len
+            ):
                 return False
 
             # If the next position is same then the cut is invalid
@@ -408,7 +475,10 @@ class PieceOfCakeGame:
                 return False
 
             # If the cut has already been made then it's invalid
-            if self.prev_pos is not None and ((self.prev_pos[0], self.prev_pos[1], cur_x, cur_y) in self.cake_cuts or (cur_x, cur_y, self.prev_pos[0], self.prev_pos[1]) in self.cake_cuts):
+            if self.prev_pos is not None and (
+                (self.prev_pos[0], self.prev_pos[1], cur_x, cur_y) in self.cake_cuts
+                or (cur_x, cur_y, self.prev_pos[0], self.prev_pos[1]) in self.cake_cuts
+            ):
                 return False
 
             # Check if the cut is horizontal across the cake boundary
@@ -438,10 +508,19 @@ class PieceOfCakeGame:
             self.assignment = action[1]
             for request_index, assignment in enumerate(action[1]):
                 # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
-                if assignment == -1 or (not self.can_cake_fit_in_plate(self.polygon_list[assignment])):
+                if assignment == -1 or (
+                    not self.can_cake_fit_in_plate(self.polygon_list[assignment])
+                ):
                     self.penalty += 100
                 else:
-                    penalty_percentage = 100 * abs(self.polygon_list[assignment].area - self.requests[request_index])/self.requests[request_index]
+                    penalty_percentage = (
+                        100
+                        * abs(
+                            self.polygon_list[assignment].area
+                            - self.requests[request_index]
+                        )
+                        / self.requests[request_index]
+                    )
                     if penalty_percentage > self.tolerance:
                         self.penalty += penalty_percentage
             self.prev_pos = None
@@ -486,7 +565,9 @@ class PieceOfCakeGame:
         """
         # Step 1: Get the points on the cake piece and store as numpy array
 
-        cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
+        cake_points = np.array(
+            list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double
+        )
 
         # Step 2: Find the minimum bounding circle of the cake piece
         res = miniball.miniball(cake_points)
@@ -496,39 +577,95 @@ class PieceOfCakeGame:
     def draw_cake(self):
         self.canvas.delete("position")
         # Create a rectangle for the background of length and width l and 1.6l
-        self.canvas.create_rectangle(self.x_offset, self.y_offset, self.x_offset + self.cake_width * self.scale, self.y_offset + self.cake_len * self.scale, tags="background", fill="#FFD1DC")
+        self.canvas.create_rectangle(
+            self.x_offset,
+            self.y_offset,
+            self.x_offset + self.cake_width * self.scale,
+            self.y_offset + self.cake_len * self.scale,
+            tags="background",
+            fill="#FFD1DC",
+        )
 
-        self.canvas.create_text(self.scale*self.cake_width + 100, 50, text="Request ID", font=("Arial", 14), fill="black",
-                                activefill="gray", tags="requests")
+        self.canvas.create_text(
+            self.scale * self.cake_width + 100,
+            50,
+            text="Request ID",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="requests",
+        )
 
-        self.canvas.create_text(self.scale * self.cake_width + 200, 50, text="Requests", font=("Arial", 14),
-                                fill="black",
-                                activefill="gray", tags="requests")
+        self.canvas.create_text(
+            self.scale * self.cake_width + 200,
+            50,
+            text="Requests",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="requests",
+        )
 
         if self.assignment is not None:
-            self.canvas.create_text(self.scale * self.cake_width + 300, 50, text="Assignment", font=("Arial", 14),
-                                fill="black",
-                                activefill="gray", tags="requests")
+            self.canvas.create_text(
+                self.scale * self.cake_width + 300,
+                50,
+                text="Assignment",
+                font=("Arial", 14),
+                fill="black",
+                activefill="gray",
+                tags="requests",
+            )
 
         # Next to the cake, print all the requests
         for i, request in enumerate(self.requests):
-            x = self.scale*self.cake_width + 200
-            y = 50 + (i+1) * 20
+            x = self.scale * self.cake_width + 200
+            y = 50 + (i + 1) * 20
             # print the request along with the position
-            self.canvas.create_text(x-100, y, text="{}".format(i), font=("Arial", 14), fill="black",
-                                    activefill="gray", tags="requests")
-            self.canvas.create_text(x, y, text="{:.2f}".format(request), font=("Arial", 14), fill="black",
-                                    activefill="gray", tags="requests")
+            self.canvas.create_text(
+                x - 100,
+                y,
+                text="{}".format(i),
+                font=("Arial", 14),
+                fill="black",
+                activefill="gray",
+                tags="requests",
+            )
+            self.canvas.create_text(
+                x,
+                y,
+                text="{:.2f}".format(request),
+                font=("Arial", 14),
+                fill="black",
+                activefill="gray",
+                tags="requests",
+            )
 
             if self.assignment is not None:
                 if self.can_cake_fit_in_plate(self.polygon_list[self.assignment[i]]):
-                    self.canvas.create_text(x+100, y, text="{}".format(round(self.polygon_list[self.assignment[i]].area, 2)), font=("Arial", 14), fill="green",
-                                        activefill="gray", tags="requests")
+                    self.canvas.create_text(
+                        x + 100,
+                        y,
+                        text="{}".format(
+                            round(self.polygon_list[self.assignment[i]].area, 2)
+                        ),
+                        font=("Arial", 14),
+                        fill="green",
+                        activefill="gray",
+                        tags="requests",
+                    )
                 else:
-                    self.canvas.create_text(x + 100, y,
-                                            text="{}".format(round(self.polygon_list[self.assignment[i]].area, 2)),
-                                            font=("Arial", 14), fill="red",
-                                            activefill="gray", tags="requests")
+                    self.canvas.create_text(
+                        x + 100,
+                        y,
+                        text="{}".format(
+                            round(self.polygon_list[self.assignment[i]].area, 2)
+                        ),
+                        font=("Arial", 14),
+                        fill="red",
+                        activefill="gray",
+                        tags="requests",
+                    )
 
         # Mark the start, cur, and end positions
         if self.cur_pos is not None:
@@ -536,11 +673,20 @@ class PieceOfCakeGame:
         # self.mark_position(self.end_pos, "red")
         self.create_buttons()
         if self.prev_pos is not None:
-            self.cake_cuts.append((self.prev_pos[0], self.prev_pos[1],
-                                    self.cur_pos[0], self.cur_pos[1]))
+            self.cake_cuts.append(
+                (self.prev_pos[0], self.prev_pos[1], self.cur_pos[0], self.cur_pos[1])
+            )
 
         for cut in self.cake_cuts:
-            self.canvas.create_line(self.x_offset + cut[0]*self.scale, self.y_offset + cut[1]*self.scale, self.x_offset + cut[2]*self.scale, self.y_offset + cut[3]*self.scale, fill="black", width=2, tags="cuts")
+            self.canvas.create_line(
+                self.x_offset + cut[0] * self.scale,
+                self.y_offset + cut[1] * self.scale,
+                self.x_offset + cut[2] * self.scale,
+                self.y_offset + cut[3] * self.scale,
+                fill="black",
+                width=2,
+                tags="cuts",
+            )
 
         # Get centroid of each polygon and mark it's area
         for polygon in self.polygon_list:
@@ -551,43 +697,105 @@ class PieceOfCakeGame:
                 self.mark_area(cent, "red", polygon.area)
 
         if self.penalty is not None:
-            self.canvas.create_text(700, 20, text="Penalty: {}".format(self.penalty), font=("Arial", 14), fill="black",
-                                              activefill="gray", tags="penalty text")
+            self.canvas.create_text(
+                700,
+                20,
+                text="Penalty: {}".format(self.penalty),
+                font=("Arial", 14),
+                fill="black",
+                activefill="gray",
+                tags="penalty text",
+            )
             # Calculate the sum of lengths of all the cuts
             total_length = 0
             for cut in self.cake_cuts:
-                total_length += self.euclidean_distance((cut[0], cut[1]), (cut[2], cut[3]))
-            self.canvas.create_text(900, 20, text="Total Length: {:.2f}".format(total_length), font=("Arial", 14), fill="black",
-                                              activefill="gray", tags="penalty text")
+                total_length += self.euclidean_distance(
+                    (cut[0], cut[1]), (cut[2], cut[3])
+                )
+            self.canvas.create_text(
+                900,
+                20,
+                text="Total Length: {:.2f}".format(total_length),
+                font=("Arial", 14),
+                fill="black",
+                activefill="gray",
+                tags="penalty text",
+            )
 
     def create_buttons(self):
         # Create text-based "Pause" button on the canvas
-        self.pause_btn = self.canvas.create_text(250, 20, text="Pause", font=("Arial", 14), fill="black",
-                                                 activefill="gray", tags="pause_button")
+        self.pause_btn = self.canvas.create_text(
+            250,
+            20,
+            text="Pause",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="pause_button",
+        )
         self.canvas.tag_bind("pause_button", "<Button-1>", lambda e: self.pause())
 
         # Create a text-based "Reset" button on the canvas
-        self.resume_btn = self.canvas.create_text(350, 20, text="Start/Resume", font=("Arial", 14), fill="black",
-                                                  activefill="gray", tags="resume_button")
+        self.resume_btn = self.canvas.create_text(
+            350,
+            20,
+            text="Start/Resume",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="resume_button",
+        )
         self.canvas.tag_bind("resume_button", "<Button-1>", lambda e: self.resume())
 
-        self.resume_btn = self.canvas.create_text(450, 20, text="1X/4X", font=("Arial", 14), fill="black",
-                                                  activefill="gray", tags="speed_button")
-        self.canvas.tag_bind("speed_button", "<Button-1>", lambda e: self.toggle_speed())
+        self.resume_btn = self.canvas.create_text(
+            450,
+            20,
+            text="1X/4X",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="speed_button",
+        )
+        self.canvas.tag_bind(
+            "speed_button", "<Button-1>", lambda e: self.toggle_speed()
+        )
 
-        self.step_btn = self.canvas.create_text(550, 20, text="Step", font=("Arial", 14), fill="black",
-                                                  activefill="gray", tags="step_button")
+        self.step_btn = self.canvas.create_text(
+            550,
+            20,
+            text="Step",
+            font=("Arial", 14),
+            fill="black",
+            activefill="gray",
+            tags="step_button",
+        )
         self.canvas.tag_bind("step_button", "<Button-1>", lambda e: self.step())
 
     def mark_area(self, pos, color, area):
         x, y = pos
 
         x1, y1 = self.x_offset + x * self.scale, self.y_offset + y * self.scale
-        self.canvas.create_text(x1, y1, text="{:.2f}".format(area), font=("Arial", 15), fill=color, tags="position", )
+        self.canvas.create_text(
+            x1,
+            y1,
+            text="{:.2f}".format(area),
+            font=("Arial", 15),
+            fill=color,
+            tags="position",
+        )
 
     def mark_position(self, pos):
         x, y = pos
 
         x1, y1 = self.x_offset + x * self.scale, self.y_offset + y * self.scale
-        r = self.scale/8
-        self.canvas.create_oval(x1 - r, y1 - r, x1 + r, y1 + r, fill="", outline="blue", width=1, tags="position")
+        r = self.scale / 8
+        self.canvas.create_oval(
+            x1 - r,
+            y1 - r,
+            x1 + r,
+            y1 + r,
+            fill="",
+            outline="blue",
+            width=1,
+            tags="position",
+        )
