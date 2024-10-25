@@ -28,9 +28,27 @@ class G2_Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
-        self.move_queue = []
 
-    def move(self, current_percept) -> tuple[int, List[int]]:
+    def cut(self, cake_len, cake_width, cur_pos) -> (int, List[int]):
+        if cur_pos[0] == 0:
+            return constants.CUT, [cake_width, round((cur_pos[1] + 5)%cake_len, 2)]
+        else:
+            return constants.CUT, [0, round((cur_pos[1] + 5)%cake_len, 2)]
+        
+    def assign(self, polygons, requests) -> (int, List[int]):
+        print("Polygons: ", polygons)
+        print("Requests: ", requests)
+        assignment = []
+        for i in range(len(requests)):
+            assignment.append(i)
+
+        return constants.ASSIGN, assignment
+
+    def sneak(self, start_pos, end_pos) -> (int, List[int]):
+        return None
+    
+
+    def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
 
         Args:
@@ -49,26 +67,12 @@ class G2_Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+        print('DEBUG: ', polygons, turn_number, cur_pos, requests, cake_len, cake_width)
 
         if turn_number == 1:
             return constants.INIT, [0, 0]
 
         if len(polygons) < len(requests):
-            if cur_pos[0] == 0:
-                return constants.CUT, [
-                    cake_width,
-                    round((cur_pos[1] + 5) % cake_len, 2),
-                ]
-            else:
-                return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
-
-        assignment = []
-        for i in range(len(requests)):
-            assignment.append(i)
-
-        print(assignment)
-
-        return constants.ASSIGN, assignment
-    
-    def sneak(start_pos, goal_pos):
-        return
+            return self.cut(cake_len, cake_width, cur_pos)
+        else:
+            return self.assign(polygons, requests)
