@@ -1,9 +1,8 @@
 from typing import List
-
 import numpy as np
 import logging
-
 import constants
+import miniball
 
 
 class G2_Player:
@@ -30,30 +29,70 @@ class G2_Player:
         self.cake_len = None
         self.move_queue = []
 
-    def move(self, current_percept) -> tuple[int, List[int]]:
-        """Function which retrieves the current state of the amoeba map and returns an amoeba movement
+    def can_cake_fit_in_plate(self, cake_piece, radius=12.5):
+        cake_points = np.array(
+            list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double
+        )
+        res = miniball.miniball(cake_points)
 
-        Args:
-            current_percept(TimingMazeState): contains current state information
-        Returns:
-            int: This function returns the next move of the user:
-                WAIT = -1
-                LEFT = 0
-                UP = 1
-                RIGHT = 2
-                DOWN = 3
-        """
-        polygons = current_percept.polygons
+        return res["radius"] <= radius
+
+    # use just any assignment for now,
+    # ideally, we want to find the assignment with the smallest penalty
+    # instead of this random one
+    def __get_assignments(self) -> float:
+        # TODO: Find a way to match polygons with requests
+        # with a low penalty
+
+        # sorted_requests = sorted(
+        #     [(i, req) for i, req in enumerate(self.requests)], key=lambda x: x[1]
+        # )
+
+        if len(self.requests) > len(self.polygons):
+            # specify amount of -1 padding needed
+            padding = len(self.requests) - len(self.polygons)
+            return padding * [-1] + list(range(len(self.polygons)))
+
+        # return an amount of polygon indexes
+        # without exceeding the amount of requests
+        return list(range(len(self.polygons)))[: len(self.requests)]
+
+    def __calculate_penalty(self) -> float:
+        penalty = 0
+        assignments = self.__get_assignments()
+
+        for request_index, assignment in enumerate(assignments):
+            # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
+            if assignment == -1 or (
+                not self.can_cake_fit_in_plate(self.polygons[assignment])
+            ):
+                penalty += 100
+            else:
+                penalty_percentage = (
+                    100
+                    * abs(self.polygons[assignment].area - self.requests[request_index])
+                    / self.requests[request_index]
+                )
+                if penalty_percentage > self.tolerance:
+                    penalty += penalty_percentage
+        return penalty
+
+    def move(self, current_percept) -> tuple[int, List[int]]:
+        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
+        self.polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
-        requests = current_percept.requests
+        self.requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+
+        current_penalty = self.__calculate_penalty()
+        print(f"current penalty: {current_penalty}")
 
         if turn_number == 1:
             return constants.INIT, [0, 0]
 
-        if len(polygons) < len(requests):
+        if len(self.polygons) < len(self.requests):
             if cur_pos[0] == 0:
                 return constants.CUT, [
                     cake_width,
@@ -63,12 +102,12 @@ class G2_Player:
                 return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
 
         assignment = []
-        for i in range(len(requests)):
+        for i in range(len(self.requests)):
             assignment.append(i)
 
         print(assignment)
 
         return constants.ASSIGN, assignment
-    
+
     def sneak(start_pos, goal_pos):
         return
