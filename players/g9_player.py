@@ -44,10 +44,10 @@ class Player:
         # First turn initialize knife to start at first vertical cut.
         if turn_number == 1:
             print(f"Cut coordinates {len(cut_coords)}: {cut_coords}")
-            return constants.INIT, cut_coords[turn_number-1]
+            return constants.INIT, cut_coords[turn_number - 1]
 
         # Cut the cake
-        if turn_number < len(cut_coords)+1:
+        if turn_number < len(cut_coords) + 1:
             return constants.CUT, cut_coords[turn_number - 1]
 
         # Assign polygons to each request
@@ -61,7 +61,6 @@ class Player:
 
 
 def get_vertical_cuts(requests, cake_len, cake_width, cake_area, noise):
-
     # Sort requests in descending orders (largest to smallest)
     requests.sort(reverse=True)
 
@@ -87,6 +86,7 @@ def get_vertical_cuts(requests, cake_len, cake_width, cake_area, noise):
 
     return vertical_cuts
 
+
 def inject_crumb_coords(vertical_cuts, cake_len, cake_width):
     complete_cut_coords = []
     for i, vert_coord in enumerate(vertical_cuts):
@@ -98,12 +98,11 @@ def inject_crumb_coords(vertical_cuts, cake_len, cake_width):
 
 
 def get_crumb_coord(xy_coord, cake_len, cake_width):
-
     # Set x based on which half of the cake we are in
     crumb_x = cake_width if xy_coord[0] > (cake_width / 2) else 0
 
     # Set y based on if we are currently at the top or bottom of the cake
     knife_error = 0.02
-    crumb_y = cake_len-knife_error if xy_coord[1] == cake_len else knife_error
+    crumb_y = cake_len - knife_error if xy_coord[1] == cake_len else knife_error
 
     return [crumb_x, crumb_y]
