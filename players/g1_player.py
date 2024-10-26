@@ -63,6 +63,9 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
+        # Sort requests by area
+        requests = sorted(requests, reverse=True)
+
         num_requests = len(requests)
 
         if cake_len <= self.EASY_LEN_BOUND:
@@ -97,12 +100,19 @@ class Player:
                     self.num_requests_cut += 1
                     return constants.CUT, next_knife_pos
 
-        # EDIT BELOW TO PROPERLY ASSIGN POLYGONS
-        # Hacky assignment for now; only works for EASY_LEN_BOUND
+        # Assign polygons to requests in decreasing order of area
         assignment = []
-        indices = list(range(len(requests)))
-        for i in range(len(requests)):
-            idx = indices.pop(0) if i % 2 == 0 else indices.pop(-1)
-            assignment.append(idx)
+        polygon_areas = [p.area for p in polygons]
+        print("Polygon areas: ", polygon_areas)
+        # list of indices of polygons sorted by area
+        polygon_indices = list(np.argsort(polygon_areas))[::-1]
+        print("Polygon indices: ", polygon_indices)
+        # list of indices of requests sorted by area
+        request_indices = list(np.argsort(np.argsort(current_percept.requests)))[::-1]
+        print("Request indices: ", request_indices)
+
+        for request_idx in request_indices:
+            assignment.append(polygon_indices[request_idx])
+        print("Assignment: ", assignment)
 
         return constants.ASSIGN, assignment
