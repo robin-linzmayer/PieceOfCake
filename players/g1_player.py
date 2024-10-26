@@ -63,9 +63,13 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
-        # Sort requests by area
-        requests = sorted(requests, reverse=True)
 
+        ####################
+        # CUTTING STRATEGY #
+        ####################
+
+        # sort requests by area in ascending order
+        requests = sorted(requests)
         num_requests = len(requests)
 
         if cake_len <= self.EASY_LEN_BOUND:
@@ -74,14 +78,10 @@ class Player:
                 self.knife_pos.append([0,0])
                 return constants.INIT, [0,0]
             
-            if self.num_requests_cut != num_requests:
+            if self.num_requests_cut < num_requests:
+                # compute size of base from current polygon area
                 curr_polygon_area = requests[self.num_requests_cut]
-                curr_polygon_base = round(2 * curr_polygon_area / cake_len, 2)    # size of base needed for current polygon area
-
-                if self.num_requests_cut == num_requests - 2:
-                        # making the final cut, choose the opposite corner of cake
-                        self.num_requests_cut += 2
-                        return constants.CUT, [cake_width, 0] if num_requests % 2 == 1 else [cake_width, cake_len]
+                curr_polygon_base = round(2 * curr_polygon_area / cake_len, 2)
 
                 if cur_pos[1] == 0:
                     # knife is currently on the top cake edge
@@ -100,19 +100,30 @@ class Player:
                     self.num_requests_cut += 1
                     return constants.CUT, next_knife_pos
 
-        # Assign polygons to requests in decreasing order of area
+        # [TODO -- need to consider cases where cake is too large]  
+        # else:
+
+
+        #######################
+        # ASSIGNMENT STRATEGY #
+        #######################
+
         assignment = []
         polygon_areas = [p.area for p in polygons]
-        print("Polygon areas: ", polygon_areas)
+        
         # list of indices of polygons sorted by area
-        polygon_indices = list(np.argsort(polygon_areas))[::-1]
-        print("Polygon indices: ", polygon_indices)
-        # list of indices of requests sorted by area
-        request_indices = list(np.argsort(np.argsort(current_percept.requests)))[::-1]
-        print("Request indices: ", request_indices)
+        polygon_indices = list(np.argsort(polygon_areas))
 
+        # remove the last piece from the list of polygons
+        last_piece_idx = len(polygon_areas) // 2
+        polygon_indices.remove(last_piece_idx)
+
+        # list of indices of requests sorted by area in ascending order
+        request_indices = list(np.argsort(np.argsort(current_percept.requests)))
+
+        # Assign polygons to requests by area in ascending order
         for request_idx in request_indices:
             assignment.append(polygon_indices[request_idx])
-        print("Assignment: ", assignment)
 
         return constants.ASSIGN, assignment
+    
