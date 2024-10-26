@@ -98,8 +98,11 @@ class Player:
                     return constants.CUT, next_knife_pos
 
         # EDIT BELOW TO PROPERLY ASSIGN POLYGONS
+        # Hacky assignment for now; only works for EASY_LEN_BOUND
         assignment = []
+        indices = list(range(len(requests)))
         for i in range(len(requests)):
-            assignment.append(i)
+            idx = indices.pop(0) if i % 2 == 0 else indices.pop(-1)
+            assignment.append(idx)
 
         return constants.ASSIGN, assignment
