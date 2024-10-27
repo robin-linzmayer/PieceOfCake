@@ -6,6 +6,7 @@ import numpy as np
 import logging
 
 import constants
+from piece_of_cake_state import PieceOfCakeState
 
 
 class G8_Player:
@@ -45,8 +46,11 @@ class G8_Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
+        self.remaining_requests = None
+        self.cut_path = []
+        self.assingment = []
 
-    def move(self, current_percept) -> (int, List[int]):
+    def move(self, current_percept: PieceOfCakeState) -> (int, List[int]):
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
 
         Args:
@@ -66,10 +70,53 @@ class G8_Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
-
+        
+        # On turn 1 we need to decide where to start.
         if turn_number == 1:
-            return constants.INIT, [0, 0]
+            # initialize these variables
+            self.assingment = [-1 for _ in range(len(requests))]
+            self.remaining_requests = sorted(requests)
+            
+            start_position = self.decide_where_to_start(current_percept)
+            self.cut_path.append(start_position)
+            return constants.INIT, start_position
 
+        if len(self.remaining_requests) == 0:
+            assignment = self.assingment
+            return constants.ASSIGN, self.assingment
+                
+        # Cut the max request remaining
+        max_request = self.remaining_requests.pop()
+        
+        # We could also assign here early instead of doing it later
+        print("cutting for request: ", max_request)
+        request_index = requests.index(max_request)
+        self.assingment[request_index] = len(polygons)
+        
+        # request_index, assignment in enumerate(action[1]):
+        # the index of assignment corresponds to index of request in requests
+        # Therefore if we want to say Polygon 1 is assigned to request 7 we would have assignment[7] = 1
+        
+        #If we start at 0,0 we will want to cut down and to the right.
+        # Area of triangle = 1/2 * base * height
+        # base = (end_x - base_left), height = cake_len
+        # request = 1/2 * (end_x - base_left) * cake_len 
+        # end_x = (2 * request / cake_len) + base_left
+        
+        if len(self.cut_path) == 1:
+            base_left = 0
+        else: 
+            base_left = self.cut_path[-2][0] # Since we go up and down
+        
+        end_x = (2 * max_request / cake_len) + base_left
+        end_x = round(end_x, 2)
+        if end_x > cake_width:
+            end_x = cake_width
+        end_y = cake_len if cur_pos[1] == 0 else 0
+        self.cut_path.append([end_x, end_y])
+        return constants.CUT, [end_x, end_y]
+    
+    
         if len(polygons) != len(requests):
             if cur_pos[0] == 0:
                 return constants.CUT, [
@@ -84,3 +131,9 @@ class G8_Player:
             assignment.append(i)
 
         return constants.ASSIGN, assignment
+
+    def decide_where_to_start(self, current_percept):
+        return [0, 0]
+    
+    def assign_polygons(self, polygons, requests):
+        pass
