@@ -26,7 +26,7 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
 
-    def move(self, current_percept) -> (int, List[int]):
+    def move(self, current_percept) -> tuple[int, List[int]]:
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
@@ -34,7 +34,7 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
-        noise = 0.04
+        noise = 0
 
         print(" ")
         print(f"----------------------------------- Turn {turn_number} -----------------------------------")
@@ -51,12 +51,16 @@ class Player:
             return constants.CUT, cut_coords[turn_number - 1]
 
         # Assign polygons to each request
-        # Todo - this is not correctly assigning the largest pieces to the right request. The output form should be a list of length = number of requests where the value is the index of the polygon.
-        polygons_sorted = sorted(polygons, key=lambda polygons: polygons.area, reverse=True)
-        polygons_sorted = polygons_sorted[:len(requests)]
-        requests_sorted = sorted(requests, reverse=True)
+        # Find the extra 5% piece and remove it from the list of polygons
+        closest_index = min(range(len(polygons)), key=lambda i: abs(polygons[i].area - 0.05 * cake_area))
+        polygons.pop(closest_index)
+        polygons_sorted_indices = sorted(range(len(polygons)), key=lambda i: polygons[i].area, reverse=True)
+        # polygons_sorted = [polygons[i].area for i in polygons_sorted_indices]
+        # print("Polygons_sorted:", polygons_sorted)
+        # requests_sorted = sorted(requests, reverse=True)
+        # print("Requested_sorted:", requests_sorted)
         # Todo - the issue is this list is tuples. The next step is to get the index related to each request and polygon from the original lists.
-        assignment = list(zip(polygons_sorted, requests_sorted))
+        assignment = polygons_sorted_indices[:len(requests)]
         return constants.ASSIGN, assignment
 
 
@@ -66,8 +70,9 @@ def get_vertical_cuts(requests, cake_len, cake_width, cake_area, noise):
 
     # Calculate the percentage of the area of the cake that each request needs
     # Note: The cake is always 5% larger than the total requests so an exact calculation will only account for 95% of the cake leaving 5% on the end. This current setup adds a noise factor to make all pieces evenly larger by % noise. This can be optimized later for pieces on the end to be larger (to account for crumbs etc if that is an issue).
-    perc_area = [(r + (noise * r)) / cake_area for r in requests]
 
+    perc_area = [(r + noise*r) / cake_area for r in requests] + [0.05]
+                                                     
     # Get the x coordinate needed for each piece
     x_coords = []
     prev_x = 0
@@ -102,7 +107,7 @@ def get_crumb_coord(xy_coord, cake_len, cake_width):
     crumb_x = cake_width if xy_coord[0] > (cake_width / 2) else 0
 
     # Set y based on if we are currently at the top or bottom of the cake
-    knife_error = 0.02
+    knife_error = 0.01
     crumb_y = cake_len - knife_error if xy_coord[1] == cake_len else knife_error
 
     return [crumb_x, crumb_y]
