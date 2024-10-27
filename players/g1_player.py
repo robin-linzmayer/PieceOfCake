@@ -72,36 +72,48 @@ class Player:
         requests = sorted(requests)
         num_requests = len(requests)
 
-        if cake_len <= self.EASY_LEN_BOUND:
-            # initialize starting knife position
+        # slice off 5% extra if only one request
+        if num_requests == 1:
             if turn_number == 1:
-                self.knife_pos.append([0,0])
                 return constants.INIT, [0,0]
-            
-            if self.num_requests_cut < num_requests:
-                # compute size of base from current polygon area
-                curr_polygon_area = requests[self.num_requests_cut]
-                curr_polygon_base = round(2 * curr_polygon_area / cake_len, 2)
+            elif self.num_requests_cut < num_requests:
+                extra_area = 0.05 * requests[0]
+                extra_base = round(2 * extra_area / cake_len, 2)
+                self.num_requests_cut += 1
+                return constants.CUT, [extra_base, cake_len]
 
-                if cur_pos[1] == 0:
-                    # knife is currently on the top cake edge
-                    if turn_number == 2:
-                        next_knife_pos = [curr_polygon_base, cake_len]
+        # all other non-edge cases
+        elif num_requests > 1:
+            if cake_len <= self.EASY_LEN_BOUND:
+                # initialize starting knife position
+                if turn_number == 1:
+                    self.knife_pos.append([0,0])
+                    return constants.INIT, [0,0]
+                
+                if self.num_requests_cut < num_requests:
+                    # compute size of base from current polygon area
+                    curr_polygon_area = requests[self.num_requests_cut]
+                    curr_polygon_base = round(2 * curr_polygon_area / cake_len, 2)
+
+                    if cur_pos[1] == 0:
+                        # knife is currently on the top cake edge
+                        if turn_number == 2:
+                            next_knife_pos = [curr_polygon_base, cake_len]
+                        else:
+                            next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), cake_len]
+
+                        self.knife_pos.append(next_knife_pos)
+                        self.num_requests_cut += 1
+                        return constants.CUT, next_knife_pos
                     else:
-                        next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), cake_len]
+                        # knife is currently on the bottom cake edge
+                        next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), 0]
+                        self.knife_pos.append(next_knife_pos)
+                        self.num_requests_cut += 1
+                        return constants.CUT, next_knife_pos
 
-                    self.knife_pos.append(next_knife_pos)
-                    self.num_requests_cut += 1
-                    return constants.CUT, next_knife_pos
-                else:
-                    # knife is currently on the bottom cake edge
-                    next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), 0]
-                    self.knife_pos.append(next_knife_pos)
-                    self.num_requests_cut += 1
-                    return constants.CUT, next_knife_pos
-
-        # [TODO -- need to consider cases where cake is too large]  
-        # else:
+            # [TODO -- need to consider cases where cake is too large]  
+            # else:
 
 
         #######################
@@ -115,8 +127,11 @@ class Player:
         polygon_indices = list(np.argsort(polygon_areas))
 
         # remove the last piece from the list of polygons
-        last_piece_idx = len(polygon_areas) // 2
-        polygon_indices.remove(last_piece_idx)
+        if len(requests) == 1:
+            polygon_indices.remove(0)
+        elif len(polygon_areas) > 1:
+            last_piece_idx = len(polygon_areas) // 2
+            polygon_indices.remove(last_piece_idx)
 
         # list of indices of requests sorted by area in ascending order
         request_indices = list(np.argsort(np.argsort(current_percept.requests)))
