@@ -108,6 +108,6 @@ def get_crumb_coord(xy_coord, cake_len, cake_width):
 
     # Set y based on if we are currently at the top or bottom of the cake
     knife_error = 0.01
-    crumb_y = cake_len - knife_error if xy_coord[1] == cake_len else knife_error
+    crumb_y = round(cake_len - knife_error, 2) if xy_coord[1] == cake_len else knife_error
 
     return [crumb_x, crumb_y]
