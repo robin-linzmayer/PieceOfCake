@@ -139,13 +139,31 @@ class G8_Player:
     
     def assign_polygons(self, polygons, requests: List[float]):
         assignments = [-1] * len(requests)
-        request_indices = sorted(range(len(requests)), key=lambda i: requests[i], reverse=True)  # Largest request first
-        polygon_indices = sorted(range(len(polygons)), key=lambda i: polygons[i].area, reverse=True)  # Largest polygon first
+        request_indices = sorted(range(len(requests)), key=lambda i: requests[i], reverse=True)  # Sort requests by size (largest to smallest)
 
-        for _, req in enumerate(request_indices):
-            best_polygon = polygon_indices.pop(0)  # Assign largest available polygon to the current largest request
-            assignments[req] = best_polygon
-            self.logger.info(f"Assigning polygon {best_polygon} to request {req}, area: {polygons[best_polygon].area:.2f}, request: {requests[req]:.2f}")
+        # Keep track of available polygons
+        available_polygons = list(range(len(polygons)))
+
+        for req_idx in request_indices:
+            request_size = requests[req_idx]
+            best_polygon = None
+            min_diff = float('inf')  # Set a very high initial value for the difference
+
+            # Find the polygon with the closest area to the current request
+            for poly_idx in available_polygons:
+                polygon_area = polygons[poly_idx].area
+                diff = abs(polygon_area - request_size)
+
+                if diff < min_diff:
+                    min_diff = diff
+                    best_polygon = poly_idx
+
+            # Assign the best polygon and remove it from the available list
+            assignments[req_idx] = best_polygon
+            available_polygons.remove(best_polygon)
+
+            print(f"Assigning polygon {best_polygon} to request {req_idx}, area: {polygons[best_polygon].area:.2f}, request: {request_size:.2f}")
         
         return constants.ASSIGN, assignments
+
 
