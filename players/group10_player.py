@@ -110,7 +110,7 @@ class Player:
         # print("AREAS: ", polygon_areas)
         # print("REQUESTS: ", requests_items)
 
-        matches = {} # polygon : request
+        matches = {} # request : polygon
 
         for i in range(len(requests_items)):
             # print(f"I AM ON {i} ITERATION")
@@ -128,16 +128,16 @@ class Player:
                     polygon = polygon_areas[j][1]
                     polygon_index = j
             # print ("polygon:", polygon)
-            matches[polygon] = i
+            matches[i] = polygon
             polygon_areas.pop(polygon_index)
         
         assignment = []
-        for i in range(len(polygons)):
+        for i in range(len(requests_items)):
             if i in matches:
                 assignment.append(matches[i])
             else:
                 assignment.append(-1)
-        # print(assignment)
+        print("THIS IS MY ASSIGNMENT", assignment)
         return assignment
                 
 
