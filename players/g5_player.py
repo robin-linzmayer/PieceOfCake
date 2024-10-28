@@ -91,3 +91,12 @@ class Player:
         # Assign pieces to requests after all cuts are done
         assignment = list(range(len(requests)))
         return constants.ASSIGN, assignment
+
+    def round_position(self, position: List[float]) -> List[float]:
+        return [round(position[0], 2), round(position[1], 2)]
+
+    def validate_position(self, position: List[float], cake_len: int, cake_width: int) -> List[float]:
+        x, y = position
+        x = max(0, min(x, cake_width))  # Bound x within the width
+        y = max(0, min(y, cake_len))    # Bound y within the length
+        return self.round_position([x, y])
