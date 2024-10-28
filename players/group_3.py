@@ -30,6 +30,7 @@ class Player:
         self.horizontal_split_gap = 24.6
         self.vertical_split_gap = 4
         self.preplanned_moves = deque()
+        self.request_served = 0
 
     def move(self, current_percept) -> (int, List[int]):
         polygons = current_percept.polygons
@@ -38,6 +39,9 @@ class Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+
+        if cake_len <= self.horizontal_split_gap:
+            return self.triangle(self, current_percept)
         
         if turn_number == 1:
             return constants.INIT, [0, 0.01]
@@ -101,3 +105,47 @@ class Player:
             else:
                 self.preplanned_moves.append([cake_width, cake_len - 0.01])
         self.preplanned_moves.append([target_pos[0], target_pos[1]])
+
+    def triangle(self, current_percept):
+        polygons = current_percept.polygons
+        turn_number = current_percept.turn_number
+        cur_pos = current_percept.cur_pos
+        requests = sorted(current_percept.requests)
+        cake_len = current_percept.cake_len
+        cake_width = current_percept.cake_width
+        cake_area = cake_len * cake_width
+
+        if turn_number == 1:
+            self.preplanned_moves.append([0,0])
+            return constants.INIT, [0,0]
+        
+        if self.request_served < len(requests):
+            area = requests[self.request_served]
+            base = round(2 * area / cake_len, 2)
+
+            cur_x, cur_y = cur_pos[0], cur_pos[1]
+
+            if turn_number == 2:
+                if base > 4.45:
+                    raise Exception('Base is too big')
+                dest_x, dest_y = base, cake_len
+            else:
+                print(self.preplanned_moves[-2])
+                dest_x = round(self.preplanned_moves[-2][0] + base, 2)
+                dest_y = cake_len if cur_y == 0 else 0
+
+                if dest_x > cake_width:
+                    dest_x = cake_width
+                    new_y = round(2 * cake_area * 0.05 / (cake_width - self.preplanned_moves[-2][0]), 2)
+                    dest_y = new_y if cur_y == 0 else cake_len - new_y
+
+            self.preplanned_moves.append([dest_x, dest_y])
+            self.request_served += 1
+            print(dest_x, dest_y)
+            return constants.CUT, [dest_x, dest_y]
+        
+        assignment = []
+        polygon_idx = list(np.argsort([polygon.area for polygon in polygons]))
+        return constants.ASSIGN, polygon_idx 
+
+
