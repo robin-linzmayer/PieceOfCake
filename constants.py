@@ -2,7 +2,7 @@ import os
 
 default_requests = os.path.join("requests", "default", "easy.json")
 
-possible_players = ["d"] + list(map(str, range(1, 10)))
+possible_players = ["d"] + list(map(str, range(1, 11)))
 
 # Commands for the simulator
 INIT = 1
