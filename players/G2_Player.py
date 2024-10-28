@@ -105,7 +105,9 @@ class G2_Player:
         return
 
     def even_cuts(self, current_percept):
-        polygons = current_percept.polygons
+        '''
+        Adds moves to the merge queue that will cut the cake into even slices.
+        '''
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
         requests = current_percept.requests
@@ -113,20 +115,21 @@ class G2_Player:
         cake_width = current_percept.cake_width
 
         n = len(requests)
-        s = round(np.sqrt(cake_len * cake_width / n), 2)
+        s_x = cake_width / np.sqrt(n)
+        s_y = cake_len / np.sqrt(n)
         pos = cur_pos
 
         if turn_number == 2:
-            self.move_queue.append([0, s])
-            self.move_queue.append([cake_width, s])
+            self.move_queue.append([0, s_y])
+            self.move_queue.append([cake_width, s_y])
             return
 
-        if self.phase == "HORIZONTAL" and pos[1] + s >= cake_len:
+        if self.phase == "HORIZONTAL" and pos[1] + s_y >= cake_len:
             self.phase = "VERTICAL"
             if pos[0] == 0:
-                new_x = s
+                new_x = s_x
             else:
-                new_x = cake_width - s
+                new_x = cake_width - s_x
                 self.direction = "RIGHT"
             self.sneak(pos, [new_x, cake_len], cake_width, cake_len)
             self.move_queue.append([new_x, 0])
@@ -134,18 +137,18 @@ class G2_Player:
             return
 
         if self.phase == "HORIZONTAL":
-            self.sneak(pos, [pos[0], pos[1] + s], cake_width, cake_len)
+            self.sneak(pos, [pos[0], pos[1] + s_y], cake_width, cake_len)
             if pos[0] == 0:
                 opposite = cake_width
             else:
                 opposite = 0
-            self.move_queue.append([opposite, round(pos[1] + s, 2)])
+            self.move_queue.append([opposite, round(pos[1] + s_y, 2)])
 
         else:
             if self.direction == "RIGHT":
-                new_x = pos[0] - s
+                new_x = pos[0] - s_x
             else:
-                new_x = pos[0] + s
+                new_x = pos[0] + s_x
 
             if new_x <= 0 or new_x >= cake_width:
                 self.phase = "DONE"
