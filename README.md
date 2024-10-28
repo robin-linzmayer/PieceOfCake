@@ -46,8 +46,7 @@ pip install .
 
 To view all options use python3 main.py -h
 ```bash
-python3 main.py [-m/--max_door_frequency] [-r/--radius] [-s/--seed] [-mz/--maze] [-sc/--scale] [-T/--turns] 
-      [-ng/--no_gui] [-p/--player]
+python3 main.py [-d/--tolerance] [-rq/--requests] [-s/--seed]  [-sc/--scale] [-ng/--no_gui] [-p/--player]
 ```
 
 ## Debugging
@@ -58,4 +57,4 @@ The code generates a `log/debug.log` (detailed), `log/results.log` (minimal) and
 ## Example Usage
 ```bash
 python3 main.py -d 15 -rq "requests/default/easy.json"
-``` 
+```
