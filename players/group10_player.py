@@ -31,6 +31,8 @@ class Player:
         self.cake_diagonal = None
         self.requests = None
         self.cuts = []
+        self.base_case_switch = False
+        self.working_height = None
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -59,10 +61,11 @@ class Player:
             print ("cake_len:", self.cake_len)
             print ("cake_width:", self.cake_width)
             print ("cake_diagonal:", self.cake_diagonal)
+
             self.cuts.append((0, 0))
             return constants.INIT, [0,0]
 
-        
+        # TODO: adjust for the case when the base the triangle needs surpasses the cake width we have (first occurence, switch to the length, after this switch, make sure we continue working on that edge). CURRENT PROGRAM UNABLE TO MOVE IF WE SWITCH SIDES FROM THE BOTTOM EDGE
         # case if the diagonal of the total cake is <= 25
         if self.cake_diagonal <= 25:
             # assign pieces
@@ -70,17 +73,40 @@ class Player:
                 # print("I AM TRYING TO ASSIGN PIECES")
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
+            
             current_area = self.requests[cut_number - 1]
+            
+            x = cur_pos[0]
+            y = cur_pos[1]
+
+            if self.base_case_switch:
+                # TODO: this currently retraces the past cut and creates triangles from the same poin
+                x = self.cuts[cut_number - 2][0]
+                y = self.cuts[cut_number - 2][1]
+                if y != 0:
+                    y = self.cuts[cut_number - 2][1] - round(2 * current_area / self.working_height, 2)
+                
+                self.cuts.append((x, y))
+                return constants.CUT, [x, y]
+
             if (cut_number == 1):
                 x = round(2 * current_area / self.cake_len, 2)
-                y = self.cake_len
-                self.cuts.append((x, y))
-                return constants.CUT, [x, y]
             else:
                 x = round(self.cuts[cut_number - 2][0] + (2 * current_area / self.cake_len), 2)
-                y = (0, self.cake_len) [cut_number % 2]
-                self.cuts.append((x, y))
-                return constants.CUT, [x, y]
+
+            y = (0, self.cake_len) [cut_number % 2]
+
+            if x > self.cake_width:
+                area_left = (self.cake_len * self.cake_width) / 1.05 * .05 # finding the extra cake portion
+                self.working_height = self.cake_width - cur_pos[0]
+                if (cut_number < len(self.requests)): # not on our last request
+                    area_left += sum(self.requests[cut_number:])
+                x = self.cake_width
+                y = round(2 * area_left / self.working_height, 2)
+                self.base_case_switch = True
+
+            self.cuts.append((x, y))
+            return constants.CUT, [x, y]
             
         else:
             if len(polygons) != len(self.requests):
