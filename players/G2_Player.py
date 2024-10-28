@@ -42,7 +42,7 @@ class G2_Player:
 
         self.phase = "HORIZONTAL"
         self.direction = ""
-        self.strategy = Strategy.SNEAK
+        self.strategy = Strategy.CLIMB_HILLS
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
         if cur_pos[0] == 0:
@@ -50,18 +50,16 @@ class G2_Player:
         else:
             return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
 
-    def assign(self, polygons, requests) -> tuple[int, List[int]]:
+    def assign(self) -> tuple[int, List[int]]:
 
         # Get sorted indices of polygons and requests in decreasing order of area
         sorted_polygon_indices = sorted(
-            range(len(polygons)), key=lambda i: polygons[i].area, reverse=True
+            range(len(self.polygons)), key=lambda i: self.polygons[i].area, reverse=True
         )
         sorted_request_indices = sorted(
-            range(len(requests)), key=lambda i: requests[i], reverse=True
+            range(len(self.requests)), key=lambda i: self.requests[i], reverse=True
         )
 
-        print(f"Sorted polygons: {sorted_polygon_indices}")
-        print(f"Sorted requests: {sorted_request_indices}")
         # Assign each sorted polygon to each sorted request by index
         assignment = [-1] * min(
             len(sorted_polygon_indices), len(sorted_request_indices)
@@ -71,9 +69,6 @@ class G2_Player:
             request_idx = sorted_request_indices[i]
             assignment[request_idx] = (
                 polygon_idx  # Match request index to polygon index
-            )
-            print(
-                f"Request {request_idx} (area: {requests[request_idx]}) assigned to Polygon {polygon_idx} (area: {polygons[polygon_idx].area})"
             )
 
         return constants.ASSIGN, assignment
@@ -206,9 +201,9 @@ class G2_Player:
         # without exceeding the amount of requests
         return list(range(len(self.polygons)))[: len(self.requests)]
 
-    def __calculate_penalty(self) -> float:
+    def __calculate_penalty(self, assign_func) -> float:
         penalty = 0
-        assignments = self.__get_assignments()
+        assignments = assign_func()
 
         for request_index, assignment in enumerate(assignments):
             # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
@@ -253,7 +248,35 @@ class G2_Player:
         if len(self.polygons) < len(self.requests):
             return self.cut(self.cake_len, self.cake_width, self.cur_pos)
         else:
-            return self.assign(self.polygons, self.requests)
+            return self.assign()
+
+    def climb_hills(self):
+        current_penalty = self.__calculate_penalty(self.__get_assignments)
+        print(f"1 penalty: {current_penalty}")
+        current_penalty = self.__calculate_penalty(self.assign)
+        print(f"2 penalty: {current_penalty}")
+
+        if self.turn_number == 1:
+            print()
+            return constants.INIT, [0, 0]
+
+        if len(self.polygons) < len(self.requests):
+            if self.cur_pos[0] == 0:
+                return constants.CUT, [
+                    self.cake_width,
+                    round((self.cur_pos[1] + 5) % self.cake_len, 2),
+                ]
+            else:
+                return constants.CUT, [
+                    0,
+                    round((self.cur_pos[1] + 5) % self.cake_len, 2),
+                ]
+
+        assignment = []
+        for i in range(len(self.requests)):
+            assignment.append(i)
+
+        return constants.ASSIGN, assignment
 
     def process_percept(self, current_percept: PieceOfCakeState):
         self.polygons = current_percept.polygons
@@ -267,12 +290,11 @@ class G2_Player:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
 
-        current_penalty = self.__calculate_penalty()
-        print(f"current penalty: {current_penalty}")
-
         match self.strategy:
             case Strategy.SNEAK:
                 return self.sneak_alg()
+            case Strategy.CLIMB_HILLS:
+                return self.climb_hills()
 
             case _:
                 return self.sneak_alg()
