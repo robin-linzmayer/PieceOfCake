@@ -16,6 +16,7 @@ from constants import *
 import constants
 from utils import *
 from players.default_player import Player as DefaultPlayer
+from players.player_7 import Player as G7_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
