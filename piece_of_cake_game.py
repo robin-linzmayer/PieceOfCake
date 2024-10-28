@@ -5,6 +5,7 @@ import time
 import signal
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 from shapely import points, centroid
 
@@ -402,16 +403,16 @@ class PieceOfCakeGame:
     def invalid_knife_position(self, pos):
         cur_x, cur_y = pos
         if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_width):
-            return False
+            return True
 
         if cur_x == 0 or cur_x == self.cake_width:
             if cur_y < 0 or cur_y > self.cake_len:
-                return False
+                return True
 
         if cur_y == 0 or cur_y == self.cake_len:
             if cur_x < 0 or cur_x > self.cake_width:
-                return False
-        return True
+                return True
+        return False
 
     def check_and_apply_action(self, action):
         if action[0] == constants.INIT:
