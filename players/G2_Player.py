@@ -31,29 +31,27 @@ class G2_Player:
         self.move_queue = []
         self.move_queue = []
 
-        self.phase = 'HORIZONTAL'
-        self.direction = ''
+        self.phase = "HORIZONTAL"
+        self.direction = ""
 
-    def cut(self, cake_len, cake_width, cur_pos) -> (int, List[int]):
+    def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
         if cur_pos[0] == 0:
-            return constants.CUT, [cake_width, round((cur_pos[1] + 5)%cake_len, 2)]
+            return constants.CUT, [cake_width, round((cur_pos[1] + 5) % cake_len, 2)]
         else:
-            return constants.CUT, [0, round((cur_pos[1] + 5)%cake_len, 2)]
-        
-    def assign(self, polygons, requests) -> (int, List[int]):
-        print("Polygons: ", polygons)
-        print("Requests: ", requests)
+            return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
+
+    def assign(self, polygons, requests) -> tuple[int, List[int]]:
         assignment = []
         for i in range(len(requests)):
             assignment.append(i)
 
         return constants.ASSIGN, assignment
-    
+
     def sneak(self, start_pos, end_pos, cake_width, cake_len):
-        '''
+        """
         Given a start position & goal position, uses the 1-pixel shaving technique
         to append the necessary steps to the move_queue
-        '''
+        """
         nearest_x, x_dist = nearest_edge_x(start_pos, cake_width)
         nearest_y, y_dist = nearest_edge_y(start_pos, cake_len)
 
@@ -91,10 +89,10 @@ class G2_Player:
                     bounce_x = bounce(end_x)
                     self.move_queue.append([end_x, bounce_y])
                     self.move_queue.append([bounce_x, end_y])
-            
+
         self.move_queue.append(end_pos)
         return
-    
+
     def even_cuts(self, current_percept):
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
@@ -108,43 +106,50 @@ class G2_Player:
         pos = cur_pos
 
         if turn_number == 2:
-            self.move_queue.append([0,s])
-            self.move_queue.append([cake_width,s])
+            self.move_queue.append([0, s])
+            self.move_queue.append([cake_width, s])
             return
-        
-        if self.phase == 'HORIZONTAL' and pos[1]+s >= cake_len:
-            self.phase = 'VERTICAL'
-            if pos[0] == 0: new_x = s
+
+        if self.phase == "HORIZONTAL" and pos[1] + s >= cake_len:
+            self.phase = "VERTICAL"
+            if pos[0] == 0:
+                new_x = s
             else:
-                new_x = cake_width-s
-                self.direction = 'RIGHT'
+                new_x = cake_width - s
+                self.direction = "RIGHT"
             self.sneak(pos, [new_x, cake_len], cake_width, cake_len)
             self.move_queue.append([new_x, 0])
 
             return
 
-        if self.phase == 'HORIZONTAL':
-            self.sneak(pos, [pos[0], pos[1]+s], cake_width, cake_len)
-            if pos[0]==0: opposite = cake_width
-            else: opposite = 0
-            self.move_queue.append([opposite, round(pos[1]+s, 2)])
+        if self.phase == "HORIZONTAL":
+            self.sneak(pos, [pos[0], pos[1] + s], cake_width, cake_len)
+            if pos[0] == 0:
+                opposite = cake_width
+            else:
+                opposite = 0
+            self.move_queue.append([opposite, round(pos[1] + s, 2)])
 
         else:
-            if self.direction == 'RIGHT': new_x = pos[0]-s
-            else: new_x = pos[0]+s
+            if self.direction == "RIGHT":
+                new_x = pos[0] - s
+            else:
+                new_x = pos[0] + s
 
             if new_x <= 0 or new_x >= cake_width:
-                self.phase = 'DONE'
+                self.phase = "DONE"
                 return
 
             self.sneak(pos, [new_x, pos[1]], cake_width, cake_len)
-            if pos[1]==0: opposite = cake_len
-            else: opposite = 0
+            if pos[1] == 0:
+                opposite = cake_len
+            else:
+                opposite = 0
             self.move_queue.append([new_x, opposite])
 
         return
 
-    def move(self, current_percept) -> (int, List[int]):
+    def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
 
         Args:
@@ -163,13 +168,13 @@ class G2_Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
-        
+
         if turn_number == 1:
             return constants.INIT, [0.01, 0]
-        
-        if len(self.move_queue) == 0 and self.phase != 'DONE':
+
+        if len(self.move_queue) == 0 and self.phase != "DONE":
             self.even_cuts(current_percept)
-        
+
         if len(self.move_queue) > 0:
             next_val = self.move_queue.pop(0)
             cut = [round(next_val[0], 2), round(next_val[1], 2)]
@@ -179,26 +184,28 @@ class G2_Player:
             return self.cut(cake_len, cake_width, cur_pos)
         else:
             return self.assign(polygons, requests)
-        
+
+
 def nearest_edge_x(pos, cake_width):
-    '''
+    """
     Returns the nearest X-edge and the distance to said edge
     X-edge is 0 if the position is closer to the left side, or cake_width
         if it is closer to the right side.
-    '''
+    """
     min_x = pos[0]
     x_edge = 0
     if cake_width - pos[0] < min_x:
         min_x = cake_width - pos[0]
         x_edge = cake_width
     return x_edge, min_x
-    
+
+
 def nearest_edge_y(pos, cake_len):
-    '''
+    """
     Returns the nearest Y-edge and the distance to said edge
     Y-edge is 0 if the position is closer to the top, or cake_len
         if it is closer to the bottom.
-    '''
+    """
     min_y = pos[1]
     y_edge = 0
     if cake_len - pos[1] < min_y:
@@ -206,10 +213,11 @@ def nearest_edge_y(pos, cake_len):
         y_edge = cake_len
     return y_edge, min_y
 
+
 def bounce(margin):
-    '''
+    """
     Returns a value 0.01 away from the provided margin
-    '''
+    """
     if margin == 0:
         return 0.01
-    return round(margin-0.01, 2)
+    return round(margin - 0.01, 2)
