@@ -383,8 +383,19 @@ class PieceOfCakeGame:
         if (action[0] == constants.INIT or action[0] == constants.CUT) and not all(isinstance(x, (int, float)) and x == round(x, 2) for x in action[1]):
             return False
 
-        if (action[0] == constants.ASSIGN) and len(action[1]) != len(self.requests) and len(action[1]) != len(set(action[1])):
-            return False
+        # For assign action, check
+        # 1 if the length of the list is equal to the number of requests
+        # 2 All the values which are greater than -1 are unique
+        # 3 All the values are integers and greater than -1
+
+        if action[0] == constants.ASSIGN:
+            if len(action[1]) != len(self.requests):
+                return False
+            temp = [x for x in action[1] if x != -1]
+            if len(set(temp)) != len(temp):
+                return False
+            if not all(isinstance(x, int) and x >= -1 for x in action[1]):
+                return False
 
         return True
 
