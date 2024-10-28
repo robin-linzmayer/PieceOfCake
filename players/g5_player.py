@@ -4,6 +4,7 @@ from typing import List
 
 import numpy as np
 import logging
+import miniball
 
 import constants
 
@@ -25,9 +26,13 @@ class Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
+        self.cake_width = None
         self.zigzag_complete = False  # Tracks if the initial zigzag is done
         self.zigzag_positions = []    # Stores calculated zigzag points
         self.current_zigzag_index = 0
+        self.requests_list = []
+        #self.polygon_list = [
+            #Polygon([(0, 0), (0, self.cake_len), (self.cake_width, self.cake_len), (self.cake_width, 0)])]
        
 
     def generate_zigzag_positions(self, cake_len, cake_width, segments):
@@ -57,6 +62,73 @@ class Player:
         print(f"Generated zigzag positions across the cake dimensions " f"({cake_len} x {cake_width}) with {segments} segments: {positions}")
 
         self.zigzag_positions = positions
+
+
+    def generate_corner_cuts(self, requests):
+        # Sort the list from least to greatest
+        self.requests_list = sorted(requests)
+        corners = [1,2,3,4]
+        corner = 1
+
+        positions = [(0, round(np.sqrt(2*self.requests_list[0]), 2)), (round(np.sqrt(2*self.requests_list[0]), 2), 0)]
+
+        x = 1
+        while x < len(self.requests_list):
+            if corner == 1:
+                if positions[-1][0] == 0:
+                    base = round(positions[-2][0] + (2*self.requests_list[x]/positions[-1][1]), 2)
+                    potential_point = [base, 0]
+                elif positions[-1][1] == 0:
+                    base = round(positions[-2][1] + (2*self.requests_list[x]/positions[-1][0]), 2)
+                    potential_point = [0, base]
+
+            elif corner == 2:
+                if positions[-1][1] == 0:
+                    base = round(positions[-2][1] + (2*self.requests_list[x]/(self.cake_width-positions[-1][0])), 2)
+                    potential_point = [self.cake_width, base]
+                elif positions[-1][0] == self.cake_width:
+                    base = round(positions[-2][0] - (2*self.requests_list[x]/positions[-1][1]), 2)
+                    potential_point = [base, 0]
+
+
+            points = np.array([list(positions[-1]), list(positions[-2]), potential_point])
+            res = miniball.miniball(points)
+
+            if res["radius"] <= 12.5:
+                positions.append(tuple(potential_point))
+
+            else:   # Jump to new corner
+                if positions[-1][0] == 0 and positions[-2][1] == 0: #TODO
+                    positions.append((0.1, self.cake_len))
+                    corners.remove(corner)
+                    corner = 4
+
+                elif positions[-1][1] == 0 and positions[-2][0] == 0:
+                    positions.append((self.cake_width, 0.1))
+                    positions.append((round(self.cake_width - np.sqrt(2*self.requests_list[x+1]), 2), 0))
+                    positions.append((self.cake_width, round(np.sqrt(2*self.requests_list[x+1]), 2)))
+                    corners.remove(corner)
+                    corner = 2
+                    x += 1
+
+                elif positions[-1][1] == 0 and positions[-2][0] == self.cake_width: #TODO
+                    positions.append((self.cake_len, self.cake_width-1))
+                    corner = 3
+
+                elif positions[-1][0] == self.cake_width and positions[-2][1] == 0:
+                    positions.append((self.cake_width-0.1, self.cake_len))
+                    positions.append((self.cake_width, round(self.cake_len - np.sqrt(2*self.requests_list[x+1]), 2)))
+                    positions.append((round(self.cake_width - np.sqrt(2*self.requests_list[x+1]), 2), self.cake_len))
+                    corners.remove(corner)
+                    corner = 3
+                    x += 1
+
+            x += 1
+
+        print(positions)
+        self.zigzag_positions = positions
+
+
     
     def move(self, current_percept) -> (int, List[int]):
         polygons = current_percept.polygons
@@ -65,12 +137,22 @@ class Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+        self.cake_len = cake_len
+        self.cake_width = cake_width
 
         # Generate zigzag positions if it's the first move
         if turn_number == 1:
-            self.generate_zigzag_positions(cake_len, cake_width, len(requests))
-            next_pos = self.zigzag_positions[self.current_zigzag_index]
-            return constants.INIT, [round(next_pos[0], 2), round(next_pos[1], 2)]
+            if all(x==requests[0] for x in requests):
+                self.generate_zigzag_positions(cake_len, cake_width, len(requests))
+                next_pos = self.zigzag_positions[self.current_zigzag_index]
+                return constants.INIT, [round(next_pos[0], 2), round(next_pos[1], 2)]
+            else:
+                self.generate_corner_cuts(requests)
+                next_pos = self.zigzag_positions[self.current_zigzag_index]
+                print(next_pos)
+                print("=============")
+                return constants.INIT, [round(next_pos[0], 2), round(next_pos[1], 2)]
+
 
         # Continue zigzag cutting
         if turn_number > 1 and not self.zigzag_complete:
