@@ -41,9 +41,20 @@ class G2_Player:
             return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
 
     def assign(self, polygons, requests) -> tuple[int, List[int]]:
-        assignment = []
-        for i in range(len(requests)):
-            assignment.append(i)
+
+        # Get sorted indices of polygons and requests in decreasing order of area
+        sorted_polygon_indices = sorted(range(len(polygons)), key=lambda i: polygons[i].area, reverse=True)
+        sorted_request_indices = sorted(range(len(requests)), key=lambda i: requests[i], reverse=True)
+
+        print(f"Sorted polygons: {sorted_polygon_indices}")
+        print(f"Sorted requests: {sorted_request_indices}")
+        # Assign each sorted polygon to each sorted request by index
+        assignment = [-1] * min(len(sorted_polygon_indices), len(sorted_request_indices))
+        for i in range(min(len(sorted_polygon_indices), len(sorted_request_indices))):
+            polygon_idx = sorted_polygon_indices[i]
+            request_idx = sorted_request_indices[i]
+            assignment[request_idx] = polygon_idx  # Match request index to polygon index
+            print(f"Request {request_idx} (area: {requests[request_idx]}) assigned to Polygon {polygon_idx} (area: {polygons[polygon_idx].area})")
 
         return constants.ASSIGN, assignment
 
