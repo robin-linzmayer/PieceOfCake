@@ -10,7 +10,7 @@ from shapely import points, centroid
 
 import miniball
 
-# from pkg_resources import require
+from pkg_resources import require
 
 from piece_of_cake_state import PieceOfCakeState
 from constants import *
