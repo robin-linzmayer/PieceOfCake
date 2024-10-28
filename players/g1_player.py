@@ -31,11 +31,9 @@ def sorted_assignment(R, V):
     
 def optimal_assignment(R, V):
     V.remove(V[len(V) // 2])
-    # Number of requests and values
     num_requests = len(R)
     num_values = len(V)
     
-    # Initialize cost matrix based on relative differences
     cost_matrix = np.zeros((num_requests, num_values))
     
     # Fill the cost matrix with relative differences
@@ -43,10 +41,10 @@ def optimal_assignment(R, V):
         for j, v in enumerate(V):
             cost_matrix[i][j] = abs(r - v) / r
 
-    # Solve the assignment problem using the Hungarian algorithm
+    # Solving the assignment problem
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
     
-    # Create the assignment array where assignment[i] is the index of V matched to R[i]
+    # Assignment array where assignment[i] is the index of V matched to R[i]
     assignment = [col_indices[i] for i in range(num_requests)]
     assignment = [i+1 if (i >= len(assignment) // 2) else i for i in assignment]
     
@@ -92,7 +90,7 @@ class Player:
         area = sum(requests) * 1.05
         h = np.sqrt(area / 1.6)
         w = h * 1.6
-        return [0, round(h * (3/4), 2)]
+        return [0, round(h * (1/11), 2)]
         # TODO: Actual logic
 
     
@@ -170,7 +168,8 @@ class Player:
             # [TODO -- need to consider cases where cake is too large]  
             else:
                 if turn_number == 1:
-                    self.angle = 22.5
+                    self.angle = np.radians(17)
+                    # self.angle = 10
                     starting_pos = self.get_starting_pos(requests)
                     self.knife_pos.append(starting_pos)
                     return constants.INIT, starting_pos
@@ -226,26 +225,36 @@ class Player:
                     # Top
                     elif cur_pos[1] == 0:
                         # This only works now if starting from left/right
-                        # Left -> Right
-                        if self.knife_pos[-2][0] == 0:
-                            x = cake_width
-                            y = np.tan(self.angle) * (cake_width - cur_pos[0])
-                        # Right -> Left
+                        l = (cake_width - cur_pos[1]) * np.tan(self.angle)
+                        if l > cake_len:
+                            x = cake_width - ((l - cake_len) * np.tan(self.angle))
+                            y = cake_len
                         else:
-                            x = 0
-                            y = np.tan(self.angle) * cur_pos[0]
+                            # Left -> Right
+                            if self.knife_pos[-2][0] == 0 or (self.knife_pos[-2][1] == cake_len and self.knife_pos[-3][0] == cake_len):
+                                x = cake_width
+                                y = np.tan(self.angle) * (cake_width - cur_pos[0])
+                            # Right -> Left
+                            else:
+                                x = 0
+                                y = np.tan(self.angle) * cur_pos[0]
                     
                     # Bottom
                     else:
                         # This only works now if starting from left/right
-                        # Left -> Right
-                        if self.knife_pos[-2][0] == 0:
-                            x = cake_width
-                            y = cake_len - (np.tan(self.angle) * (cake_width - cur_pos[0]))
-                        # Right -> Left
+                        l = cur_pos[1] * np.tan(self.angle)
+                        if l > cake_len:
+                            x = (l - cake_len) * np.tan(self.angle)
+                            y = 0
                         else:
-                            x = 0
-                            y = cake_len - (np.tan(self.angle) * cur_pos[0])
+                            # Left -> Right
+                            if self.knife_pos[-2][0] == 0 or (self.knife_pos[-2][1] == 0 and self.knife_pos[-3][0] == 0):
+                                x = cake_width
+                                y = cake_len - (np.tan(self.angle) * (cake_width - cur_pos[0]))
+                            # Right -> Left
+                            else:
+                                x = 0
+                                y = cake_len - (np.tan(self.angle) * cur_pos[0])
                     
                     next_knife_pos = [round(x, 2), round(y, 2)]
                     self.knife_pos.append(next_knife_pos)
@@ -260,3 +269,6 @@ class Player:
         assignment = optimal_assignment(current_percept.requests, V)
 
         return constants.ASSIGN, assignment
+    
+    
+    
