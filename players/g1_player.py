@@ -114,7 +114,6 @@ class Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
-        cake_height = current_percept.cake_width / 1.6
 
 
         ####################
@@ -124,6 +123,7 @@ class Player:
         # sort requests by area in ascending order
         requests = sorted(requests)
         num_requests = len(requests)
+        cake_area = cake_len * cake_width
 
         # slice off 5% extra if only one request
         if num_requests == 1:
@@ -153,14 +153,26 @@ class Player:
                         if turn_number == 2:
                             next_knife_pos = [curr_polygon_base, cake_len]
                         else:
-                            next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), cake_len]
+                            next_x = round(self.knife_pos[-2][0] + curr_polygon_base, 2)
+                            next_y = cake_len
+                            # when knife goes over the cake width
+                            if next_x > cake_width:
+                                next_x = cake_width
+                                next_y = round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                            next_knife_pos = [next_x, next_y]
 
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
                         return constants.CUT, next_knife_pos
                     else:
                         # knife is currently on the bottom cake edge
-                        next_knife_pos = [round(self.knife_pos[-2][0] + curr_polygon_base, 2), 0]
+                        next_x = round(self.knife_pos[-2][0] + curr_polygon_base, 2)
+                        next_y = 0
+                        # when knife goes over the cake width
+                        if next_x > cake_width:
+                            next_x = cake_width
+                            next_y = cake_len - round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                        next_knife_pos = [next_x, next_y]
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
                         return constants.CUT, next_knife_pos
