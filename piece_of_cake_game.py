@@ -15,11 +15,7 @@ from piece_of_cake_state import PieceOfCakeState
 from constants import *
 import constants
 from utils import *
-from players.g9_player import Player as G9_Player
 from players.default_player import Player as DefaultPlayer
-from players.g1_player import Player as G1_Player
-from players.group10_player import Player as G10_Player
-from players.player_7 import Player as G7_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
