@@ -1,14 +1,15 @@
-from typing import List
+from typing import List, Callable
 import numpy as np
 import logging
 import constants
 import miniball
-
 from enum import Enum
+from shapely.geometry import Polygon
 
 from piece_of_cake_state import PieceOfCakeState
 from players.g2.helpers import *
 from players.g2.even_cuts import *
+from players.g2.assigns import sorted_assign, index_assign
 
 
 class Strategy(Enum):
@@ -51,26 +52,11 @@ class G2_Player:
         else:
             return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
 
-    def assign(self) -> tuple[int, List[int]]:
+    def assign(
+        self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
+    ) -> tuple[int, List[int]]:
 
-        # Get sorted indices of polygons and requests in decreasing order of area
-        sorted_polygon_indices = sorted(
-            range(len(self.polygons)), key=lambda i: self.polygons[i].area, reverse=True
-        )
-        sorted_request_indices = sorted(
-            range(len(self.requests)), key=lambda i: self.requests[i], reverse=True
-        )
-
-        # Assign each sorted polygon to each sorted request by index
-        assignment = [-1] * min(
-            len(sorted_polygon_indices), len(sorted_request_indices)
-        )
-        for i in range(min(len(sorted_polygon_indices), len(sorted_request_indices))):
-            polygon_idx = sorted_polygon_indices[i]
-            request_idx = sorted_request_indices[i]
-            assignment[request_idx] = (
-                polygon_idx  # Match request index to polygon index
-            )
+        assignment: list[int] = assign_func(self.polygons, self.requests)
 
         return constants.ASSIGN, assignment
 
@@ -82,29 +68,11 @@ class G2_Player:
 
         return res["radius"] <= radius
 
-    # use just any assignment for now,
-    # ideally, we want to find the assignment with the smallest penalty
-    # instead of this random one
-    def __get_assignments(self) -> float:
-        # TODO: Find a way to match polygons with requests
-        # with a low penalty
-
-        # sorted_requests = sorted(
-        #     [(i, req) for i, req in enumerate(self.requests)], key=lambda x: x[1]
-        # )
-
-        if len(self.requests) > len(self.polygons):
-            # specify amount of -1 padding needed
-            padding = len(self.requests) - len(self.polygons)
-            return padding * [-1] + list(range(len(self.polygons)))
-
-        # return an amount of polygon indexes
-        # without exceeding the amount of requests
-        return list(range(len(self.polygons)))[: len(self.requests)]
-
-    def __calculate_penalty(self, assign_func) -> float:
+    def __calculate_penalty(
+        self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
+    ) -> float:
         penalty = 0
-        assignments = assign_func()
+        assignments: list[int] = assign_func(self.polygons, self.requests)
 
         for request_index, assignment in enumerate(assignments):
             # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
@@ -123,9 +91,9 @@ class G2_Player:
         return penalty
 
     def climb_hills(self):
-        current_penalty = self.__calculate_penalty(self.__get_assignments)
+        current_penalty = self.__calculate_penalty(index_assign)
         print(f"1 penalty: {current_penalty}")
-        current_penalty = self.__calculate_penalty(self.assign)
+        current_penalty = self.__calculate_penalty(sorted_assign)
         print(f"2 penalty: {current_penalty}")
 
         if self.turn_number == 1:
@@ -144,11 +112,7 @@ class G2_Player:
                     round((self.cur_pos[1] + 5) % self.cake_len, 2),
                 ]
 
-        assignment = []
-        for i in range(len(self.requests)):
-            assignment.append(i)
-
-        return constants.ASSIGN, assignment
+        return constants.ASSIGN, sorted_assign(self.polygons, self.requests)
 
     def process_percept(self, current_percept: PieceOfCakeState):
         self.polygons = current_percept.polygons
@@ -164,14 +128,18 @@ class G2_Player:
 
         if self.strategy == Strategy.SNEAK:
             if self.turn_number == 1:
-                self.move_object = EvenCuts(len(self.requests), self.cake_width, self.cake_len)
-            
+                self.move_object = EvenCuts(
+                    len(self.requests), self.cake_width, self.cake_len
+                )
+
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
-                self.assign(self.polygons, self.requests)
+                self.assign(sorted_assign)
 
             return move
-        
-        else:
-            return self.assign(self.polygons, self.requests)
 
+        elif self.strategy == Strategy.CLIMB_HILLS:
+            return self.climb_hills()
+
+        # default
+        return self.climb_hills()
