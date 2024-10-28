@@ -48,7 +48,7 @@ class G8_Player:
         self.cake_len = None
         self.remaining_requests = None
         self.cut_path = []
-        self.assingment = []
+        self.assignment = []
 
     def move(self, current_percept: PieceOfCakeState) -> (int, List[int]):
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -74,7 +74,7 @@ class G8_Player:
         # On turn 1 we need to decide where to start.
         if turn_number == 1:
             # initialize these variables
-            self.assingment = [-1 for _ in range(len(requests))]
+            self.assignment = [-1 for _ in range(len(requests))]
             self.remaining_requests = sorted(requests)
             
             start_position = self.decide_where_to_start(current_percept)
@@ -82,8 +82,10 @@ class G8_Player:
             return constants.INIT, start_position
 
         if len(self.remaining_requests) == 0:
-            assignment = self.assingment
-            return constants.ASSIGN, self.assingment
+            return self.assign_polygons(polygons, requests)
+            # assignment = self.assignment
+            # return constants.ASSIGN, self.assignment
+    
                 
         # Cut the max request remaining
         max_request = self.remaining_requests.pop()
@@ -91,7 +93,7 @@ class G8_Player:
         # We could also assign here early instead of doing it later
         print("cutting for request: ", max_request)
         request_index = requests.index(max_request)
-        self.assingment[request_index] = len(polygons)
+        self.assignment[request_index] = len(polygons)
         
         # request_index, assignment in enumerate(action[1]):
         # the index of assignment corresponds to index of request in requests
@@ -135,5 +137,15 @@ class G8_Player:
     def decide_where_to_start(self, current_percept):
         return [0, 0]
     
-    def assign_polygons(self, polygons, requests):
-        pass
+    def assign_polygons(self, polygons, requests: List[float]):
+        assignments = [-1] * len(requests)
+        request_indices = sorted(range(len(requests)), key=lambda i: requests[i], reverse=True)  # Largest request first
+        polygon_indices = sorted(range(len(polygons)), key=lambda i: polygons[i].area, reverse=True)  # Largest polygon first
+
+        for _, req in enumerate(request_indices):
+            best_polygon = polygon_indices.pop(0)  # Assign largest available polygon to the current largest request
+            assignments[req] = best_polygon
+            self.logger.info(f"Assigning polygon {best_polygon} to request {req}, area: {polygons[best_polygon].area:.2f}, request: {requests[req]:.2f}")
+        
+        return constants.ASSIGN, assignments
+
