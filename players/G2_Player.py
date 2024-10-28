@@ -42,7 +42,7 @@ class G2_Player:
 
         self.phase = "HORIZONTAL"
         self.direction = ""
-        self.strategy = Strategy.CLIMB_HILLS
+        self.strategy = Strategy.SNEAK
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
         if cur_pos[0] == 0:
