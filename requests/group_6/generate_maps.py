@@ -41,11 +41,11 @@ def generate_medium():
     return [100] * 17
 
 
-with open("requests/Group 6/hard.json", "w") as json_file:
+with open("requests/group_6/hard.json", "w") as json_file:
     json.dump({"requests": generate_hard()}, json_file, indent=4)
 
-with open("requests/Group 6/easy.json", "w") as json_file:
+with open("requests/group_6/easy.json", "w") as json_file:
     json.dump({"requests": generate_easy()}, json_file, indent=4)
 
-with open("requests/Group 6/medium.json", "w") as json_file:
+with open("requests/group_6/medium.json", "w") as json_file:
     json.dump({"requests": generate_medium()}, json_file, indent=4)
