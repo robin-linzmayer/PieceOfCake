@@ -405,7 +405,7 @@ class PieceOfCakeGame:
 
     def invalid_knife_position(self, pos):
         cur_x, cur_y = pos
-        if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_width):
+        if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_len):
             return True
 
         if cur_x == 0 or cur_x == self.cake_width:
