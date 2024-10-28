@@ -26,7 +26,7 @@ def sorted_assignment(R, V):
 
     # Assign polygons to requests by area in ascending order
     for request_idx in request_indices:
-        assignment.append(polygon_indices[request_idx])
+        assignment.append(int(polygon_indices[request_idx]))
     return assignment
     
 def optimal_assignment(R, V):
@@ -45,7 +45,7 @@ def optimal_assignment(R, V):
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
     
     # Assignment array where assignment[i] is the index of V matched to R[i]
-    assignment = [col_indices[i] for i in range(num_requests)]
+    assignment = [int(col_indices[i]) for i in range(num_requests)]
     assignment = [i+1 if (i >= len(assignment) // 2) else i for i in assignment]
     
     return assignment
