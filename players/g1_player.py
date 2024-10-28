@@ -10,24 +10,24 @@ import logging
 import constants
 
 def sorted_assignment(R, V):
-        assignment = []  
-        # list of indices of polygons sorted by area
-        polygon_indices = list(np.argsort(V))
+    assignment = []  
+    # list of indices of polygons sorted by area
+    polygon_indices = list(np.argsort(V))
 
-        # remove the last piece from the list of polygons
-        if len(R) == 1:
-            polygon_indices.remove(0)
-        elif len(V) > 1:
-            last_piece_idx = len(V) // 2
-            polygon_indices.remove(last_piece_idx)
+    # remove the last piece from the list of polygons
+    if len(R) == 1:
+        polygon_indices.remove(0)
+    elif len(V) > 1:
+        last_piece_idx = len(V) // 2
+        polygon_indices.remove(last_piece_idx)
 
-        # list of indices of requests sorted by area in ascending order
-        request_indices = list(np.argsort(np.argsort(R)))
+    # list of indices of requests sorted by area in ascending order
+    request_indices = list(np.argsort(np.argsort(R)))
 
-        # Assign polygons to requests by area in ascending order
-        for request_idx in request_indices:
-            assignment.append(polygon_indices[request_idx])
-        return assignment
+    # Assign polygons to requests by area in ascending order
+    for request_idx in request_indices:
+        assignment.append(polygon_indices[request_idx])
+    return assignment
     
 def optimal_assignment(R, V):
     V.remove(V[len(V) // 2])
@@ -177,7 +177,7 @@ class Player:
                         self.num_requests_cut += 1
                         return constants.CUT, next_knife_pos
 
-            # [TODO -- need to consider cases where cake is too large]  
+            # case where cake is larger than EASY_LEN_BOUND
             else:
                 if turn_number == 1:
                     self.angle = np.radians(17)
@@ -278,7 +278,10 @@ class Player:
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
-        assignment = optimal_assignment(current_percept.requests, V)
+        if cake_len <= self.EASY_LEN_BOUND:
+            assignment = sorted_assignment(current_percept.requests, V)
+        else:
+            assignment = optimal_assignment(current_percept.requests, V)
 
         return constants.ASSIGN, assignment
     
