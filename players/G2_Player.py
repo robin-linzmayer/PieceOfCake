@@ -29,6 +29,10 @@ class G2_Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.move_queue = []
+        self.move_queue = []
+
+        self.phase = 'HORIZONTAL'
+        self.direction = ''
 
     def cut(self, cake_len, cake_width, cur_pos) -> (int, List[int]):
         if cur_pos[0] == 0:
@@ -58,43 +62,86 @@ class G2_Player:
 
         # if we are on the top or bottom or the board and require more than 1 move
         if y_dist == 0 and (x_dist > 0.1 or nearest_x != end_x):
-            bounce_y = nearest_y-0.01
-            if bounce_y < 0: bounce_y = nearest_y+0.01
+            bounce_y = bounce(nearest_y)
             self.move_queue.append([end_x, bounce_y])
 
             # if the end is not on the same line so we must ricochet off of corner
             if end_y_dist > 0 or nearest_y != end_y:
-                bounce_x = end_x-0.01
-                if bounce_x < 0: bounce_x = end_x+0.01
+                bounce_x = bounce(end_x)
                 self.move_queue.append([bounce_x, nearest_y])
 
                 # if the end position is on the opposite side
                 if end_y_dist == 0:
-                    bounce_y = end_y-0.01
-                    if bounce_y < 0: bounce_y = end_y+0.01
+                    bounce_y = bounce(end_y)
                     self.move_queue.append([bounce_x, end_y])
                     self.move_queue.append([end_x, bounce_y])
 
         # if we are on the left or right side of the board and require more than 1 move
         elif x_dist == 0 and (y_dist > 0.1 or nearest_y != end_y):
-            bounce_x = nearest_x-0.01
-            if bounce_x < 0: bounce_x = nearest_x+0.01
+            bounce_x = bounce(nearest_x)
             self.move_queue.append([bounce_x, end_y])
 
             # if the end is not on the same line so we must ricochet off of corner
             if end_x_dist > 0 or nearest_x != end_x:
-                bounce_y = end_y-0.01
-                if bounce_y < 0: bounce_y = end_y+0.01
+                bounce_y = bounce(end_y)
                 self.move_queue.append([nearest_x, bounce_y])
 
                 # if the end position is on the opposite side
                 if end_x_dist == 0:
-                    bounce_x = end_x-0.01
-                    if bounce_x < 0: bounce_x = end_x+0.01
+                    bounce_x = bounce(end_x)
                     self.move_queue.append([end_x, bounce_y])
                     self.move_queue.append([bounce_x, end_y])
             
         self.move_queue.append(end_pos)
+        return
+    
+    def even_cuts(self, current_percept):
+        polygons = current_percept.polygons
+        turn_number = current_percept.turn_number
+        cur_pos = current_percept.cur_pos
+        requests = current_percept.requests
+        cake_len = current_percept.cake_len
+        cake_width = current_percept.cake_width
+
+        n = len(requests)
+        s = round(np.sqrt(cake_len * cake_width / n), 2)
+        pos = cur_pos
+
+        if turn_number == 2:
+            self.move_queue.append([0,s])
+            self.move_queue.append([cake_width,s])
+            return
+        
+        if self.phase == 'HORIZONTAL' and pos[1]+s >= cake_len:
+            self.phase = 'VERTICAL'
+            if pos[0] == 0: new_x = s
+            else:
+                new_x = cake_width-s
+                self.direction = 'RIGHT'
+            self.sneak(pos, [new_x, cake_len], cake_width, cake_len)
+            self.move_queue.append([new_x, 0])
+
+            return
+
+        if self.phase == 'HORIZONTAL':
+            self.sneak(pos, [pos[0], pos[1]+s], cake_width, cake_len)
+            if pos[0]==0: opposite = cake_width
+            else: opposite = 0
+            self.move_queue.append([opposite, round(pos[1]+s, 2)])
+
+        else:
+            if self.direction == 'RIGHT': new_x = pos[0]-s
+            else: new_x = pos[0]+s
+
+            if new_x <= 0 or new_x >= cake_width:
+                self.phase = 'DONE'
+                return
+
+            self.sneak(pos, [new_x, pos[1]], cake_width, cake_len)
+            if pos[1]==0: opposite = cake_len
+            else: opposite = 0
+            self.move_queue.append([new_x, opposite])
+
         return
 
     def move(self, current_percept) -> (int, List[int]):
@@ -116,13 +163,16 @@ class G2_Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
-        print('DEBUG: ', polygons, turn_number, cur_pos, requests, cake_len, cake_width)
-
+        
         if turn_number == 1:
-            return constants.INIT, [8, 0]
+            return constants.INIT, [0.01, 0]
+        
+        if len(self.move_queue) == 0 and self.phase != 'DONE':
+            self.even_cuts(current_percept)
         
         if len(self.move_queue) > 0:
-            cut = self.move_queue.pop(0)
+            next_val = self.move_queue.pop(0)
+            cut = [round(next_val[0], 2), round(next_val[1], 2)]
             return constants.CUT, cut
 
         if len(polygons) < len(requests):
@@ -132,7 +182,7 @@ class G2_Player:
         
 def nearest_edge_x(pos, cake_width):
     '''
-    returns the nearest X-edge and the distance to said edge
+    Returns the nearest X-edge and the distance to said edge
     X-edge is 0 if the position is closer to the left side, or cake_width
         if it is closer to the right side.
     '''
@@ -145,7 +195,7 @@ def nearest_edge_x(pos, cake_width):
     
 def nearest_edge_y(pos, cake_len):
     '''
-    returns the nearest Y-edge and the distance to said edge
+    Returns the nearest Y-edge and the distance to said edge
     Y-edge is 0 if the position is closer to the top, or cake_len
         if it is closer to the bottom.
     '''
@@ -155,3 +205,11 @@ def nearest_edge_y(pos, cake_len):
         min_y = cake_len - pos[1]
         y_edge = cake_len
     return y_edge, min_y
+
+def bounce(margin):
+    '''
+    Returns a value 0.01 away from the provided margin
+    '''
+    if margin == 0:
+        return 0.01
+    return round(margin-0.01, 2)
