@@ -4,6 +4,16 @@ import logging
 import constants
 import miniball
 
+from enum import Enum
+
+from piece_of_cake_state import PieceOfCakeState
+
+
+class Strategy(Enum):
+    SNEAK = "sneak"
+    CLIMB_HILLS = "climb_hills"
+    SAWTOOTH = "sawtooth"
+
 
 class G2_Player:
     def __init__(
@@ -32,6 +42,7 @@ class G2_Player:
 
         self.phase = "HORIZONTAL"
         self.direction = ""
+        self.strategy = Strategy.SNEAK
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
         if cur_pos[0] == 0:
@@ -113,42 +124,37 @@ class G2_Player:
         self.move_queue.append(end_pos)
         return
 
-    def even_cuts(self, current_percept):
-        '''
+    def even_cuts(self):
+        """
         Adds moves to the merge queue that will cut the cake into even slices.
-        '''
-        turn_number = current_percept.turn_number
-        cur_pos = current_percept.cur_pos
-        requests = current_percept.requests
-        cake_len = current_percept.cake_len
-        cake_width = current_percept.cake_width
+        """
 
-        n = len(requests)
-        s_x = cake_width / np.sqrt(n)
-        s_y = cake_len / np.sqrt(n)
-        pos = cur_pos
+        n = len(self.requests)
+        s_x = self.cake_width / np.sqrt(n)
+        s_y = self.cake_len / np.sqrt(n)
+        pos = self.cur_pos
 
-        if turn_number == 2:
+        if self.turn_number == 2:
             self.move_queue.append([0, s_y])
-            self.move_queue.append([cake_width, s_y])
+            self.move_queue.append([self.cake_width, s_y])
             return
 
-        if self.phase == "HORIZONTAL" and pos[1] + s_y >= cake_len:
+        if self.phase == "HORIZONTAL" and pos[1] + s_y >= self.cake_len:
             self.phase = "VERTICAL"
             if pos[0] == 0:
                 new_x = s_x
             else:
-                new_x = cake_width - s_x
+                new_x = self.cake_width - s_x
                 self.direction = "RIGHT"
-            self.sneak(pos, [new_x, cake_len], cake_width, cake_len)
+            self.sneak(pos, [new_x, self.cake_len], self.cake_width, self.cake_len)
             self.move_queue.append([new_x, 0])
 
             return
 
         if self.phase == "HORIZONTAL":
-            self.sneak(pos, [pos[0], pos[1] + s_y], cake_width, cake_len)
+            self.sneak(pos, [pos[0], pos[1] + s_y], self.cake_width, self.cake_len)
             if pos[0] == 0:
-                opposite = cake_width
+                opposite = self.cake_width
             else:
                 opposite = 0
             self.move_queue.append([opposite, round(pos[1] + s_y, 2)])
@@ -159,13 +165,13 @@ class G2_Player:
             else:
                 new_x = pos[0] + s_x
 
-            if new_x <= 0 or new_x >= cake_width:
+            if new_x <= 0 or new_x >= self.cake_width:
                 self.phase = "DONE"
                 return
 
-            self.sneak(pos, [new_x, pos[1]], cake_width, cake_len)
+            self.sneak(pos, [new_x, pos[1]], self.cake_width, self.cake_len)
             if pos[1] == 0:
-                opposite = cake_len
+                opposite = self.cake_len
             else:
                 opposite = 0
             self.move_queue.append([new_x, opposite])
@@ -220,23 +226,12 @@ class G2_Player:
                     penalty += penalty_percentage
         return penalty
 
-    def move(self, current_percept) -> tuple[int, List[int]]:
-        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
-        self.polygons = current_percept.polygons
-        turn_number = current_percept.turn_number
-        cur_pos = current_percept.cur_pos
-        self.requests = current_percept.requests
-        cake_len = current_percept.cake_len
-        cake_width = current_percept.cake_width
-
-        current_penalty = self.__calculate_penalty()
-        print(f"current penalty: {current_penalty}")
-
-        if turn_number == 1:
+    def sneak_alg(self):
+        if self.turn_number == 1:
             return constants.INIT, [0.01, 0]
 
         if len(self.move_queue) == 0 and self.phase != "DONE":
-            self.even_cuts(current_percept)
+            self.even_cuts()
 
         if len(self.move_queue) > 0:
             next_val = self.move_queue.pop(0)
@@ -244,17 +239,43 @@ class G2_Player:
             return constants.CUT, cut
 
         if len(self.polygons) < len(self.requests):
-            if cur_pos[0] == 0:
+            if self.cur_pos[0] == 0:
                 return constants.CUT, [
-                    cake_width,
-                    round((cur_pos[1] + 5) % cake_len, 2),
+                    self.cake_width,
+                    round((self.cur_pos[1] + 5) % self.cake_len, 2),
                 ]
             else:
-                return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
+                return constants.CUT, [
+                    0,
+                    round((self.cur_pos[1] + 5) % self.cake_len, 2),
+                ]
+
         if len(self.polygons) < len(self.requests):
-            return self.cut(cake_len, cake_width, cur_pos)
+            return self.cut(self.cake_len, self.cake_width, self.cur_pos)
         else:
             return self.assign(self.polygons, self.requests)
+
+    def process_percept(self, current_percept: PieceOfCakeState):
+        self.polygons = current_percept.polygons
+        self.turn_number = current_percept.turn_number
+        self.cur_pos = current_percept.cur_pos
+        self.requests = current_percept.requests
+        self.cake_len = current_percept.cake_len
+        self.cake_width = current_percept.cake_width
+
+    def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
+        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
+        self.process_percept(current_percept)
+
+        current_penalty = self.__calculate_penalty()
+        print(f"current penalty: {current_penalty}")
+
+        match self.strategy:
+            case Strategy.SNEAK:
+                return self.sneak_alg()
+
+            case _:
+                return self.sneak_alg()
 
 
 def nearest_edge_x(pos, cake_width):
