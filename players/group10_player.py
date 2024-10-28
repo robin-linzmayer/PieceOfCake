@@ -32,7 +32,7 @@ class Player:
         self.requests = None
         self.cuts = []
 
-    def move(self, current_percept) -> (int, List[int]):
+    def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
 
             Args:
@@ -67,6 +67,7 @@ class Player:
         if self.cake_diagonal <= 25:
             # assign pieces
             if (cut_number > len(self.requests)):
+                # print("I AM TRYING TO ASSIGN PIECES")
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
             current_area = self.requests[cut_number - 1]
@@ -97,26 +98,37 @@ class Player:
     def calcDiagonal(self):
         return (math.sqrt((self.cake_len * self.cake_len) + (self.cake_width * self.cake_width)))
     
-    def assignPolygons(self, polygons):
+    def assignPolygons(self, polygons) -> list[int]:
         # parse polygons to polygon_areas: dict(rank: (area, i))
+        # print(polygons)
         polygon_areas = []
         requests_items = []
         for i in range(len(polygons)):
             polygon_areas.append((polygons[i].area, i)) 
         for i in range(len(self.requests)):
             requests_items.append((self.requests[i], i))
+        # print("AREAS: ", polygon_areas)
+        # print("REQUESTS: ", requests_items)
+
         matches = {} # polygon : request
+
         for i in range(len(requests_items)):
+            # print(f"I AM ON {i} ITERATION")
             min_diff = math.inf
             polygon = -1
             polygon_index = -1
+            # print("INIT COMPLETE")
             for j in range(len(polygon_areas)):
-                if math.abs(polygon_areas[j][0] - requests_items[i][0]) < min_diff:
-                    min_diff = math.abs(polygon_areas[j][0] - requests_items[i][0])
+                # print("area ", polygon_areas[j][0])
+                # print("request ", requests_items[i][0])
+                temp_diff = abs(float(polygon_areas[j][0]) - float(requests_items[i][0]))
+                # print("TEMP DIFF SET")
+                if temp_diff < min_diff:
+                    min_diff = temp_diff
                     polygon = polygon_areas[j][1]
                     polygon_index = j
-            print ("polygon:", polygon)
-            assignment[polygon] = i
+            # print ("polygon:", polygon)
+            matches[polygon] = i
             polygon_areas.pop(polygon_index)
         
         assignment = []
@@ -125,6 +137,7 @@ class Player:
                 assignment.append(matches[i])
             else:
                 assignment.append(-1)
+        # print(assignment)
         return assignment
                 
 
