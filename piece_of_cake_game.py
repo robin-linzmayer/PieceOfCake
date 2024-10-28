@@ -15,6 +15,7 @@ from piece_of_cake_state import PieceOfCakeState
 from constants import *
 import constants
 from utils import *
+from players.g9_player import Player as G9_Player
 from players.default_player import Player as DefaultPlayer
 from players.player_7 import Player as G7_Player
 from shapely.geometry import Polygon, LineString, Point
