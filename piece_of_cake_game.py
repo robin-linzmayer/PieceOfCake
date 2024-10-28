@@ -5,6 +5,7 @@ import time
 import signal
 import numpy as np
 import math
+# import matplotlib.pyplot as plt
 
 from shapely import points, centroid
 
@@ -15,10 +16,19 @@ from constants import *
 import constants
 from utils import *
 from players.default_player import Player as DefaultPlayer
+# from players.G2_Player import G2_Player
+# from players.g6_player import Player as G6_Player
+# from players.g1_player import Player as G1_Player
+# from players.group10_player import Player as G10_Player
+# from players.player_7 import Player as G7_Player
+# from players.g9_player import Player as G9_Player
+# from players.g5_player import Player as G5_Player
 from players.group_3 import Player as G3_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
+
+from players.g4_player import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
@@ -299,14 +309,17 @@ class PieceOfCakeGame:
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
-            try:
-                # Call the player's move function for turn on this move
-                returned_action = self.player.move(
-                    current_percept=before_state
-                )
-            except Exception:
-                print("Exception in player code")
-                returned_action = None
+            # try:
+            #     # Call the player's move function for turn on this move
+            #     returned_action = self.player.move(
+            #         current_percept=before_state
+            #     )
+            # except Exception:
+            #     print("Exception in player code")
+            #     returned_action = None
+            returned_action = self.player.move(
+                current_percept=before_state
+            )
 
             player_time_taken = time.time() - player_start
             self.logger.debug("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
@@ -384,15 +397,39 @@ class PieceOfCakeGame:
         if (action[0] == constants.INIT or action[0] == constants.CUT) and not all(isinstance(x, (int, float)) and x == round(x, 2) for x in action[1]):
             return False
 
-        if (action[0] == constants.ASSIGN) and len(action[1]) != len(self.requests) and len(action[1]) != len(set(action[1])):
-            return False
+        # For assign action, check
+        # 1 if the length of the list is equal to the number of requests
+        # 2 All the values which are greater than -1 are unique
+        # 3 All the values are integers and greater than -1
+
+        if action[0] == constants.ASSIGN:
+            if len(action[1]) != len(self.requests):
+                return False
+            temp = [x for x in action[1] if x != -1]
+            if len(set(temp)) != len(temp):
+                return False
+            if not all(isinstance(x, int) and x >= -1 for x in action[1]):
+                return False
 
         return True
 
+    def invalid_knife_position(self, pos):
+        cur_x, cur_y = pos
+        if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_len):
+            return True
+
+        if cur_x == 0 or cur_x == self.cake_width:
+            if cur_y < 0 or cur_y > self.cake_len:
+                return True
+
+        if cur_y == 0 or cur_y == self.cake_len:
+            if cur_x < 0 or cur_x > self.cake_width:
+                return True
+        return False
+
     def check_and_apply_action(self, action):
         if action[0] == constants.INIT:
-            cur_x, cur_y = action[1]
-            if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_width):
+            if self.invalid_knife_position(action[1]):
                 return False
             self.cur_pos = action[1]
             return True
@@ -400,8 +437,7 @@ class PieceOfCakeGame:
             cur_x, cur_y = action[1]
 
             # Check if the next position is on the boundary of the cake
-            print(self.cake_width, self.cake_len)
-            if (cur_x != 0 and cur_x != self.cake_width) and (cur_y != 0 and cur_y != self.cake_len):
+            if self.invalid_knife_position(action[1]):
                 return False
 
             # If the next position is same then the cut is invalid
