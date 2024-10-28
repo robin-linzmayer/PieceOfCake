@@ -1,12 +1,56 @@
 import os
 import pickle
 from typing import List
+from scipy.optimize import linear_sum_assignment
+
 
 import numpy as np
 import logging
 
 import constants
 
+def sorted_assignment(R, V):
+        assignment = []  
+        # list of indices of polygons sorted by area
+        polygon_indices = list(np.argsort(V))
+
+        # remove the last piece from the list of polygons
+        if len(R) == 1:
+            polygon_indices.remove(0)
+        elif len(V) > 1:
+            last_piece_idx = len(V) // 2
+            polygon_indices.remove(last_piece_idx)
+
+        # list of indices of requests sorted by area in ascending order
+        request_indices = list(np.argsort(np.argsort(R)))
+
+        # Assign polygons to requests by area in ascending order
+        for request_idx in request_indices:
+            assignment.append(polygon_indices[request_idx])
+        return assignment
+    
+def optimal_assignment(R, V):
+    V.remove(V[len(V) // 2])
+    # Number of requests and values
+    num_requests = len(R)
+    num_values = len(V)
+    
+    # Initialize cost matrix based on relative differences
+    cost_matrix = np.zeros((num_requests, num_values))
+    
+    # Fill the cost matrix with relative differences
+    for i, r in enumerate(R):
+        for j, v in enumerate(V):
+            cost_matrix[i][j] = abs(r - v) / r
+
+    # Solve the assignment problem using the Hungarian algorithm
+    row_indices, col_indices = linear_sum_assignment(cost_matrix)
+    
+    # Create the assignment array where assignment[i] is the index of V matched to R[i]
+    assignment = [col_indices[i] for i in range(num_requests)]
+    assignment = [i+1 if (i >= len(assignment) // 2) else i for i in assignment]
+    
+    return assignment
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -44,6 +88,16 @@ class Player:
         self.num_requests_cut = 0
         self.knife_pos = []
 
+    def get_starting_pos(self, requests):
+        area = sum(requests) * 1.05
+        h = np.sqrt(area / 1.6)
+        w = h * 1.6
+        return [0, round(h * (3/4), 2)]
+        # TODO: Actual logic
+
+    
+
+
     def move(self, current_percept) -> (int, List[int]):
         """Function which returns an action.
 
@@ -62,6 +116,7 @@ class Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+        cake_height = current_percept.cake_width / 1.6
 
 
         ####################
@@ -113,32 +168,95 @@ class Player:
                         return constants.CUT, next_knife_pos
 
             # [TODO -- need to consider cases where cake is too large]  
-            # else:
+            else:
+                if turn_number == 1:
+                    self.angle = 22.5
+                    starting_pos = self.get_starting_pos(requests)
+                    self.knife_pos.append(starting_pos)
+                    return constants.INIT, starting_pos
+                    
+
+                if self.num_requests_cut < num_requests:
+                    # Left side
+                    if cur_pos[0] == 0:
+                        # Right/Top -> Left -> Down
+                        if current_percept.turn_number > 2 and (
+                            self.knife_pos[-2][1] == 0 or (self.knife_pos[-2][0] == cake_width and self.knife_pos[-3][1] == 0)):
+                            l = (cake_len - cur_pos[1]) / np.tan(self.angle)
+                            if l > cake_width:
+                                x = cake_width
+                                y = cake_len - ((l - cake_width) * np.tan(self.angle))
+                            else:
+                                x = l
+                                y = cake_len
+
+                        # Bottom -> Left -> Up
+                        else:
+                            l = cur_pos[1] / np.tan(self.angle)
+                            if l > cake_width:
+                                x = cake_width
+                                y = (l - cake_width) * np.tan(self.angle)
+                            else:
+                                x = l
+                                y = 0
+
+                    # Right side
+                    elif cur_pos[0] == cake_width:
+                        # Left/Down -> Right -> Up
+                        if self.knife_pos[-2][0] == 0 or self.knife_pos[-2][1] == cake_len:
+                            l = cur_pos[1] / np.tan(self.angle)
+                            if l > cake_width:
+                                x = 0
+                                y = np.tan(self.angle) * (l - cake_width)
+                            else:
+                                x = cake_width - l
+                                y = 0
+                        # Top -> Right -> Down
+                        else:
+                            l = (cake_len - cur_pos[1]) / np.tan(self.angle)
+                            if l > cake_width:
+                                x = 0
+                                y = cake_len - (np.tan(self.angle) * (l - cake_width))
+                            else:
+                                x = cake_width - l
+                                y = cake_len
+                        # self.knife_pos[-2][1] / cake_width - cur_pos[0]       
+
+
+                    # Top
+                    elif cur_pos[1] == 0:
+                        # This only works now if starting from left/right
+                        # Left -> Right
+                        if self.knife_pos[-2][0] == 0:
+                            x = cake_width
+                            y = np.tan(self.angle) * (cake_width - cur_pos[0])
+                        # Right -> Left
+                        else:
+                            x = 0
+                            y = np.tan(self.angle) * cur_pos[0]
+                    
+                    # Bottom
+                    else:
+                        # This only works now if starting from left/right
+                        # Left -> Right
+                        if self.knife_pos[-2][0] == 0:
+                            x = cake_width
+                            y = cake_len - (np.tan(self.angle) * (cake_width - cur_pos[0]))
+                        # Right -> Left
+                        else:
+                            x = 0
+                            y = cake_len - (np.tan(self.angle) * cur_pos[0])
+                    
+                    next_knife_pos = [round(x, 2), round(y, 2)]
+                    self.knife_pos.append(next_knife_pos)
+                    self.num_requests_cut += 1
+                    return constants.CUT, next_knife_pos
 
 
         #######################
         # ASSIGNMENT STRATEGY #
         #######################
-
-        assignment = []
-        polygon_areas = [p.area for p in polygons]
-        
-        # list of indices of polygons sorted by area
-        polygon_indices = list(np.argsort(polygon_areas))
-
-        # remove the last piece from the list of polygons
-        if len(requests) == 1:
-            polygon_indices.remove(0)
-        elif len(polygon_areas) > 1:
-            last_piece_idx = len(polygon_areas) // 2
-            polygon_indices.remove(last_piece_idx)
-
-        # list of indices of requests sorted by area in ascending order
-        request_indices = list(np.argsort(np.argsort(current_percept.requests)))
-
-        # Assign polygons to requests by area in ascending order
-        for request_idx in request_indices:
-            assignment.append(polygon_indices[request_idx])
+        V = [p.area for p in polygons]
+        assignment = optimal_assignment(current_percept.requests, V)
 
         return constants.ASSIGN, assignment
-    
