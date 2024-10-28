@@ -20,22 +20,7 @@ class Player:
                 tolerance (int): tolerance for the cake distribution
                 cake_len (int): Length of the smaller side of the cake
         """
-
-        # precomp_path = os.path.join(precomp_dir, "{}.pkl".format(map_path))
-
-        # # precompute check
-        # if os.path.isfile(precomp_path):
-        #     # Getting back the objects:
-        #     with open(precomp_path, "rb") as f:
-        #         self.obj0, self.obj1, self.obj2 = pickle.load(f)
-        # else:
-        #     # Compute objects to store
-        #     self.obj0, self.obj1, self.obj2 = _
-
-        #     # Dump the objects
-        #     with open(precomp_path, 'wb') as f:
-        #         pickle.dump([self.obj0, self.obj1, self.obj2], f)
-
+        
         self.rng = rng
         self.logger = logger
         self.tolerance = tolerance
@@ -47,18 +32,6 @@ class Player:
         self.preplanned_moves = deque()
 
     def move(self, current_percept) -> (int, List[int]):
-        """Function which retrieves the current state of the amoeba map and returns an amoeba movement
-
-            Args:
-                current_percept(TimingMazeState): contains current state information
-            Returns:
-                int: This function returns the next move of the user:
-                    WAIT = -1
-                    LEFT = 0
-                    UP = 1
-                    RIGHT = 2
-                    DOWN = 3
-        """
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
@@ -79,22 +52,27 @@ class Player:
                 self.preplanned_moves.append([cur_x, cur_y])
                 self.num_splits += 1
                 
-            if cur_x == 0:
-                self.preplanned_moves.append([0.01, cake_len])
-            elif cur_x == cake_width:
+            if cur_x == cake_width:
                 self.preplanned_moves.append([cake_width - 0.01, cake_len])
-            self.preplanned_moves.append([0, cake_len - 0.01])
+                self.preplanned_moves.append([0, cake_len - 0.01])
+            self.preplanned_moves.append([0.01, cake_len])
         
         if self.preplanned_moves:
             dest_x, dest_y = self.preplanned_moves.popleft()
             return constants.CUT, [round(dest_x, 2), round(dest_y, 2)]
         
-        if len([poly for poly in polygons if poly.area > 0.5]) < len(requests):
+        valid_polygons = [poly for poly in polygons if poly.area > 0.5]
+        if len(valid_polygons) < len(requests):
             if cur_pos[1] == 0:
-                return constants.CUT, [cur_pos[0], cake_len]
+                self.shift_along(cur_pos, [cur_pos[0] + self.vertical_split_gap, 0], cake_len, cake_width)
+                self.preplanned_moves.append([cur_pos[0] + self.vertical_split_gap, cake_len])
             else:
-                return constants.CUT, [cur_pos[0] + self.vertical_split_gap, 0]
-            
+                self.shift_along(cur_pos, [cur_pos[0] + self.vertical_split_gap, cake_len], cake_len, cake_width)
+                self.preplanned_moves.append([cur_pos[0] + self.vertical_split_gap, 0])
+                
+            dest_x, dest_y = self.preplanned_moves.popleft()
+            return constants.CUT, [round(dest_x, 2), round(dest_y, 2)]
+        
         assignment = []
         for i in range(len(requests)):
             assignment.append(i)
