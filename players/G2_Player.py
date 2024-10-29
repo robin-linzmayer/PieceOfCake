@@ -9,8 +9,8 @@ from shapely.geometry import Polygon
 from piece_of_cake_state import PieceOfCakeState
 from players.g2.helpers import *
 from players.g2.even_cuts import *
-from players.g2.assigns import sorted_assign, index_assign
-
+from players.g2.assigns import sorted_assign, index_assign, hungarian_min_penalty, dp_min_penalty
+from players.g2.assigns import greedy_best_fit_assignment
 
 class Strategy(Enum):
     SNEAK = "sneak"
@@ -56,7 +56,7 @@ class G2_Player:
         self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
     ) -> tuple[int, List[int]]:
 
-        assignment: list[int] = assign_func(self.polygons, self.requests)
+        assignment: list[int] = assign_func(self.polygons, self.requests, self.tolerance)
 
         return constants.ASSIGN, assignment
 
@@ -134,7 +134,11 @@ class G2_Player:
 
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
-                return self.assign(sorted_assign)
+                if len(self.requests) < 10:
+                    #print("Brute Force!")
+                    return self.assign(greedy_best_fit_assignment)
+                else:
+                    return self.assign(greedy_best_fit_assignment)
 
             return move
 
