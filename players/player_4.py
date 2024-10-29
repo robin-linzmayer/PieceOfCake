@@ -89,7 +89,6 @@ class Player:
 		"""
 			Function to create a cost matrix based on the areas of polygons and requests
 		"""
-		# Implement your logic here
 		n = len(polygons)
 		m = len(requests)
 
