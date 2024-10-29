@@ -134,7 +134,7 @@ class G2_Player:
 
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
-                self.assign(sorted_assign)
+                return self.assign(sorted_assign)
 
             return move
 
