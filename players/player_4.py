@@ -129,6 +129,29 @@ class Player:
 
 
 		return matches
+	
+	def cost_function(self, polygons, requests):
+		"""
+			Function to calculate the total cost of the assignment
+		"""
+		matches = self.hungarian_algorithm(polygons, requests)
+		total_cost = sum(penalty for _, _, penalty in matches)
+		return total_cost
+	
+	def hill_climbing(self, polygons, requests):
+		"""
+			Function to implement hill climbing optimization for assignment
+		"""
+		pass
+
+	def translate_to_valid_moves(self, matches):
+		"""
+			Function to translate the matches to valid moves
+
+			It should use the breadcrumb trail to determine the path to take
+		"""
+		pass
+		# Implement your logic here
 
 		
 
