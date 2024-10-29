@@ -210,7 +210,9 @@ class Player:
 
             # case where cake is larger than EASY_LEN_BOUND
             else:
-                pass
+                self.divide_horizontally()
+                self.make_vertical_cuts()
+                self.make_triangles()
 
 
         #######################
