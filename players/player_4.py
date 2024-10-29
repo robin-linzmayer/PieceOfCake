@@ -138,11 +138,49 @@ class Player:
 		total_cost = sum(penalty for _, _, penalty in matches)
 		return total_cost
 	
-	def hill_climbing(self, polygons, requests):
+	def hill_climbing(self, polygons, requests, cuts):
 		"""
 			Function to implement hill climbing optimization for assignment
 		"""
-		pass
+		current_objective = self.cost_function(polygons, requests)
+
+		current_cuts = cuts.copy()
+
+		while True:
+			# Get the neighborhood of the current cuts
+			neighborhood = self.get_neighborhood(current_cuts)
+
+			# Try moving cuts
+
+			improved = False
+			for neighbor in neighborhood:
+				neighbor_objective = self.cost_function(polygons, requests)
+
+				if neighbor_objective < current_objective:
+					current_cuts = neighbor
+					current_objective = neighbor_objective
+					improved = True
+
+			if not improved:
+				break
+
+			# Try adding cuts
+			if not improved:
+				# Implement logic to add cuts
+				pass
+
+		return current_cuts
+	
+	def get_neighborhood(self, cuts):
+		"""
+			Function to get the neighborhood of the current cuts
+		"""
+		neighborhood = []
+		# Implement your logic here
+		return neighborhood
+
+
+
 
 	def translate_to_valid_moves(self, matches):
 		"""
