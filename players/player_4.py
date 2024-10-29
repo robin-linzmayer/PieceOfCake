@@ -1,6 +1,7 @@
 import os
 import pickle
 from typing import List
+from scipy.optimize import linear_sum_assignment
 
 import numpy as np
 import logging
@@ -83,3 +84,53 @@ class Player:
 		"""
 		# Implement your logic here
 		pass
+
+	def create_cost_matrix(self, polygons, requests):
+		"""
+			Function to create a cost matrix based on the areas of polygons and requests
+		"""
+		# Implement your logic here
+		n = len(polygons)
+		m = len(requests)
+
+		cost_matrix = np.full((n, m), np.inf)  # Initialize with infinity
+
+		for i in range(n):
+			for j in range(m):
+
+				difference = abs(polygons[i].area - requests[j])
+
+				if difference <= self.tolerance:
+					cost_matrix[i][j] = 0		# No penalty
+				else:
+					cost_matrix[i][j] = (difference / requests[j]) * 100 # Penalty
+
+
+
+		return cost_matrix
+
+	def hungarian_algorithm(self, polygons, requests):
+		"""
+			Function to implement the Hungarian algorithm for optimal assignment
+		"""
+
+		cost_matrix = self.create_cost_matrix(polygons, requests)
+
+		# Use the Hungarian method to find the optimal assignment
+		row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+		matches = []
+
+		for i, j in zip(row_ind, col_ind):
+			if cost_matrix[i][j] < np.inf:
+				penalty = cost_matrix[i][j]
+
+				# THIS RETURNS AN INDEX!!!! MAY NEED TO BE ADJUSTED
+				matches.append((i, j, penalty))
+
+
+		return matches
+
+		
+
+
