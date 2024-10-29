@@ -30,7 +30,6 @@ def sorted_assignment(R, V):
     return assignment
     
 def optimal_assignment(R, V):
-    V.remove(V[len(V) // 2])
     num_requests = len(R)
     num_values = len(V)
     
@@ -46,7 +45,6 @@ def optimal_assignment(R, V):
     
     # Assignment array where assignment[i] is the index of V matched to R[i]
     assignment = [int(col_indices[i]) for i in range(num_requests)]
-    assignment = [i+1 if (i >= len(assignment) // 2) else i for i in assignment]
     
     return assignment
 
@@ -352,11 +350,8 @@ class Player:
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
-        if cake_len <= self.EASY_LEN_BOUND:
-            assignment = sorted_assignment(current_percept.requests, V)
-        else:
-            assignment = optimal_assignment(current_percept.requests, V)
-
+        assignment = optimal_assignment(current_percept.requests, V)
+        
         return constants.ASSIGN, assignment
     
     
