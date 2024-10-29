@@ -89,7 +89,7 @@ class G8_Player:
         if turn_number == 1:
             # initialize these variables
             self.assignment = [-1 for _ in range(len(requests))]
-            self.requests = sorted(requests)
+            self.requests = requests
             self.cake = polygons[0]
             self.cake_len = cake_len
             self.cake_width = cake_width
@@ -105,7 +105,7 @@ class G8_Player:
             self.solution_polygons = list(self.solution)
             x, y = self.solution.pop(0)
 
-            return constants.INIT, [x, y]
+            return constants.INIT, [round(x, 2), round(y, 2)]
 
         if len(self.solution) == 0:
             return self.assign_polygons(self.solution_polygons)
@@ -288,27 +288,24 @@ class G8_Player:
         Get mapping of requests to pieces after cutting.
         Returns (ASSIGN, assignments) where assignments[i] is the piece index assigned to request i
         """
-        # Split cake into pieces
         pieces = [self.cake]
-        for cut in cuts:
+
+        for i in range(len(cuts) - 1):
+            cut_line = LineString([cuts[i], cuts[i + 1]])
             new_pieces = []
             for piece in pieces:
-                if cut.intersects(piece):
-                    split_result = split(piece, cut)
+                if cut_line.intersects(piece):
+                    split_result = split(piece, cut_line)
                     new_pieces.extend(list(split_result.geoms))
                 else:
                     new_pieces.append(piece)
             pieces = new_pieces
 
-        # Create cost matrix
         n_pieces = len(pieces)
         n_requests = len(self.requests)
         cost_matrix = np.zeros((max(n_pieces, n_requests), max(n_pieces, n_requests)))
-
-        # Fill with high penalties for the empty/excess slots
         cost_matrix.fill(100)
 
-        # Fill in actual costs
         for i, piece in enumerate(pieces):
             if not self.fits_on_plate(piece):
                 cost_matrix[i, :n_requests] = 100
@@ -319,49 +316,13 @@ class G8_Player:
                     penalty = max(0, deviation - self.tolerance)
                     cost_matrix[i, j] = penalty
 
-        # Get optimal assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        assignments = [-1] * len(self.requests)
 
-        # Convert to required format
-        assignments = [-1] * len(self.requests)  # Initialize with -1 for unassigned
         for piece_idx, request_idx in zip(row_ind, col_ind):
-            if request_idx < len(self.requests):  # Only include valid request indices
-                assignments[request_idx] = piece_idx if piece_idx < n_pieces else -1
+            if request_idx < len(self.requests):
+                assignments[request_idx] = (
+                    int(piece_idx) if piece_idx < n_pieces else -1
+                )
 
-        return (
-            constants.ASSIGN,
-            assignments,
-        )
-
-    # def assign_polygons(self, polygons, requests: List[float]):
-    #     assignments = [-1] * len(requests)
-    #     request_indices = sorted(
-    #         range(len(requests)), key=lambda i: requests[i], reverse=True
-    #     )  # Sort requests by size (largest to smallest)
-    #
-    #     # Keep track of available polygons
-    #     available_polygons = list(range(len(polygons)))
-    #
-    #     for req_idx in request_indices:
-    #         request_size = requests[req_idx]
-    #         best_polygon = None
-    #         min_diff = float("inf")  # Set a very high initial value for the difference
-    #
-    #         # Find the polygon with the closest area to the current request
-    #         for poly_idx in available_polygons:
-    #             polygon_area = polygons[poly_idx].area
-    #             diff = abs(polygon_area - request_size)
-    #
-    #             if diff < min_diff:
-    #                 min_diff = diff
-    #                 best_polygon = poly_idx
-    #
-    #         # Assign the best polygon and remove it from the available list
-    #         assignments[req_idx] = best_polygon
-    #         available_polygons.remove(best_polygon)
-    #
-    #         print(
-    #             f"Assigning polygon {best_polygon} to request {req_idx}, area: {polygons[best_polygon].area:.2f}, request: {request_size:.2f}"
-    #         )
-    #
-    #     return constants.ASSIGN, assignments
+        return constants.ASSIGN, assignments
