@@ -2,16 +2,19 @@ import os
 import pickle
 from typing import List
 
-import numpy as np
 import logging
 
-import constants
-from piece_of_cake_state import PieceOfCakeState
+import numpy as np
 
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 
+from scipy.optimize import linear_sum_assignment
+
 import miniball
+
+import constants
+from piece_of_cake_state import PieceOfCakeState
 
 
 class G8_Player:
@@ -52,7 +55,7 @@ class G8_Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
-        self.remaining_requests = None
+        self.requests = None
         self.cut_path = []
         self.assignment = []
         self.inital_state = None
@@ -84,7 +87,7 @@ class G8_Player:
         if turn_number == 1:
             # initialize these variables
             self.assignment = [-1 for _ in range(len(requests))]
-            self.remaining_requests = sorted(requests)
+            self.requests = sorted(requests)
             self.cake = polygons
             self.cake_len = cake_len
             self.cake_width = cake_width
@@ -100,11 +103,11 @@ class G8_Player:
             self.cut_path.append(start_position)
             return constants.INIT, start_position
 
-        if len(self.remaining_requests) == 0:
+        if len(self.requests) == 0:
             return self.assign_polygons(polygons, requests)
 
         # Cut the max request remaining
-        max_request = self.remaining_requests.pop()
+        max_request = self.requests.pop()
 
         # We could also assign here early instead of doing it later
         print("cutting for request: ", max_request)
@@ -140,8 +143,50 @@ class G8_Player:
 
         return points
 
-    def generate_next_points(self):
-        pass
+    def generate_next_points(self, current_point: tuple[int, int]):
+        """Generate possible next points on valid edges"""
+        points = []
+        samples = 10
+
+        current_edge = self.get_edge(current_point)
+
+        for i, (x1, y1), (x2, y2) in enumerate(self.edges):
+            if i != current_edge:  # Can't cut to same edge
+                for t in np.linspace(0, 1, samples):
+                    x = x1 + t * (x2 - x1)
+                    y = y1 + t * (y2 - y1)
+                    points.append((x, y))
+
+        return points
+
+    def calculate_penalties(self, pieces: list[Polygon]):
+        """Calculate penalties using Hungarian algorithm"""
+        n = len(pieces)
+
+        cost_matrix = np.zeros((n, n))
+
+        for i, piece in enumerate(pieces):
+            if not self.fits_on_plate(piece):
+                # If piece doesn't fit, set penalty to 100 for all possible assignments
+                cost_matrix[i, :] = 100
+            else:
+                area = piece.area
+                for j, request in enumerate(self.requests):
+                    deviation = abs(area - request) / request * 100
+                    penalty = max(0, deviation - self.tolerance)
+                    cost_matrix[i][j] = penalty
+
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        return cost_matrix[row_ind, col_ind].sum()
+
+    def calculate_cut_length(self, points: list[tuple[float, float]]) -> float:
+        """Calculate total length of cut sequence"""
+        total_length = 0
+        for i in range(len(points) - 1):
+            x1, y1 = points[i]
+            x2, y2 = points[i + 1]
+            total_length += np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        return total_length
 
     def get_edge(self, point: tuple[int, int], tolerance: float = 1e-10):
         """Get what edge a point lies on"""
@@ -162,15 +207,15 @@ class G8_Player:
 
         raise ValueError(f"Point {point} not on any edge")
 
-    def cut_psuedo_cake(self):
-        """Works to find the optimal cuts givin the initial state"""
-        new_pieces = []
-        for polygon in self.inital_state.polygons:
-            line_points = LineString([tuple(self.cur_pos), tuple(action[1])])
-            slices = self.divide_polygon(polygon, line_points)
-            for cut in slices:
-                new_pieces.append(cut)
-
+    # def cut_psuedo_cake(self):
+    #     """Works to find the optimal cuts givin the initial state"""
+    #     new_pieces = []
+    #     for polygon in self.inital_state.polygons:
+    #         line_points = LineString([tuple(self.cur_pos), tuple(action[1])])
+    #         slices = self.divide_polygon(polygon, line_points)
+    #         for cut in slices:
+    #             new_pieces.append(cut)
+    #
     def divide_polygon(self, polygon, line):
         """
         Divide a convex polygon by a line segment into two polygons.
@@ -199,6 +244,28 @@ class G8_Player:
             polygons.append(p)
 
         return polygons
+
+    def fits_on_plate(self, cake_piece, radius=12.5):
+        """
+        Check if the cake can fit inside a plate of radius 12.5.
+
+        Parameters:
+        - cake_pieces: Cake pieces (as shapely Polygon object)
+        - radius: The radius of the circle
+
+        Returns:
+        - True if the cake can fit inside the plate, False otherwise
+        """
+        # Step 1: Get the points on the cake piece and store as numpy array
+
+        cake_points = np.array(
+            list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double
+        )
+
+        # Step 2: Find the minimum bounding circle of the cake piece
+        res = miniball.miniball(cake_points)
+
+        return res["radius"] <= radius
 
     def assign_polygons(self, polygons, requests: List[float]):
         assignments = [-1] * len(requests)
