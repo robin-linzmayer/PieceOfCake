@@ -94,6 +94,36 @@ class Player:
         # TODO: Actual logic
 
     
+    def traverse_borders(self, to_pos):
+        """
+        Helper function that moves the knife from current position to next position by
+        traversing the borders.
+        """
+        pass
+
+    
+    def divide_horizontally(self):
+        """
+        Divide the cake into horizontal slices of length < EASY_LEN_BOUND.
+        """
+        pass
+
+
+    def make_vertical_cuts(self):
+        """
+        Find groups of m requests (where m is the number of horizontal slices) of the
+        same size within the tolerance. Make verticle cuts to serve rectangular pieces
+        of same size for each group.
+        """
+        pass
+
+
+    def make_triangles(self):
+        """
+        Optimally allocate remaining pieces by making diagonal cuts and serving
+        triangular pieces.
+        """
+        pass
 
 
     def move(self, current_percept) -> (int, List[int]):
@@ -112,7 +142,7 @@ class Player:
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
         requests = current_percept.requests
-        cake_len = current_percept.cake_len
+        self.cake_len = current_percept.cake_len        # store cake length in class variable
         cake_width = current_percept.cake_width
 
 
@@ -123,7 +153,7 @@ class Player:
         # sort requests by area in ascending order
         requests = sorted(requests)
         num_requests = len(requests)
-        cake_area = cake_len * cake_width
+        cake_area = self.cake_len * cake_width
 
         # slice off 5% extra if only one request
         if num_requests == 1:
@@ -131,13 +161,14 @@ class Player:
                 return constants.INIT, [0,0]
             elif self.num_requests_cut < num_requests:
                 extra_area = 0.05 * requests[0]
-                extra_base = round(2 * extra_area / cake_len, 2)
+                extra_base = round(2 * extra_area / self.cake_len, 2)
                 self.num_requests_cut += 1
-                return constants.CUT, [extra_base, cake_len]
+                return constants.CUT, [extra_base, self.cake_len]
 
         # all other non-edge cases
         elif num_requests > 1:
-            if cake_len <= self.EASY_LEN_BOUND:
+            # case where cake is smaller than EASY_LEN_BOUND
+            if self.cake_len <= self.EASY_LEN_BOUND:
                 # initialize starting knife position
                 if turn_number == 1:
                     self.knife_pos.append([0,0])
@@ -146,15 +177,15 @@ class Player:
                 if self.num_requests_cut < num_requests:
                     # compute size of base from current polygon area
                     curr_polygon_area = requests[self.num_requests_cut]
-                    curr_polygon_base = round(2 * curr_polygon_area / cake_len, 2)
+                    curr_polygon_base = round(2 * curr_polygon_area / self.cake_len, 2)
 
                     if cur_pos[1] == 0:
                         # knife is currently on the top cake edge
                         if turn_number == 2:
-                            next_knife_pos = [curr_polygon_base, cake_len]
+                            next_knife_pos = [curr_polygon_base, self.cake_len]
                         else:
                             next_x = round(self.knife_pos[-2][0] + curr_polygon_base, 2)
-                            next_y = cake_len
+                            next_y = self.cake_len
                             # when knife goes over the cake width
                             if next_x > cake_width:
                                 next_x = cake_width
@@ -171,7 +202,7 @@ class Player:
                         # when knife goes over the cake width
                         if next_x > cake_width:
                             next_x = cake_width
-                            next_y = cake_len - round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
                         next_knife_pos = [next_x, next_y]
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
@@ -179,106 +210,14 @@ class Player:
 
             # case where cake is larger than EASY_LEN_BOUND
             else:
-                if turn_number == 1:
-                    self.angle = np.radians(17)
-                    # self.angle = 10
-                    starting_pos = self.get_starting_pos(requests)
-                    self.knife_pos.append(starting_pos)
-                    return constants.INIT, starting_pos
-                    
-
-                if self.num_requests_cut < num_requests:
-                    # Left side
-                    if cur_pos[0] == 0:
-                        # Right/Top -> Left -> Down
-                        if current_percept.turn_number > 2 and (
-                            self.knife_pos[-2][1] == 0 or (self.knife_pos[-2][0] == cake_width and self.knife_pos[-3][1] == 0)):
-                            l = (cake_len - cur_pos[1]) / np.tan(self.angle)
-                            if l > cake_width:
-                                x = cake_width
-                                y = cake_len - ((l - cake_width) * np.tan(self.angle))
-                            else:
-                                x = l
-                                y = cake_len
-
-                        # Bottom -> Left -> Up
-                        else:
-                            l = cur_pos[1] / np.tan(self.angle)
-                            if l > cake_width:
-                                x = cake_width
-                                y = (l - cake_width) * np.tan(self.angle)
-                            else:
-                                x = l
-                                y = 0
-
-                    # Right side
-                    elif cur_pos[0] == cake_width:
-                        # Left/Down -> Right -> Up
-                        if self.knife_pos[-2][0] == 0 or self.knife_pos[-2][1] == cake_len:
-                            l = cur_pos[1] / np.tan(self.angle)
-                            if l > cake_width:
-                                x = 0
-                                y = np.tan(self.angle) * (l - cake_width)
-                            else:
-                                x = cake_width - l
-                                y = 0
-                        # Top -> Right -> Down
-                        else:
-                            l = (cake_len - cur_pos[1]) / np.tan(self.angle)
-                            if l > cake_width:
-                                x = 0
-                                y = cake_len - (np.tan(self.angle) * (l - cake_width))
-                            else:
-                                x = cake_width - l
-                                y = cake_len
-                        # self.knife_pos[-2][1] / cake_width - cur_pos[0]       
-
-
-                    # Top
-                    elif cur_pos[1] == 0:
-                        # This only works now if starting from left/right
-                        l = (cake_width - cur_pos[1]) * np.tan(self.angle)
-                        if l > cake_len:
-                            x = cake_width - ((l - cake_len) * np.tan(self.angle))
-                            y = cake_len
-                        else:
-                            # Left -> Right
-                            if self.knife_pos[-2][0] == 0 or (self.knife_pos[-2][1] == cake_len and self.knife_pos[-3][0] == cake_len):
-                                x = cake_width
-                                y = np.tan(self.angle) * (cake_width - cur_pos[0])
-                            # Right -> Left
-                            else:
-                                x = 0
-                                y = np.tan(self.angle) * cur_pos[0]
-                    
-                    # Bottom
-                    else:
-                        # This only works now if starting from left/right
-                        l = cur_pos[1] * np.tan(self.angle)
-                        if l > cake_len:
-                            x = (l - cake_len) * np.tan(self.angle)
-                            y = 0
-                        else:
-                            # Left -> Right
-                            if self.knife_pos[-2][0] == 0 or (self.knife_pos[-2][1] == 0 and self.knife_pos[-3][0] == 0):
-                                x = cake_width
-                                y = cake_len - (np.tan(self.angle) * (cake_width - cur_pos[0]))
-                            # Right -> Left
-                            else:
-                                x = 0
-                                y = cake_len - (np.tan(self.angle) * cur_pos[0])
-                    
-                    next_knife_pos = [round(x, 2), round(y, 2)]
-                    self.knife_pos.append(next_knife_pos)
-                    self.num_requests_cut += 1
-                    return constants.CUT, next_knife_pos
+                pass
 
 
         #######################
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
-        if cake_len <= self.EASY_LEN_BOUND:
+        if self.cake_len <= self.EASY_LEN_BOUND:
             assignment = sorted_assignment(current_percept.requests, V)
         else:
             assignment = optimal_assignment(current_percept.requests, V)
