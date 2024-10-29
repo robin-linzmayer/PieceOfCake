@@ -3,11 +3,11 @@ import pickle
 from typing import List
 from scipy.optimize import linear_sum_assignment
 
-
+import math
 import numpy as np
 import logging
-
 import constants
+
 
 def sorted_assignment(R, V):
     assignment = []  
@@ -29,6 +29,7 @@ def sorted_assignment(R, V):
         assignment.append(int(polygon_indices[request_idx]))
     return assignment
     
+
 def optimal_assignment(R, V):
     V.remove(V[len(V) // 2])
     num_requests = len(R)
@@ -49,6 +50,14 @@ def optimal_assignment(R, V):
     assignment = [i+1 if (i >= len(assignment) // 2) else i for i in assignment]
     
     return assignment
+
+
+def euclidean_distance(point1, point2):
+    """
+    Calculate the Euclidean distance between two points.
+    """
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -82,6 +91,7 @@ class Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
+        self.cake_width = None
         self.EASY_LEN_BOUND = 23.507
         self.num_requests_cut = 0
         self.knife_pos = []
@@ -94,12 +104,52 @@ class Player:
         # TODO: Actual logic
 
     
-    def traverse_borders(self, to_pos):
+    def traverse_borders(self, from_pos, to_pos):
         """
         Helper function that moves the knife from current position to next position by
         traversing the borders.
         """
-        pass
+        # Throw error if to_pos is the same as current position
+        if from_pos == to_pos:
+            raise ValueError("Knife is already at the desired position.")
+        
+        # Move to same border (should require 2 cuts)
+        if from_pos[0] == 0 and to_pos[0] == 0:
+            return
+        elif from_pos[0] == self.cake_width and to_pos[0] == self.cake_width:
+            return
+        elif from_pos[1] == 0 and to_pos[1] == 0:
+            return
+        elif from_pos[1] == self.cake_len and to_pos[1] == self.cake_len:
+            return
+
+        # Move to adjacent border (should require 3 cuts)
+        elif from_pos[0] == 0 and to_pos[1] == 0:
+            return
+        elif from_pos[0] == 0 and to_pos[1] == self.cake_len:
+            return
+        elif from_pos[0] == self.cake_width and to_pos[1] == 0:
+            return
+        elif from_pos[0] == self.cake_width and to_pos[1] == self.cake_len:
+            return
+        elif from_pos[1] == 0 and to_pos[0] == 0:
+            return
+        elif from_pos[1] == 0 and to_pos[0] == self.cake_width:
+            return
+        elif from_pos[1] == self.cake_len and to_pos[0] == 0:
+            return
+        elif from_pos[1] == self.cake_len and to_pos[0] == self.cake_width:
+            return
+
+        # Move to opposite border (should require 4 cuts)
+        elif from_pos[0] == 0 and to_pos[0] == self.cake_width:
+            return
+        elif from_pos[0] == self.cake_width and to_pos[0] == 0:
+            return
+        elif from_pos[1] == 0 and to_pos[1] == self.cake_len:
+            return
+        elif from_pos[1] == self.cake_len and to_pos[1] == 0:
+            return
 
     
     def divide_horizontally(self):
@@ -142,8 +192,10 @@ class Player:
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
         requests = current_percept.requests
-        self.cake_len = current_percept.cake_len        # store cake length in class variable
-        cake_width = current_percept.cake_width
+
+        # store cake dimensions in class variables
+        self.cake_len = current_percept.cake_len
+        self.cake_width = current_percept.cake_width
 
 
         ####################
@@ -153,7 +205,7 @@ class Player:
         # sort requests by area in ascending order
         requests = sorted(requests)
         num_requests = len(requests)
-        cake_area = self.cake_len * cake_width
+        cake_area = self.cake_len * self.cake_width
 
         # slice off 5% extra if only one request
         if num_requests == 1:
@@ -187,9 +239,9 @@ class Player:
                             next_x = round(self.knife_pos[-2][0] + curr_polygon_base, 2)
                             next_y = self.cake_len
                             # when knife goes over the cake width
-                            if next_x > cake_width:
-                                next_x = cake_width
-                                next_y = round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                            if next_x > self.cake_width:
+                                next_x = self.cake_width
+                                next_y = round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
                             next_knife_pos = [next_x, next_y]
 
                         self.knife_pos.append(next_knife_pos)
@@ -200,9 +252,9 @@ class Player:
                         next_x = round(self.knife_pos[-2][0] + curr_polygon_base, 2)
                         next_y = 0
                         # when knife goes over the cake width
-                        if next_x > cake_width:
-                            next_x = cake_width
-                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                        if next_x > self.cake_width:
+                            next_x = self.cake_width
+                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
                         next_knife_pos = [next_x, next_y]
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
