@@ -130,6 +130,31 @@ class G8_Player:
     def decide_where_to_start(self, current_percept):
         return [0, 0]
 
+    def evaluate_cut_sequence(
+        self, points: list[tuple[float, float]]
+    ) -> tuple[float, float]:
+        """Evaluate a sequence of cut endpoints, returning (penalty, total_cut_length)"""
+        # Convert points to cuts
+        cuts = []
+        for i in range(len(points) - 1):
+            cuts.append(LineString([points[i], points[i + 1]]))
+
+        # Split cake into pieces
+        pieces = [self.cake]
+        for cut in cuts:
+            new_pieces = []
+            for piece in pieces:
+                if cut.intersects(piece):
+                    split_result = split(piece, cut)
+                    new_pieces.extend(list(split_result.geoms))
+                else:
+                    new_pieces.append(piece)
+            pieces = new_pieces
+
+        # Calculate penalties (handles both area mismatches and plate fitting)
+        penalties = self.calculate_penalties(pieces)
+        return penalties, self.calculate_cut_length(points)
+
     def generate_initial_points(self):
         """Generate possible starting points along the perimeter"""
         points = []
@@ -161,20 +186,26 @@ class G8_Player:
 
     def calculate_penalties(self, pieces: list[Polygon]):
         """Calculate penalties using Hungarian algorithm"""
-        n = len(pieces)
+        n_pieces = len(pieces)
+        n_requests = len(self.requests)
 
-        cost_matrix = np.zeros((n, n))
+        # Make the cost matrix rectangular instead of square
+        cost_matrix = np.zeros((max(n_pieces, n_requests), max(n_pieces, n_requests)))
 
+        # Fill with high penalties for the empty/excess slots
+        cost_matrix.fill(100)
+
+        # Fill in the actual penalties for existing pieces and requests
         for i, piece in enumerate(pieces):
             if not self.fits_on_plate(piece):
                 # If piece doesn't fit, set penalty to 100 for all possible assignments
-                cost_matrix[i, :] = 100
+                cost_matrix[i, :n_requests] = 100
             else:
                 area = piece.area
                 for j, request in enumerate(self.requests):
                     deviation = abs(area - request) / request * 100
                     penalty = max(0, deviation - self.tolerance)
-                    cost_matrix[i][j] = penalty
+                    cost_matrix[i, j] = penalty
 
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         return cost_matrix[row_ind, col_ind].sum()
@@ -182,10 +213,12 @@ class G8_Player:
     def calculate_cut_length(self, points: list[tuple[float, float]]) -> float:
         """Calculate total length of cut sequence"""
         total_length = 0
+
         for i in range(len(points) - 1):
             x1, y1 = points[i]
             x2, y2 = points[i + 1]
             total_length += np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
         return total_length
 
     def get_edge(self, point: tuple[int, int], tolerance: float = 1e-10):
