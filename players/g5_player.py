@@ -3,6 +3,7 @@ import pickle
 from typing import List
 
 import numpy as np
+import math
 import logging
 import miniball
 
@@ -65,67 +66,141 @@ class Player:
 
 
     def generate_corner_cuts(self, requests):
+        """Greedy algorithm that cuts small pieces out of corners"""
         # Sort the list from least to greatest
         self.requests_list = sorted(requests)
-        corners = [1,2,3,4]
-        corner = 1
+        print(self.requests_list)
+        boundary_points = []
 
-        positions = [(0, round(np.sqrt(2*self.requests_list[0]), 2)), (round(np.sqrt(2*self.requests_list[0]), 2), 0)]
+        # Add the first isosceles piece
+        positions = [(round(np.sqrt(2*self.requests_list[0]), 2), 0), (0, round(np.sqrt(2*self.requests_list[0]), 2))]
 
         x = 1
+        corner = "NW"
+        area = self.requests_list[0]
         while x < len(self.requests_list):
-            if corner == 1:
-                if positions[-1][0] == 0:
-                    base = round(positions[-2][0] + (2*self.requests_list[x]/positions[-1][1]), 2)
-                    potential_point = [base, 0]
-                elif positions[-1][1] == 0:
-                    base = round(positions[-2][1] + (2*self.requests_list[x]/positions[-1][0]), 2)
-                    potential_point = [0, base]
 
-            elif corner == 2:
-                if positions[-1][1] == 0:
-                    base = round(positions[-2][1] + (2*self.requests_list[x]/(self.cake_width-positions[-1][0])), 2)
-                    potential_point = [self.cake_width, base]
-                elif positions[-1][0] == self.cake_width:
-                    base = round(positions[-2][0] - (2*self.requests_list[x]/positions[-1][1]), 2)
-                    potential_point = [base, 0]
+            '''# In northwest corner, go from left edge to top edge
+            if positions[-1][0] == 0:
+                base = round(positions[-2][0] + (2*self.requests_list[x]/positions[-1][1]), 2)
+                potential_point = [base, 0]
 
+            # In northwest corner, go from top edge to left edge
+            elif positions[-1][1] == 0:
+                base = round(positions[-2][1] + (2*self.requests_list[x]/positions[-1][0]), 2)
+                potential_point = [0, base]
 
+            # In southeast corner, go from right edge to bottom edge
+            elif positions[-1][0] == self.cake_width:
+                base = round(positions[-2][0] - (2*self.requests_list[x]/(self.cake_len-positions[-1][1])), 2)
+                potential_point = [base, self.cake_len]
+
+            # In southeast corner, go from bottom edge to right edge
+            elif positions[-1][1] == self.cake_len:
+                base = round(positions[-2][1] - (2*self.requests_list[x]/(self.cake_width-positions[-1][0])), 2)
+                potential_point = [self.cake_width, base]
+
+            # Check if piece fits on plate
             points = np.array([list(positions[-1]), list(positions[-2]), potential_point])
+            res = miniball.miniball(points)'''
+
+            points = []
+
+            area += self.requests_list[x]
+            base = round(np.sqrt(2*area), 2)
+
+            if corner == "NW":
+                horizontal = (base, 0)
+                vertical = (0, base)
+            elif corner == "SE":
+                vertical = (self.cake_width, self.cake_len - base)
+                horizontal = (self.cake_width - base, self.cake_len)
+        
+            points = np.array([list(vertical), list(horizontal), list(positions[-1]), list(positions[-2])])
             res = miniball.miniball(points)
 
             if res["radius"] <= 12.5:
-                positions.append(tuple(potential_point))
+                # Starting on left edge
+                if positions[-1][0] == 0:
+                    positions.append((0.01, 0))
+                    positions.append(vertical)
+                    positions.append(horizontal)
+                    
+                # Starting on top edge
+                elif positions[-1][1] == 0:
+                    positions.append((0, 0.01))
+                    positions.append(horizontal)
+                    positions.append(vertical)
+
+                # Starting on right edge
+                elif positions[-1][0] == self.cake_width:
+                    positions.append((self.cake_width-0.01, self.cake_len))
+                    positions.append(vertical)
+                    positions.append(horizontal)
+
+                # Starting on bottom edge
+                elif positions[-1][1] == self.cake_len:
+                    positions.append((self.cake_width, self.cake_len-0.01))
+                    positions.append(horizontal)
+                    positions.append(vertical)
+
 
             else:   # Jump to new corner
-                if positions[-1][0] == 0 and positions[-2][1] == 0: #TODO
-                    positions.append((0.1, self.cake_len))
-                    corners.remove(corner)
-                    corner = 4
+                boundary_points.append(positions[-1])
+                boundary_points.append(positions[-2])
+                if corner == "SE":
+                    break
 
-                elif positions[-1][1] == 0 and positions[-2][0] == 0:
-                    positions.append((self.cake_width, 0.1))
-                    positions.append((round(self.cake_width - np.sqrt(2*self.requests_list[x+1]), 2), 0))
-                    positions.append((self.cake_width, round(np.sqrt(2*self.requests_list[x+1]), 2)))
-                    corners.remove(corner)
-                    corner = 2
-                    x += 1
+                potential_point_1 = [self.cake_width, self.cake_len]
+                potential_point_2 = [round(self.cake_width - np.sqrt(2*self.requests_list[x]), 2), self.cake_len]
+                potential_point_3 = [self.cake_width, round(self.cake_len - np.sqrt(2*self.requests_list[x]), 2)]
+                points = np.array([potential_point_1, potential_point_2, potential_point_3])
+                res = miniball.miniball(points)
 
-                elif positions[-1][1] == 0 and positions[-2][0] == self.cake_width: #TODO
-                    positions.append((self.cake_len, self.cake_width-1))
-                    corner = 3
+                # If next piece too big for southeast corner, stop algorithm
+                if res["radius"] > 12.5:
+                    break
 
-                elif positions[-1][0] == self.cake_width and positions[-2][1] == 0:
-                    positions.append((self.cake_width-0.1, self.cake_len))
-                    positions.append((self.cake_width, round(self.cake_len - np.sqrt(2*self.requests_list[x+1]), 2)))
-                    positions.append((round(self.cake_width - np.sqrt(2*self.requests_list[x+1]), 2), self.cake_len))
-                    corners.remove(corner)
-                    corner = 3
-                    x += 1
+                # Go to southeast corner from top edge                           
+                if positions[-1][1] == 0:
+                    positions.append((self.cake_width, 0.01))
+                    positions.append((self.cake_width-0.01, self.cake_len))
+                    positions.append(tuple(potential_point_3))
+                    positions.append(tuple(potential_point_2))
+                    corner = "SE"
+                    area = self.requests_list[x]
+
+                # Go to southeast corner from left edge
+                elif positions[-1][0] == 0:
+                    positions.append((0.01, self.cake_len))
+                    positions.append((self.cake_width, self.cake_len-0.01))
+                    positions.append(tuple(potential_point_2))
+                    positions.append(tuple(potential_point_3))
+                    corner = "SE"
+                    area = self.requests_list[x]
 
             x += 1
 
+        if positions[-1][1] == self.cake_len:
+            for b in boundary_points:
+                if b[0] == 0:
+                    positions.append(b)
+                    for bb in boundary_points:
+                        if bb[1] == 0:
+                            positions.append(bb)
+                    positions.append(positions[-4])
+        elif positions[-1][0] == self.cake_width:
+                for b in boundary_points:
+                    if b[1] == 0:
+                        positions.append(b)
+                        for bb in boundary_points:
+                            if bb[0] == 0:
+                                positions.append(bb)
+                        positions.append(positions[-4])
+
+        
         print(positions)
+        print(boundary_points)
         self.zigzag_positions = positions
 
 
