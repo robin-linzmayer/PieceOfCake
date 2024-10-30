@@ -33,6 +33,8 @@ class Player:
         self.cuts = []
         self.base_case_switch = False
         self.working_height = None
+        self.uniform_mode = False
+        self.uniform_cuts = []
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -47,6 +49,10 @@ class Player:
                     RIGHT = 2
                     DOWN = 3
         """
+        extra_tol = 0 #Change if we suck
+        if not self.uniform_mode:
+            is_uniform, grid_area = self.if_uniform(current_percept.requests, extra_tol)
+
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cut_number = current_percept.turn_number - 1
@@ -80,7 +86,7 @@ class Player:
             y = cur_pos[1]
 
             if self.base_case_switch:
-                # TODO: this currently retraces the past cut and creates triangles from the same poin
+                # TODO: this currently retraces the past cut and creates triangles from the same point
                 x = self.cuts[cut_number - 2][0]
                 y = self.cuts[cut_number - 2][1]
                 if y != 0:
@@ -107,7 +113,12 @@ class Player:
 
             self.cuts.append((x, y))
             return constants.CUT, [x, y]
+        elif self.uniform_mode or is_uniform:
+            if not self.uniform_mode: # why not uniform?
+                self.uniform_cuts = self.grid_cut(current_percept, grid_area)
+    
             
+            #return constants.CUT, self.uniform_cuts[cut_number]
         else:
             if len(polygons) != len(self.requests):
                 if cur_pos[0] == 0:
@@ -166,6 +177,49 @@ class Player:
         print("THIS IS MY ASSIGNMENT", assignment)
         return assignment
                 
+    #Returns whether if it is uniform, and the area of the uniform. If not, area is -1
+    def if_uniform(self, requests, extra_tol=0.0) -> tuple[bool, float]:
+        tolerance = self.tolerance + extra_tol
+        skewed_average = (1 - tolerance**2)*(sum(requests) / len(requests))
+        print("THIS IS OUR TRUE AVG: ", sum(requests)/len(requests))
+        print("THIS IS OUR SKEWED AVG: ", skewed_average)
+        for req in requests:
+            print("WE ARE CHECKING THIS REQ: ", req)
+            print("WE ARE CHECKING IF: ", abs(req-skewed_average)/req)
+            if (abs(req-skewed_average)/req) >= tolerance:
+                return (False, -1)
+            
+        return (True, skewed_average)
+    
+    #Cuts into grid using crumbs method, returns the coordinate to cut to.
+    def grid_cut(self, current_percept, grid_area) -> list[float, float]:
+        length_shave = 0.01266028 * self.cake_len
+        width_shave = 1.6 * length_shave
+        s_factor, l_factor = self.find_closest_factors()
+        x_cuts = [width_shave] # first cut
+        y_cuts = [length_shave] # first cut
+        x_increment = (self.cake_len-2*width_shave)/l_factor
+        y_increment = (self.cake_len-2*length_shave)/s_factor
+        for ind in s_factor:
+            y_cuts.append(y_cuts[ind]+y_increment)
+        for ind in l_factor:
+            x_cuts.append(x_cuts[ind]+x_increment)
+
+
+
+
+    #Finds the closest factor with the number of requests
+    def find_closest_factors(self) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
+        num_of_requests = len(self.requests)
+        factors = []
+        for num in range(int(num_of_requests**0.5),0,-1):
+            if num_of_requests % num == 0:
+                factors.append([num, num_of_requests//num])
+            if factors:
+                return factors[0]
+        # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
+        
+        
 
 
 
