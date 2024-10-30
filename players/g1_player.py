@@ -67,7 +67,7 @@ class Player:
         Add cut to the list of pending cuts. If the cut is in the list of old cuts,
         increment the appropriate coordinate by increment.
         """
-        new_dest = [dest[0], dest[1]]
+        new_dest = [round(dest[0], 2), round(dest[1], 2)]
         cut = (origin[0], origin[1], new_dest[0], new_dest[1])
         sym_cut = (cut[2], cut[3], cut[0], cut[1])
         while cut in self.pending_cuts or sym_cut in self.pending_cuts:
@@ -233,16 +233,19 @@ class Player:
         """
         if self.num_horizontal == 2:
             # start from the right
-            self.knife_pos.append([self.cake_width, self.cake_len / 2])
-            return constants.INIT, [self.cake_width, self.cake_len / 2]
+            y_pos = round(self.cake_len / 2, 2)
+            self.knife_pos.append([self.cake_width, y_pos])
+            return constants.INIT, [self.cake_width, y_pos]
         elif self.num_horizontal == 3:
             # start from the left
-            self.knife_pos.append([0, self.cake_len / 3])
-            return constants.INIT, [0, self.cake_len / 3]
+            y_pos = round(self.cake_len / 3, 2)
+            self.knife_pos.append([0, y_pos])
+            return constants.INIT, [0, y_pos]
         elif self.num_horizontal == 4:
             # start from the right
-            self.knife_pos.append([self.cake_width, self.cake_len / 4])
-            return constants.INIT, [self.cake_width, self.cake_len / 4]
+            y_pos = round(self.cake_len / 4, 2)
+            self.knife_pos.append([self.cake_width, y_pos])
+            return constants.INIT, [self.cake_width, y_pos]
 
     
     def divide_horizontally(self):
@@ -262,7 +265,7 @@ class Player:
             self.pending_cuts.append(cut_1)
             self.knife_pos.append([cut_1[2], cut_1[3]])
 
-            interim_y = cut_1[3] + self.cake_len / 3
+            interim_y = cut_1[3] + round(self.cake_len / 3, 2)
             interim_pos = self.traverse_borders([cut_1[2], cut_1[3]], [cut_1[2], interim_y])
             
             cut_2 = (interim_pos[0], interim_pos[1], 0, interim_pos[1])
@@ -275,14 +278,14 @@ class Player:
             self.pending_cuts.append(cut_1)
             self.knife_pos.append([cut_1[2], cut_1[3]])
 
-            interim1_y = cut_1[3] + self.cake_len / 4
+            interim1_y = cut_1[3] + round(self.cake_len / 4, 2)
             interim1_pos = self.traverse_borders([cut_1[2], cut_1[3]], [cut_1[2], interim1_y])
 
             cut_2 = (interim1_pos[0], interim1_pos[1], self.cake_width, interim1_pos[1])
             self.pending_cuts.append(cut_2)
             self.knife_pos.append([cut_2[2], cut_2[3]])
 
-            interim2_y = cut_2[3] + self.cake_len / 4
+            interim2_y = cut_2[3] + round(self.cake_len / 4, 2)
             interim2_pos = self.traverse_borders([cut_2[2], cut_2[3]], [cut_2[2], interim2_y])
 
             cut_3 = (interim2_pos[0], interim2_pos[1], 0, interim2_pos[1])
