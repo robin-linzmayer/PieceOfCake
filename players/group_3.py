@@ -127,8 +127,8 @@ class Player:
             cur_x, cur_y = cur_pos[0], cur_pos[1]
 
             if turn_number == 2:
-                if base > 4.45:
-                    raise Exception('Base is too big')
+                if cake_len ** 2 + base ** 2 > 25 ** 2:
+                    raise Exception("First cut doesn't fit on plate.")
                 dest_x, dest_y = base, cake_len
             else:
                 dest_x = round(self.preplanned_moves[-2][0] + base, 2)
