@@ -40,12 +40,50 @@ def generate_easy():
 def generate_medium():
     return [100] * 17
 
+def generate_small():
+    return [10]*10
 
-with open("requests/group_6/hard.json", "w") as json_file:
-    json.dump({"requests": generate_hard()}, json_file, indent=4)
+def generate_large():
+    return [100]*100
 
-with open("requests/group_6/easy.json", "w") as json_file:
-    json.dump({"requests": generate_easy()}, json_file, indent=4)
+def generate_random():
+    numbers =[]
+    for _ in range(2):
+        num = random.gauss(90.82, 3.5)
+        while num < 80 or num > 100:
+            num = random.gauss(90.82, 3.5)
+        numbers.append(round(num, 2))
+    for _ in range(3):
+        num = random.gauss(10.78, 2.12)
+        while num < 10 or num > 15:
+            num = random.gauss(10.78, 2.12)
+        numbers.append(round(num, 2))
+    return numbers
 
-with open("requests/group_6/medium.json", "w") as json_file:
-    json.dump({"requests": generate_medium()}, json_file, indent=4)
+def generate_uniform():
+    return [i for i in range(10,100,3)]
+
+
+
+# with open("requests/group_6/hard.json", "w") as json_file:
+#     json.dump({"requests": generate_hard()}, json_file, indent=4)
+
+# with open("requests/group_6/easy.json", "w") as json_file:
+#     json.dump({"requests": generate_easy()}, json_file, indent=4)
+
+# with open("requests/group_6/medium.json", "w") as json_file:
+#     json.dump({"requests": generate_medium()}, json_file, indent=4)
+
+
+# with open("requests/group_6/small.json", "w") as json_file:
+#     json.dump({"requests": generate_small()}, json_file, indent=4)
+
+
+# with open("requests/group_6/large.json", "w") as json_file:
+#     json.dump({"requests": generate_large()}, json_file, indent=4)
+
+# with open("requests/group_6/random.json", "w") as json_file:
+#     json.dump({"requests": generate_random()}, json_file, indent=4)
+
+with open("requests/group_6/uniform.json", "w") as json_file:
+    json.dump({"requests": generate_uniform()}, json_file, indent=4)
