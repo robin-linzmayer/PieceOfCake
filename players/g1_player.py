@@ -57,10 +57,9 @@ class Player:
         self.cake_width = None
         self.num_requests_cut = 0
         self.knife_pos = []
-        self.num_horizontal = 1
+        self.num_horizontal = None
         self.cuts_created = False
         self.pending_cuts = []
-        self.old_cuts = []
 
     
     def add_available_cut(self, origin, dest, coord, increment):
@@ -71,11 +70,12 @@ class Player:
         new_dest = [dest[0], dest[1]]
         cut = (origin[0], origin[1], new_dest[0], new_dest[1])
         sym_cut = (cut[2], cut[3], cut[0], cut[1])
-        while cut in self.old_cuts or sym_cut in self.old_cuts:
+        while cut in self.pending_cuts or sym_cut in self.pending_cuts:
             new_dest[coord] += increment
             cut = (origin[0], origin[1], new_dest[0], new_dest[1])
             sym_cut = (cut[2], cut[3], cut[0], cut[1])
         self.pending_cuts.append(cut)
+        self.knife_pos.append(new_dest)
         return new_dest
 
 
@@ -226,21 +226,71 @@ class Player:
                 interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
                 return self.add_available_cut(interim_pos_3, to_pos, 0, MIN_CUT_INCREMENT)
 
+
+    def set_starting_pos(self):
+        """
+        Set starting knife position based on num_horizontal.
+        """
+        if self.num_horizontal == 2:
+            # start from the right
+            self.knife_pos.append([self.cake_width, self.cake_len / 2])
+            return constants.INIT, [self.cake_width, self.cake_len / 2]
+        elif self.num_horizontal == 3:
+            # start from the left
+            self.knife_pos.append([0, self.cake_len / 3])
+            return constants.INIT, [0, self.cake_len / 3]
+        elif self.num_horizontal == 4:
+            # start from the right
+            self.knife_pos.append([self.cake_width, self.cake_len / 4])
+            return constants.INIT, [self.cake_width, self.cake_len / 4]
+
     
     def divide_horizontally(self):
         """
-        Divide the cake into horizontal slices of length < EASY_LEN_BOUND.
+        Divide the cake into horizontal slices of thickness < EASY_LEN_BOUND.
         """
-        # initialize starting knife position
+        cur_pos = self.knife_pos[-1]
+        if self.num_horizontal == 2:
+            # make one horizontal cut right to left
+            cut = (cur_pos[0], cur_pos[1], 0, cur_pos[1])
+            self.pending_cuts.append(cut)
+            self.knife_pos.append([cut[2], cut[3]])
+
+        elif self.num_horizontal == 3:
+            # make two horizontal cuts left to right, then right to left
+            cut_1 = (cur_pos[0], cur_pos[1], self.cake_width, cur_pos[1])
+            self.pending_cuts.append(cut_1)
+            self.knife_pos.append([cut_1[2], cut_1[3]])
+
+            interim_y = cut_1[3] + self.cake_len / 3
+            interim_pos = self.traverse_borders([cut_1[2], cut_1[3]], [cut_1[2], interim_y])
+            
+            cut_2 = (interim_pos[0], interim_pos[1], 0, interim_pos[1])
+            self.pending_cuts.append(cut_2)
+            self.knife_pos.append([cut_2[2], cut_2[3]])
+                                  
+        elif self.num_horizontal == 4:
+            # make three horizontal cuts right to left, then left to right, then right to left
+            cut_1 = (cur_pos[0], cur_pos[1], 0, cur_pos[1])
+            self.pending_cuts.append(cut_1)
+            self.knife_pos.append([cut_1[2], cut_1[3]])
+
+            interim1_y = cut_1[3] + self.cake_len / 4
+            interim1_pos = self.traverse_borders([cut_1[2], cut_1[3]], [cut_1[2], interim1_y])
+
+            cut_2 = (interim1_pos[0], interim1_pos[1], self.cake_width, interim1_pos[1])
+            self.pending_cuts.append(cut_2)
+            self.knife_pos.append([cut_2[2], cut_2[3]])
+
+            interim2_y = cut_2[3] + self.cake_len / 4
+            interim2_pos = self.traverse_borders([cut_2[2], cut_2[3]], [cut_2[2], interim2_y])
+
+            cut_3 = (interim2_pos[0], interim2_pos[1], 0, interim2_pos[1])
+            self.pending_cuts.append(cut_3)
+            self.knife_pos.append([cut_3[2], cut_3[3]])             
 
 
-        # make horizontal cuts (add to old cuts)
-
-
-        pass
-
-
-    def make_vertical_cuts(self):
+    def make_rectangles(self):
         """
         Find groups of m requests (where m is the number of horizontal slices) of the
         same size within the tolerance. Make verticle cuts to serve rectangular pieces
@@ -351,13 +401,18 @@ class Player:
                     else:
                         self.num_horizontal = 4
 
+                    # initialize starting knife position
+                    if self.knife_pos == []:
+                        return self.set_starting_pos()
+
                     self.divide_horizontally()
-                    self.make_vertical_cuts()
+                    self.make_rectangles()
                     self.make_triangles()
                     self.cuts_created = True
                     
-                # return next cut
-                pass
+                # return next cut from pending cuts
+                next_cut = self.pending_cuts.pop(0)
+                return constants.CUT, [next_cut[2], next_cut[3]]
 
 
         #######################
