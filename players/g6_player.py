@@ -160,19 +160,44 @@ class Player:
 
         return intersection
 
+    # def make_cuts(self):
+    #     print(self.cake_len, self.cake_width)
+    #     n = len(self.requests)
+    #     angles = [i * (360 / n) for i in range(n)]
+    #     start = (round(self.cake_width/2,2),0)
+    #     print(angles)
+    #     self.cutList.append(start)
+    #     for i in range(n):
+    #         start = self.move_angle(start, angles[i])
+    #         self.cutList.append(start)
+    #         print(start)
+
     def make_cuts(self):
+        self.requests = sorted(self.requests)
         print(self.cake_len, self.cake_width)
-        n = len(self.requests)
-        angles = [i * (360 / n) for i in range(n)]
-        start = (0,round(self.cake_width/2,2))
-        print(angles)
-        self.cutList.append(start)
-        for i in range(n):
-            start = self.move_angle(start, angles[i])
-            self.cutList.append(start)
-            print(start)
 
-
+        w= 4
+        l=[i/w for i in self.requests]
+        self.cutList.append([w,0])
+        for i in range(len(self.requests)//2 +1):
+            v= (i+2)*w
+            cur = self.cutList[-1]
+            goto = 0 if v<self.cake_width//2 else self.cake_width
+            if v-w> self.cake_width:
+                break
+            if i%2 == 0:
+                self.cutList.append(self.move_straight(cur, 'D'))
+                self.cutList.append([goto,self.cake_len-0.02])
+                self.cutList.append([v,self.cake_len])
+            else:
+                self.cutList.append(self.move_straight(cur, 'U'))
+                self.cutList.append([goto,0.02])
+                self.cutList.append([v,0])
+        self.cutList.append([self.cake_width-0.02, 0])
+        self.cutList.append([self.cake_width, l[0]])
+        self.cutList.append([0, l[-1]])
+        #self.cutList.append([self.cake_width, l[1]])
+        
         
 
     def move(self, current_percept) -> (int, List[int]):
@@ -212,10 +237,10 @@ class Player:
                     return constants.CUT, [0, round((cur_pos[1] + 5)%self.cake_len, 2)]
 
             # Assign the pieces
-            assignment = []
-            for i in range(len(requests)):
-                assignment.append(i)
-            return constants.ASSIGN, assignment
+            areas =[i.area for i in polygons]
+            assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
+            print(assignment[:len(requests)])
+            return constants.ASSIGN, assignment[:len(requests)][::-1]
         
         except Exception as e:
             print(e)
