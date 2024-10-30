@@ -20,6 +20,7 @@ from players.default_player import Player as DefaultPlayer
 from players.G2_Player import G2_Player
 from players.g6_player import Player as G6_Player
 from players.g1_player import Player as G1_Player
+from players.g8_player import G8_Player
 from players.group10_player import Player as G10_Player
 from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
