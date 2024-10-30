@@ -134,13 +134,13 @@ class Player:
 
                 # Starting on right edge
                 elif positions[-1][0] == self.cake_width:
-                    positions.append((self.cake_width-0.01, self.cake_len))
+                    positions.append((round(self.cake_width-0.01, 2), self.cake_len))
                     positions.append(vertical)
                     positions.append(horizontal)
 
                 # Starting on bottom edge
                 elif positions[-1][1] == self.cake_len:
-                    positions.append((self.cake_width, self.cake_len-0.01))
+                    positions.append((self.cake_width, round(self.cake_len-0.01, 2)))
                     positions.append(horizontal)
                     positions.append(vertical)
 
