@@ -1,5 +1,3 @@
-import os
-import pickle
 from typing import List
 from scipy.optimize import linear_sum_assignment
 
@@ -7,6 +5,10 @@ import math
 import numpy as np
 import logging
 import constants
+
+
+MIN_CUT_INCREMENT = 0.01
+EASY_LEN_BOUND = 23.507
 
 
 def optimal_assignment(R, V):
@@ -48,91 +50,193 @@ class Player:
                 tolerance (int): tolerance for the cake distribution
                 cake_len (int): Length of the smaller side of the cake
         """
-
-        # precomp_path = os.path.join(precomp_dir, "{}.pkl".format(map_path))
-
-        # # precompute check
-        # if os.path.isfile(precomp_path):
-        #     # Getting back the objects:
-        #     with open(precomp_path, "rb") as f:
-        #         self.obj0, self.obj1, self.obj2 = pickle.load(f)
-        # else:
-        #     # Compute objects to store
-        #     self.obj0, self.obj1, self.obj2 = _
-
-        #     # Dump the objects
-        #     with open(precomp_path, 'wb') as f:
-        #         pickle.dump([self.obj0, self.obj1, self.obj2], f)
-
         self.rng = rng
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
-        self.EASY_LEN_BOUND = 23.507
         self.num_requests_cut = 0
         self.knife_pos = []
-
-    def get_starting_pos(self, requests):
-        area = sum(requests) * 1.05
-        h = np.sqrt(area / 1.6)
-        w = h * 1.6
-        return [0, round(h * (1/11), 2)]
-        # TODO: Actual logic
+        self.num_horizontal = 1
+        self.cuts_created = False
+        self.pending_cuts = []
+        self.old_cuts = []
 
     
+    def add_available_cut(self, origin, dest, coord, increment):
+        """
+        Add cut to the list of pending cuts. If the cut is in the list of old cuts,
+        increment the appropriate coordinate by increment.
+        """
+        new_dest = [dest[0], dest[1]]
+        cut = (origin[0], origin[1], new_dest[0], new_dest[1])
+        sym_cut = (cut[2], cut[3], cut[0], cut[1])
+        while cut in self.old_cuts or sym_cut in self.old_cuts:
+            new_dest[coord] += increment
+            cut = (origin[0], origin[1], new_dest[0], new_dest[1])
+            sym_cut = (cut[2], cut[3], cut[0], cut[1])
+        self.pending_cuts.append(cut)
+        return new_dest
+
+
     def traverse_borders(self, from_pos, to_pos):
         """
         Helper function that moves the knife from current position to next position by
         traversing the borders.
         """
-        # Throw error if to_pos is the same as current position
-        if from_pos == to_pos:
-            raise ValueError("Knife is already at the desired position.")
-        
         # Move to same border (should require 2 cuts)
         if from_pos[0] == 0 and to_pos[0] == 0:
-            return
+            # Traverse along the left border
+            if from_pos[1] + to_pos[1] < self.cake_len:
+                # Move to top border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 1, -MIN_CUT_INCREMENT)
+            else:
+                # Move to bottom border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 1, MIN_CUT_INCREMENT)
         elif from_pos[0] == self.cake_width and to_pos[0] == self.cake_width:
-            return
+            # Traverse along the right border
+            if from_pos[1] + to_pos[1] < self.cake_len:
+                # Move to top border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 1, -MIN_CUT_INCREMENT)
+            else:
+                # Move to bottom border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 1, MIN_CUT_INCREMENT)
         elif from_pos[1] == 0 and to_pos[1] == 0:
-            return
+            # Traverse along the top border
+            if from_pos[0] + to_pos[0] < self.cake_width:
+                # Move to left border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 0, -MIN_CUT_INCREMENT)
+            else:
+                # Move to right border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 0, MIN_CUT_INCREMENT)
         elif from_pos[1] == self.cake_len and to_pos[1] == self.cake_len:
-            return
+            # Traverse along the bottom border
+            if from_pos[0] + to_pos[0] < self.cake_width:
+                # Move to left border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 0, -MIN_CUT_INCREMENT)
+            else:
+                # Move to right border, which is closer
+                interim_pos = self.add_available_cut(from_pos, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos, to_pos, 0, MIN_CUT_INCREMENT)
 
         # Move to adjacent border (should require 3 cuts)
         elif from_pos[0] == 0 and to_pos[1] == 0:
-            return
+            # Traverse from left to top border
+            interim_pos_1 = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 0, -MIN_CUT_INCREMENT)
         elif from_pos[0] == 0 and to_pos[1] == self.cake_len:
-            return
+            # Traverse from left to bottom border
+            interim_pos_1 = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 0, -MIN_CUT_INCREMENT)
         elif from_pos[0] == self.cake_width and to_pos[1] == 0:
-            return
+            # Traverse from right to top border
+            interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 0, MIN_CUT_INCREMENT)
         elif from_pos[0] == self.cake_width and to_pos[1] == self.cake_len:
-            return
+            # Traverse from right to bottom border
+            interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 0, MIN_CUT_INCREMENT)
         elif from_pos[1] == 0 and to_pos[0] == 0:
-            return
+            # Traverse from top to left border
+            interim_pos_1 = self.add_available_cut(from_pos, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 1, -MIN_CUT_INCREMENT)
         elif from_pos[1] == 0 and to_pos[0] == self.cake_width:
-            return
+            # Traverse from top to right border
+            interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 1, -MIN_CUT_INCREMENT)
         elif from_pos[1] == self.cake_len and to_pos[0] == 0:
-            return
+            # Traverse from bottom to left border
+            interim_pos_1 = self.add_available_cut(from_pos, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 1, MIN_CUT_INCREMENT)
         elif from_pos[1] == self.cake_len and to_pos[0] == self.cake_width:
-            return
+            # Traverse from bottom to right border
+            interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+            interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+            return self.add_available_cut(interim_pos_2, to_pos, 1, MIN_CUT_INCREMENT)
 
         # Move to opposite border (should require 4 cuts)
         elif from_pos[0] == 0 and to_pos[0] == self.cake_width:
-            return
+            # Traverse from left to right border
+            if from_pos[1] + to_pos[1] < self.cake_len:
+                # Move to top border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 1, -MIN_CUT_INCREMENT)
+            else:
+                # Move to bottom border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 1, MIN_CUT_INCREMENT)
         elif from_pos[0] == self.cake_width and to_pos[0] == 0:
-            return
+            # Traverse from right to left border
+            if from_pos[1] + to_pos[1] < self.cake_len:
+                # Move to top border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 1, -MIN_CUT_INCREMENT)
+            else:
+                # Move to bottom border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 1, MIN_CUT_INCREMENT)
         elif from_pos[1] == 0 and to_pos[1] == self.cake_len:
-            return
+            # Traverse from top to bottom border
+            if from_pos[0] + to_pos[0] < self.cake_width:
+                # Move to left border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [MIN_CUT_INCREMENT, self.cake_len], 0, MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 0, -MIN_CUT_INCREMENT)
+            else:
+                # Move to right border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width-MIN_CUT_INCREMENT, self.cake_len], 0, -MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 0, MIN_CUT_INCREMENT)
         elif from_pos[1] == self.cake_len and to_pos[1] == 0:
-            return
+            # Traverse from bottom to top border
+            if from_pos[0] + to_pos[0] < self.cake_width:
+                # Move to left border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [0, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [MIN_CUT_INCREMENT, 0], 0, MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [0, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 0, -MIN_CUT_INCREMENT)
+            else:
+                # Move to right border, which is closer
+                interim_pos_1 = self.add_available_cut(from_pos, [self.cake_width, self.cake_len-MIN_CUT_INCREMENT], 1, -MIN_CUT_INCREMENT)
+                interim_pos_2 = self.add_available_cut(interim_pos_1, [self.cake_width-MIN_CUT_INCREMENT, 0], 0, -MIN_CUT_INCREMENT)
+                interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
+                return self.add_available_cut(interim_pos_3, to_pos, 0, MIN_CUT_INCREMENT)
 
     
     def divide_horizontally(self):
         """
         Divide the cake into horizontal slices of length < EASY_LEN_BOUND.
         """
+        # initialize starting knife position
+
+
+        # make horizontal cuts (add to old cuts)
+
+
         pass
 
 
@@ -197,7 +301,7 @@ class Player:
         # all other non-edge cases
         elif num_requests > 1:
             # case where cake is smaller than EASY_LEN_BOUND
-            if self.cake_len <= self.EASY_LEN_BOUND:
+            if self.cake_len <= EASY_LEN_BOUND:
                 # initialize starting knife position
                 if turn_number == 1:
                     self.knife_pos.append([0,0])
@@ -239,9 +343,21 @@ class Player:
 
             # case where cake is larger than EASY_LEN_BOUND
             else:
-                self.divide_horizontally()
-                self.make_vertical_cuts()
-                self.make_triangles()
+                if not self.cuts_created:
+                    if self.cake_len <= 2 * EASY_LEN_BOUND:
+                        self.num_horizontal = 2
+                    elif self.cake_len <= 3 * EASY_LEN_BOUND:
+                        self.num_horizontal = 3
+                    else:
+                        self.num_horizontal = 4
+
+                    self.divide_horizontally()
+                    self.make_vertical_cuts()
+                    self.make_triangles()
+                    self.cuts_created = True
+                    
+                # return next cut
+                pass
 
 
         #######################
