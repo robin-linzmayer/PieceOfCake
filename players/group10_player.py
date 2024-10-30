@@ -200,6 +200,9 @@ class Player:
         y_cuts = [length_shave] # first cut
         x_increment = (self.cake_len-2*width_shave)/l_factor
         y_increment = (self.cake_len-2*length_shave)/s_factor
+        # x_increment * y_increment should be equal to grid_area;
+        # but do we need to check it? They might be some lil decimal points off tho;
+        # but does it matter?
         for ind in s_factor:
             y_cuts.append(y_cuts[ind]+y_increment)
         for ind in l_factor:
