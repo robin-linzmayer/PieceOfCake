@@ -34,6 +34,11 @@ class Player:
         self.request_served = 0
 
     def move(self, current_percept) -> (int, List[int]):
+        if current_percept.cake_len <= self.triangle_viable:
+            return self.triangle(current_percept)
+        return self.quadrangle(current_percept)
+
+    def quadrangle(self, current_percept):
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
@@ -41,9 +46,6 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
-        if cake_len <= self.triangle_viable:
-            return self.triangle(current_percept)
-        
         if turn_number == 1:
             return constants.INIT, [0, 0.01]
         
