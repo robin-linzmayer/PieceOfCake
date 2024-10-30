@@ -187,7 +187,7 @@ class Player:
                     positions.append(b)
                     for bb in boundary_points:
                         if bb[1] == 0:
-                            positions.append(bb)
+                            positions.append((bb[0]+0.01, bb[1]))
                     positions.append(positions[-4])
         elif positions[-1][0] == self.cake_width:
                 for b in boundary_points:
@@ -195,7 +195,7 @@ class Player:
                         positions.append(b)
                         for bb in boundary_points:
                             if bb[0] == 0:
-                                positions.append(bb)
+                                positions.append((bb[0], bb[1]+0.01))
                         positions.append(positions[-4])
 
         
