@@ -60,6 +60,7 @@ class Player:
         self.num_horizontal = None
         self.cuts_created = False
         self.pending_cuts = []
+        self.unassigned_requests = []
 
     
     def add_available_cut(self, origin, dest, coord, increment):
@@ -290,7 +291,10 @@ class Player:
 
             cut_3 = (interim2_pos[0], interim2_pos[1], 0, interim2_pos[1])
             self.pending_cuts.append(cut_3)
-            self.knife_pos.append([cut_3[2], cut_3[3]])             
+            self.knife_pos.append([cut_3[2], cut_3[3]])
+
+        # move knife to the bottom left edge
+        self.traverse_borders(self.knife_pos[-1], [0, self.cake_len])
 
 
     def make_rectangles(self):
@@ -299,7 +303,28 @@ class Player:
         same size within the tolerance. Make verticle cuts to serve rectangular pieces
         of same size for each group.
         """
-        pass
+        m = self.num_horizontal
+        i = 0
+        while len(self.unassigned_requests) >= m and i <= len(self.unassigned_requests) - m:
+            # find m requests of the same size within tolerance
+            group = [self.unassigned_requests[i]]
+            for j in range(i+1, i+m):
+                if abs(self.unassigned_requests[j] - group[0]) / group[0] * 100 <= self.tolerance:
+                    group.append(self.unassigned_requests[j])
+            if len(group) == m:
+                # make verticle cut to serve rectangular pieces of same size
+                for _ in range(len(group)):
+                    cur_pos = self.knife_pos[-1]
+                    width = round(m * group[0] / self.cake_len, 2)
+                    interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, cur_pos[1]])
+                    vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-cur_pos[1])
+                    self.pending_cuts.append(vert_cut)
+                    self.knife_pos.append([vert_cut[2], vert_cut[3]])
+                # remove assigned requests
+                for req in group:
+                    self.unassigned_requests.remove(req)
+            else:
+                i += 1
 
 
     def make_triangles(self):
@@ -339,6 +364,9 @@ class Player:
         # sort requests by area in ascending order
         requests = sorted(requests)
         num_requests = len(requests)
+
+        # initialize unassigned requests for large cake algorithm
+        self.unassigned_requests = requests.copy()
         cake_area = self.cake_len * self.cake_width
 
         # slice off 5% extra if only one request
@@ -397,6 +425,7 @@ class Player:
             # case where cake is larger than EASY_LEN_BOUND
             else:
                 if not self.cuts_created:
+                    # set number of horizontal slices
                     if self.cake_len <= 2 * EASY_LEN_BOUND:
                         self.num_horizontal = 2
                     elif self.cake_len <= 3 * EASY_LEN_BOUND:
@@ -408,20 +437,24 @@ class Player:
                     if self.knife_pos == []:
                         return self.set_starting_pos()
 
+                    # main cutting algorithm
                     self.divide_horizontally()
                     self.make_rectangles()
                     self.make_triangles()
                     self.cuts_created = True
-                    
-                # return next cut from pending cuts
-                next_cut = self.pending_cuts.pop(0)
-                return constants.CUT, [next_cut[2], next_cut[3]]
+
+                print(f'len(pending cuts): {len(self.pending_cuts)}')
+                if len(self.pending_cuts) > 0:
+                    # return pending cuts
+                    next_cut = self.pending_cuts.pop(0)
+                    return constants.CUT, [next_cut[2], next_cut[3]]
 
 
         #######################
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
+        print(f'V: {V}')
         assignment = optimal_assignment(current_percept.requests, V)
 
         return constants.ASSIGN, assignment
