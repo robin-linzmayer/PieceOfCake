@@ -52,7 +52,8 @@ class G8_Player:
 
         self.rng = rng
         self.logger = logger
-        self.tolerance = tolerance
+        # self.tolerance = tolerance
+        self.tolerance = 0
         self.cake_len = None
         self.cake_width = None
         self.requests = None
@@ -77,10 +78,8 @@ class G8_Player:
                 RIGHT = 2
                 DOWN = 3
         """
-        print(current_percept)
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
-        cur_pos = current_percept.cur_pos
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
@@ -116,8 +115,8 @@ class G8_Player:
 
     def solve(self) -> list[tuple[float, float]]:
         """Find optimal cutting sequence using beam search"""
-        beam_width = 100
-        max_depth = len(self.requests)
+        beam_width = 10
+        max_depth = len(self.requests) + 1
 
         # Initialize beam with possible first points
         initial_points = self.generate_initial_points()
@@ -126,13 +125,20 @@ class G8_Player:
         best_solution = None
         best_score = float("inf")
 
-        for _ in range(max_depth - 1):
+        for i in range(max_depth - 1):
+            print(f"Iteration: {i} ")
             new_beam = []
 
             for _, current_points in beam:
                 next_points = self.generate_next_points(current_points[-1])
 
                 for next_point in next_points:
+                    if len(current_points) > 1:
+                        if not self.is_valid_cut(
+                            current_points[-1], next_point, current_points
+                        ):
+                            continue
+
                     new_points = current_points + [next_point]
                     penalty, cut_length = self.evaluate_cut_sequence(new_points)
                     score = penalty + cut_length * 1e-6
@@ -140,6 +146,7 @@ class G8_Player:
                     if penalty < best_score:
                         best_score = penalty
                         best_solution = new_points
+                        print(f"New best score: {best_score} ")
 
                     new_beam.append((score, new_points))
 
@@ -192,7 +199,7 @@ class G8_Player:
     def generate_next_points(self, current_point: tuple[float, float]):
         """Generate possible next points on valid edges"""
         points = []
-        samples = 10
+        samples = 100
 
         current_edge = self.get_edge(current_point)
 
@@ -204,32 +211,6 @@ class G8_Player:
                     points.append((x, y))
 
         return points
-
-    def calculate_penalties(self, pieces: list[Polygon]):
-        """Calculate penalties using Hungarian algorithm"""
-        n_pieces = len(pieces)
-        n_requests = len(self.requests)
-
-        # Make the cost matrix rectangular instead of square
-        cost_matrix = np.zeros((max(n_pieces, n_requests), max(n_pieces, n_requests)))
-
-        # Fill with high penalties for the empty/excess slots
-        cost_matrix.fill(100)
-
-        # Fill in the actual penalties for existing pieces and requests
-        for i, piece in enumerate(pieces):
-            if not self.fits_on_plate(piece):
-                # If piece doesn't fit, set penalty to 100 for all possible assignments
-                cost_matrix[i, :n_requests] = 100
-            else:
-                area = piece.area
-                for j, request in enumerate(self.requests):
-                    deviation = abs(area - request) / request * 100
-                    penalty = max(0, deviation - self.tolerance)
-                    cost_matrix[i, j] = penalty
-
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        return cost_matrix[row_ind, col_ind].sum()
 
     def calculate_cut_length(self, points: list[tuple[float, float]]) -> float:
         """Calculate total length of cut sequence"""
@@ -283,13 +264,48 @@ class G8_Player:
 
         return res["radius"] <= radius
 
+    def calculate_penalties(self, pieces: list[Polygon]):
+        """Calculate penalties using Hungarian algorithm with proper assignment handling"""
+        n_pieces = len(pieces)
+        n_requests = len(self.requests)
+
+        # Create a square cost matrix filled with high penalties
+        max_size = max(n_pieces, n_requests)
+        cost_matrix = np.full((max_size, max_size), 100.0)
+
+        # Fill in actual penalties for valid piece-request combinations
+        for i, piece in enumerate(pieces):
+            if not self.fits_on_plate(piece):
+                # If piece doesn't fit on plate, keep the high penalty (100)
+                continue
+
+            area = piece.area
+            for j, request in enumerate(self.requests):
+                deviation = abs(area - request) / request * 100
+                penalty = max(0, deviation - self.tolerance)
+                cost_matrix[i, j] = penalty
+
+        # Find optimal assignment using Hungarian algorithm
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+        # Calculate total penalty only for valid assignments
+        total_penalty = 0
+        for piece_idx, request_idx in zip(row_ind, col_ind):
+            if piece_idx < n_pieces and request_idx < n_requests:
+                total_penalty += cost_matrix[piece_idx, request_idx]
+            else:
+                # Add maximum penalty for unassigned requests
+                total_penalty += 100
+
+        return total_penalty
+
     def assign_polygons(self, cuts: list[tuple[float, float]]) -> tuple[str, list[int]]:
         """
         Get mapping of requests to pieces after cutting.
         Returns (ASSIGN, assignments) where assignments[i] is the piece index assigned to request i
         """
+        # Get final pieces after all cuts
         pieces = [self.cake]
-
         for i in range(len(cuts) - 1):
             cut_line = LineString([cuts[i], cuts[i + 1]])
             new_pieces = []
@@ -303,26 +319,48 @@ class G8_Player:
 
         n_pieces = len(pieces)
         n_requests = len(self.requests)
-        cost_matrix = np.zeros((max(n_pieces, n_requests), max(n_pieces, n_requests)))
-        cost_matrix.fill(100)
+        max_size = max(n_pieces, n_requests)
 
+        # Create cost matrix for Hungarian algorithm
+        cost_matrix = np.full((max_size, max_size), 100.0)
+
+        # Fill cost matrix with actual penalties
         for i, piece in enumerate(pieces):
             if not self.fits_on_plate(piece):
-                cost_matrix[i, :n_requests] = 100
-            else:
-                area = piece.area
-                for j, request in enumerate(self.requests):
-                    deviation = abs(area - request) / request * 100
-                    penalty = max(0, deviation - self.tolerance)
-                    cost_matrix[i, j] = penalty
+                continue
+
+            area = piece.area
+            for j, request in enumerate(self.requests):
+                deviation = abs(area - request) / request * 100
+                penalty = max(0, deviation - self.tolerance)
+                cost_matrix[i, j] = penalty
 
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        assignments = [-1] * len(self.requests)
+
+        # Initialize all assignments to -1 (unassigned)
+        assignments = [-1] * n_requests
 
         for piece_idx, request_idx in zip(row_ind, col_ind):
-            if request_idx < len(self.requests):
-                assignments[request_idx] = (
-                    int(piece_idx) if piece_idx < n_pieces else -1
-                )
+            if piece_idx < n_pieces and request_idx < n_requests:
+                if (
+                    cost_matrix[piece_idx, request_idx] < 100
+                ):  # Only assign if penalty is not maximum
+                    assignments[request_idx] = int(piece_idx)
 
         return constants.ASSIGN, assignments
+
+    def is_valid_cut(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        existing_points: list[tuple[float, float]],
+    ) -> bool:
+        """Check if a cut is valid, allowing sequential cuts but preventing close parallel cuts"""
+        new_line = LineString([start, end])
+
+        for point in existing_points[:-1]:
+            if point not in (start, end):
+                if Point(point).distance(new_line) < 0.001:
+                    return False
+
+        return True
