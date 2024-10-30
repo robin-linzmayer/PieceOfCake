@@ -52,8 +52,7 @@ class G8_Player:
 
         self.rng = rng
         self.logger = logger
-        # self.tolerance = tolerance
-        self.tolerance = 0
+        self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
         self.requests = None
@@ -115,7 +114,7 @@ class G8_Player:
 
     def solve(self) -> list[tuple[float, float]]:
         """Find optimal cutting sequence using beam search"""
-        beam_width = 10
+        beam_width = min(50, len(self.requests) * 5)
         max_depth = len(self.requests) + 1
 
         # Initialize beam with possible first points
@@ -125,8 +124,7 @@ class G8_Player:
         best_solution = None
         best_score = float("inf")
 
-        for i in range(max_depth - 1):
-            print(f"Iteration: {i} ")
+        for _ in range(max_depth - 1):
             new_beam = []
 
             for _, current_points in beam:
@@ -143,10 +141,12 @@ class G8_Player:
                     penalty, cut_length = self.evaluate_cut_sequence(new_points)
                     score = penalty + cut_length * 1e-6
 
-                    if penalty < best_score:
+                    if penalty > best_score:
+                        continue
+
+                    if penalty <= best_score:
                         best_score = penalty
                         best_solution = new_points
-                        print(f"New best score: {best_score} ")
 
                     new_beam.append((score, new_points))
 
@@ -186,7 +186,7 @@ class G8_Player:
     def generate_initial_points(self):
         """Generate possible starting points along the perimeter"""
         points = []
-        samples = 10
+        samples = 5
 
         for (x1, y1), (x2, y2) in self.edges:
             for t in np.linspace(0, 1, samples):
@@ -199,7 +199,7 @@ class G8_Player:
     def generate_next_points(self, current_point: tuple[float, float]):
         """Generate possible next points on valid edges"""
         points = []
-        samples = 100
+        samples = 25
 
         current_edge = self.get_edge(current_point)
 
@@ -301,10 +301,9 @@ class G8_Player:
 
     def assign_polygons(self, cuts: list[tuple[float, float]]) -> tuple[str, list[int]]:
         """
-        Get mapping of requests to pieces after cutting.
-        Returns (ASSIGN, assignments) where assignments[i] is the piece index assigned to request i
+        Get optimal mapping of requests to pieces using exact game penalty calculation.
         """
-        # Get final pieces after all cuts
+        # Get pieces after all cuts
         pieces = [self.cake]
         for i in range(len(cuts) - 1):
             cut_line = LineString([cuts[i], cuts[i + 1]])
@@ -321,31 +320,35 @@ class G8_Player:
         n_requests = len(self.requests)
         max_size = max(n_pieces, n_requests)
 
-        # Create cost matrix for Hungarian algorithm
-        cost_matrix = np.full((max_size, max_size), 100.0)
+        # Create cost matrix
+        cost_matrix = np.full(
+            (max_size, max_size), 100.0
+        )  # Default to 100 for invalid assignments
 
-        # Fill cost matrix with actual penalties
+        # Fill in costs exactly as game calculates them
         for i, piece in enumerate(pieces):
             if not self.fits_on_plate(piece):
                 continue
 
             area = piece.area
             for j, request in enumerate(self.requests):
-                deviation = abs(area - request) / request * 100
-                penalty = max(0, deviation - self.tolerance)
-                cost_matrix[i, j] = penalty
+                # Calculate percentage deviation exactly as game does
+                penalty_percentage = 100 * abs(area - request) / request
 
+                # Only add penalty if it exceeds tolerance
+                if penalty_percentage > self.tolerance:
+                    cost_matrix[i, j] = penalty_percentage
+                else:
+                    cost_matrix[i, j] = 0  # No penalty if within tolerance
+
+        # Find optimal assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # Initialize all assignments to -1 (unassigned)
+        # Create assignments list
         assignments = [-1] * n_requests
-
         for piece_idx, request_idx in zip(row_ind, col_ind):
             if piece_idx < n_pieces and request_idx < n_requests:
-                if (
-                    cost_matrix[piece_idx, request_idx] < 100
-                ):  # Only assign if penalty is not maximum
-                    assignments[request_idx] = int(piece_idx)
+                assignments[request_idx] = int(piece_idx)
 
         return constants.ASSIGN, assignments
 
