@@ -96,7 +96,6 @@ def compute_cuts(requests, cake_len, cake_width, cake_area, noise, tolerance):
     )
     cut_coords = inject_crumb_coords(vertical_cut_coords, cake_len, cake_width, True)
 
-    print("VERT", cut_coords)
     if cut_coords[-1][1] == 0:
         horizontal_cut_coords = get_horizontal_cuts(
             num_horz_cuts, cake_len, cake_width, False
@@ -111,10 +110,8 @@ def compute_cuts(requests, cake_len, cake_width, cake_area, noise, tolerance):
     horz_cut_coords = inject_crumb_coords(
         horizontal_cut_coords, cake_len, cake_width, False
     )
-    print("HORZ", horz_cut_coords)
     cut_coords += horz_cut_coords
 
-    print("RETURNED", cut_coords)
     return cut_coords
 
 
