@@ -113,8 +113,8 @@ class Player:
                 horizontal = (base, 0)
                 vertical = (0, base)
             elif corner == "SE":
-                vertical = (self.cake_width, self.cake_len - base)
-                horizontal = (self.cake_width - base, self.cake_len)
+                vertical = (self.cake_width, round(self.cake_len - base, 2))
+                horizontal = (round(self.cake_width - base, 2), self.cake_len)
         
             points = np.array([list(vertical), list(horizontal), list(positions[-1]), list(positions[-2])])
             res = miniball.miniball(points)
@@ -164,7 +164,7 @@ class Player:
                 # Go to southeast corner from top edge                           
                 if positions[-1][1] == 0:
                     positions.append((self.cake_width, 0.01))
-                    positions.append((self.cake_width-0.01, self.cake_len))
+                    positions.append((round(self.cake_width-0.01, 2), self.cake_len))
                     positions.append(tuple(potential_point_3))
                     positions.append(tuple(potential_point_2))
                     corner = "SE"
@@ -173,7 +173,7 @@ class Player:
                 # Go to southeast corner from left edge
                 elif positions[-1][0] == 0:
                     positions.append((0.01, self.cake_len))
-                    positions.append((self.cake_width, self.cake_len-0.01))
+                    positions.append((self.cake_width, round(self.cake_len-0.01, 2)))
                     positions.append(tuple(potential_point_2))
                     positions.append(tuple(potential_point_3))
                     corner = "SE"
@@ -187,7 +187,7 @@ class Player:
                     positions.append(b)
                     for bb in boundary_points:
                         if bb[1] == 0:
-                            positions.append((bb[0]+0.01, bb[1]))
+                            positions.append((round(bb[0]+0.01, 2), bb[1]))
                     positions.append(positions[-4])
         elif positions[-1][0] == self.cake_width:
                 for b in boundary_points:
@@ -195,7 +195,7 @@ class Player:
                         positions.append(b)
                         for bb in boundary_points:
                             if bb[0] == 0:
-                                positions.append((bb[0], bb[1]+0.01))
+                                positions.append((bb[0], round(bb[1]+0.01, 2)))
                         positions.append(positions[-4])
 
         
