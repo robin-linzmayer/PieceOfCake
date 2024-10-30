@@ -265,37 +265,52 @@ class G8_Player:
         return res["radius"] <= radius
 
     def calculate_penalties(self, pieces: list[Polygon]):
-        """Calculate penalties using Hungarian algorithm with proper assignment handling"""
+        """Calculate penalties exactly as the game does"""
         n_pieces = len(pieces)
         n_requests = len(self.requests)
-
-        # Create a square cost matrix filled with high penalties
         max_size = max(n_pieces, n_requests)
+
+        # Create cost matrix
         cost_matrix = np.full((max_size, max_size), 100.0)
 
-        # Fill in actual penalties for valid piece-request combinations
+        # Fill in penalties exactly as game calculates them
         for i, piece in enumerate(pieces):
             if not self.fits_on_plate(piece):
-                # If piece doesn't fit on plate, keep the high penalty (100)
                 continue
 
             area = piece.area
             for j, request in enumerate(self.requests):
-                deviation = abs(area - request) / request * 100
-                penalty = max(0, deviation - self.tolerance)
-                cost_matrix[i, j] = penalty
+                # Calculate exactly as game does
+                percentage_diff = 100 * abs(area - request) / request
+                if percentage_diff <= self.tolerance:
+                    cost_matrix[i, j] = 0  # No penalty within tolerance
+                else:
+                    cost_matrix[i, j] = percentage_diff  # Full percentage as penalty
 
-        # Find optimal assignment using Hungarian algorithm
+        # Find optimal assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # Calculate total penalty only for valid assignments
+        # Calculate total penalty exactly as game would
         total_penalty = 0
+        assignments = [-1] * n_requests
+
+        # Make assignments and calculate penalties
         for piece_idx, request_idx in zip(row_ind, col_ind):
             if piece_idx < n_pieces and request_idx < n_requests:
-                total_penalty += cost_matrix[piece_idx, request_idx]
-            else:
-                # Add maximum penalty for unassigned requests
+                assignments[request_idx] = piece_idx
+
+        # Calculate penalty exactly as game does
+        for request_idx, piece_idx in enumerate(assignments):
+            if piece_idx == -1 or not self.fits_on_plate(pieces[piece_idx]):
                 total_penalty += 100
+            else:
+                percentage_diff = (
+                    100
+                    * abs(pieces[piece_idx].area - self.requests[request_idx])
+                    / self.requests[request_idx]
+                )
+                if percentage_diff > self.tolerance:
+                    total_penalty += percentage_diff
 
         return total_penalty
 
