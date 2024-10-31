@@ -62,8 +62,8 @@ class G8_Player:
         self.edges = None
         self.cake = None
         self.solution = None
-        self.solution_polygons = None
         self.beam_uuid_to_pieces = {}
+
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function that retrieves the current state of the cake map and returns an cake movement
@@ -101,13 +101,12 @@ class G8_Player:
             ]
 
             self.solution = self.solve()
-            self.solution_polygons = list(self.solution)
             x, y = self.solution.pop(0)
 
             return constants.INIT, [round(x, 2), round(y, 2)]
 
         if len(self.solution) == 0:
-            return self.assign_polygons(self.solution_polygons)
+            return self.assign_polygons(current_percept.polygons)
 
         x, y = self.solution.pop(0)
 
@@ -323,23 +322,10 @@ class G8_Player:
 
         return total_penalty
 
-    def assign_polygons(self, cuts: list[tuple[float, float]]) -> tuple[str, list[int]]:
+    def assign_polygons(self, pieces: list[Polygon]) -> tuple[str, list[int]]:
         """
         Get optimal mapping of requests to pieces using exact game penalty calculation.
         """
-        # Get pieces after all cuts
-        pieces = [self.cake]
-        for i in range(len(cuts) - 1):
-            cut_line = LineString([cuts[i], cuts[i + 1]])
-            new_pieces = []
-            for piece in pieces:
-                if cut_line.intersects(piece):
-                    split_result = split(piece, cut_line)
-                    new_pieces.extend(list(split_result.geoms))
-                else:
-                    new_pieces.append(piece)
-            pieces = new_pieces
-
         n_pieces = len(pieces)
         n_requests = len(self.requests)
         max_size = max(n_pieces, n_requests)
