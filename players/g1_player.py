@@ -60,7 +60,6 @@ class Player:
         self.num_horizontal = None
         self.cuts_created = False
         self.pending_cuts = []
-        self.unassigned_requests = []
 
     
     def add_available_cut(self, origin, dest, coord, increment):
@@ -294,7 +293,7 @@ class Player:
             self.knife_pos.append([cut_3[2], cut_3[3]])
 
 
-    def make_rectangles(self):
+    def make_rectangles(self, unassigned_requests):
         """
         Find groups of m requests (where m is the number of horizontal slices) of the
         same size within the tolerance. Make verticle cuts to serve rectangular pieces
@@ -302,16 +301,20 @@ class Player:
         """
         m = self.num_horizontal
         i = 0
-        while len(self.unassigned_requests) >= m and i <= len(self.unassigned_requests) - m:
-            # find m requests of the same size within tolerance
-            group = [self.unassigned_requests[i]]
+
+        while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
+            # find m requests within tolerance from their mean
+            group = [unassigned_requests[i]]
+            group_mean = round(sum(unassigned_requests[i:i+m]) / m, 2)
             for j in range(i+1, i+m):
-                if abs(self.unassigned_requests[j] - group[0]) / group[0] * 100 <= self.tolerance:
-                    group.append(self.unassigned_requests[j])
+                if abs(unassigned_requests[j] - group_mean) / unassigned_requests[j] * 100 <= self.tolerance:
+                    group.append(unassigned_requests[j])
+
+            # make verticle cut to serve rectangular pieces of similar size
             if len(group) == m:
-                # make verticle cut to serve rectangular pieces of same size
+                # [TODO: width = mean of group]
                 cur_pos = self.knife_pos[-1]
-                width = round(m * group[0] / self.cake_len, 2)
+                width = round(m * group_mean / self.cake_len, 2)
                 y_dest = 0 if cur_pos[1] == 0 else self.cake_len
                 interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, y_dest])
                 vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-y_dest)
@@ -319,17 +322,21 @@ class Player:
                 self.knife_pos.append([vert_cut[2], vert_cut[3]])
                 # remove assigned requests
                 for req in group:
-                    self.unassigned_requests.remove(req)
+                    unassigned_requests.remove(req)
             else:
                 i += 1
 
 
-    def make_triangles(self):
+    def make_triangles(self, unassigned_requests):
         """
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
         pass
+        # m = self.num_horizontal
+        # i = 0
+        # while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
+            
 
 
     def move(self, current_percept) -> (int, List[int]):
@@ -363,8 +370,8 @@ class Player:
         num_requests = len(requests)
 
         # initialize unassigned requests for large cake algorithm
-        self.unassigned_requests = requests.copy()
-        self.unassigned_requests.reverse()
+        unassigned_requests = requests.copy()
+        unassigned_requests.reverse()
         cake_area = self.cake_len * self.cake_width
 
         # slice off 5% extra if only one request
@@ -437,8 +444,8 @@ class Player:
 
                     # main cutting algorithm
                     self.divide_horizontally()
-                    self.make_rectangles()
-                    self.make_triangles()
+                    self.make_rectangles(unassigned_requests)
+                    self.make_triangles(unassigned_requests)
                     self.cuts_created = True
 
                 if len(self.pending_cuts) > 0:
