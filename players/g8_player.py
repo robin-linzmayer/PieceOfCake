@@ -150,6 +150,10 @@ class G8_Player:
                         best_solution = new_points
 
                     new_beam.append((score, new_points, new_beam_uuid))
+                
+                # We should never use this beam uuids again
+                if uuid in self.beam_uuid_to_pieces:
+                    del self.beam_uuid_to_pieces[uuid]
 
             # Keep best beam_width solutions
             beam = sorted(new_beam, key=lambda x: x[0])[:beam_width]
