@@ -51,7 +51,7 @@ class Player:
             f"----------------------------------- Turn {turn_number} -----------------------------------"
         )
 
-        # First turn initialize knife to start at first vertical cut.
+        # First turn initialize knife to start at first vertical cut
         if turn_number == 1:
             self.cut_coords = compute_cuts(
                 requests, cake_len, cake_width, cake_area, noise, self.tolerance
