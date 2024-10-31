@@ -3,7 +3,7 @@ import pickle
 from typing import List
 
 import logging
-
+from uuid import uuid4
 import numpy as np
 
 from shapely.geometry import Polygon, LineString, Point
@@ -63,6 +63,7 @@ class G8_Player:
         self.cake = None
         self.solution = None
         self.solution_polygons = None
+        self.beam_uuid_to_pieces = {}
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function that retrieves the current state of the cake map and returns an cake movement
@@ -119,7 +120,7 @@ class G8_Player:
 
         # Initialize beam with possible first points
         initial_points = self.generate_initial_points()
-        beam = [(0, [point]) for point in initial_points]
+        beam = [(0, [point], uuid4()) for point in initial_points]
 
         best_solution = None
         best_score = float("inf")
@@ -127,18 +128,18 @@ class G8_Player:
         for _ in range(max_depth - 1):
             new_beam = []
 
-            for _, current_points in beam:
+            for _, current_points, uuid in beam:
                 next_points = self.generate_next_points(current_points[-1])
 
                 for next_point in next_points:
-                    if len(current_points) > 1:
+                    if len(current_points) > 1: # Why this? 
                         if not self.is_valid_cut(
                             current_points[-1], next_point, current_points
                         ):
                             continue
 
                     new_points = current_points + [next_point]
-                    penalty, cut_length = self.evaluate_cut_sequence(new_points)
+                    penalty, cut_length, new_beam_uuid = self.evaluate_cut_sequence(new_points, uuid)
                     score = penalty + cut_length * 1e-6
 
                     if penalty > best_score:
@@ -148,7 +149,7 @@ class G8_Player:
                         best_score = penalty
                         best_solution = new_points
 
-                    new_beam.append((score, new_points))
+                    new_beam.append((score, new_points, new_beam_uuid))
 
             # Keep best beam_width solutions
             beam = sorted(new_beam, key=lambda x: x[0])[:beam_width]
@@ -159,29 +160,33 @@ class G8_Player:
         return best_solution
 
     def evaluate_cut_sequence(
-        self, points: list[tuple[float, float]]
+        self, points: list[tuple[float, float]], uuid
     ) -> tuple[float, float]:
         """Evaluate a sequence of cut endpoints, returning (penalty, total_cut_length)"""
         # Convert points to cuts
         cuts = []
         for i in range(len(points) - 1):
             cuts.append(LineString([points[i], points[i + 1]]))
-
-        # Split cake into pieces
-        pieces = [self.cake]
-        for cut in cuts:
-            new_pieces = []
-            for piece in pieces:
-                if cut.intersects(piece):
-                    split_result = split(piece, cut)
-                    new_pieces.extend(list(split_result.geoms))
-                else:
-                    new_pieces.append(piece)
-            pieces = new_pieces
+        
+        cut = cuts[0] if len(cuts) == 1 else cuts[-1]
+        
+        pieces = [self.cake] if len(cuts) == 1 else self.beam_uuid_to_pieces[uuid]
+        
+        new_pieces = []
+        for piece in pieces:
+            if cut.intersects(piece):
+                split_result = split(piece, cut)
+                new_pieces.extend(list(split_result.geoms))
+            else:
+                new_pieces.append(piece)
+        pieces = new_pieces
+        
+        new_beam_uuid = uuid4()
+        self.beam_uuid_to_pieces[new_beam_uuid] = pieces
 
         # Calculate penalties (handles both area mismatches and plate fitting)
         penalties = self.calculate_penalties(pieces)
-        return penalties, self.calculate_cut_length(points)
+        return penalties, self.calculate_cut_length(points), new_beam_uuid
 
     def generate_initial_points(self):
         """Generate possible starting points along the perimeter"""
