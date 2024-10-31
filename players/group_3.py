@@ -34,35 +34,28 @@ class Player:
         self.request_served = 0
 
     def move(self, current_percept) -> Tuple[int, List[int]]:
-        self.init_cuts(current_percept=current_percept)  # TODO: just for debug and demonstration, move elsewhere later
+        horizontal_cuts, vertical_cuts = self.init_cuts(current_percept=current_percept)  # TODO: just for debug and demonstration, move elsewhere later
         if current_percept.cake_len <= self.triangle_viable:
             return self.triangle(current_percept)
         return self.quadrangle(current_percept)
 
-    def init_cuts(self, current_percept) -> List[List[List[int]]]:
+    def init_cuts(self, current_percept) -> Tuple[List[List[int]]]:
         """
-        Given current_percept, returns the list of signficant (non-crumb) cuts to be made in the cake in format:
-        [
-            [[0, y1], [width, y1]],  # horizontal cut
-            [[0, y2], [width, y2]],  # horizontal cut
-            ...
-            [[x3, 0], [x3, length]],  # vertical cut
-            [[x4, 0], [x4, length]],  # vertical cut
-        ]
+        Given current_percept, returns the list of signficant (non-crumb) horizontal and vertical cuts 
+        to be made in the following output format: 
+        
+        ([[y1, y1], [y2, y2]], [[x1, x1], [x2, x2]])          # i.e., (HORIZONTAL_CUTS, VERTICAL_CUTS)
         """
         cake_len, cake_width = current_percept.cake_len, current_percept.cake_width
         row_count, col_count = 2, 4
         row_height, col_width = cake_len / row_count, cake_width / col_count
-        cuts = []
 
-        for i in range(1, row_count):
-            cuts.append([[0, i * row_height], [cake_width, i * row_height]])
-        for i in range(1, col_count):
-            cuts.append([[i * col_width, 0], [i * col_width, cake_len]])
+        horizontal_cuts = [[i * row_height, i * row_height] for i in range(1, row_count)]
+        vertical_cuts = [[i * col_width, i * col_width] for i in range(1, col_count)]
 
         print(f"{cake_len=}, {cake_width=}")
-        print(f"init_{cuts=}")
-        return cuts
+        print(f"init_{horizontal_cuts=}, {vertical_cuts=}")
+        return horizontal_cuts, vertical_cuts
 
     def quadrangle(self, current_percept):
         polygons = current_percept.polygons
