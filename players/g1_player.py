@@ -9,6 +9,7 @@ import constants
 
 MIN_CUT_INCREMENT = 0.01
 EASY_LEN_BOUND = 23.507
+MIN_WIDTH = 0.72
 
 
 def optimal_assignment(R, V):
@@ -312,9 +313,8 @@ class Player:
 
             # make verticle cut to serve rectangular pieces of similar size
             if len(group) == m:
-                # [TODO: width = mean of group]
                 cur_pos = self.knife_pos[-1]
-                width = round(m * group_mean / self.cake_len, 2)
+                width = round(max(m * group_mean / self.cake_len, MIN_WIDTH), 2)
                 y_dest = 0 if cur_pos[1] == 0 else self.cake_len
                 interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, y_dest])
                 vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-y_dest)
