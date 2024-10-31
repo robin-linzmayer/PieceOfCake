@@ -132,7 +132,7 @@ class G8_Player:
                 next_points = self.generate_next_points(current_points[-1])
 
                 for next_point in next_points:
-                    if len(current_points) > 1: # Why this? 
+                    if len(current_points) > 1:
                         if not self.is_valid_cut(
                             current_points[-1], next_point, current_points
                         ):
