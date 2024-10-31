@@ -293,9 +293,6 @@ class Player:
             self.pending_cuts.append(cut_3)
             self.knife_pos.append([cut_3[2], cut_3[3]])
 
-        # move knife to the bottom left edge
-        self.traverse_borders(self.knife_pos[-1], [0, self.cake_len])
-
 
     def make_rectangles(self):
         """
@@ -313,13 +310,13 @@ class Player:
                     group.append(self.unassigned_requests[j])
             if len(group) == m:
                 # make verticle cut to serve rectangular pieces of same size
-                for _ in range(len(group)):
-                    cur_pos = self.knife_pos[-1]
-                    width = round(m * group[0] / self.cake_len, 2)
-                    interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, cur_pos[1]])
-                    vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-cur_pos[1])
-                    self.pending_cuts.append(vert_cut)
-                    self.knife_pos.append([vert_cut[2], vert_cut[3]])
+                cur_pos = self.knife_pos[-1]
+                width = round(m * group[0] / self.cake_len, 2)
+                y_dest = 0 if cur_pos[1] == 0 else self.cake_len
+                interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, y_dest])
+                vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-y_dest)
+                self.pending_cuts.append(vert_cut)
+                self.knife_pos.append([vert_cut[2], vert_cut[3]])
                 # remove assigned requests
                 for req in group:
                     self.unassigned_requests.remove(req)
@@ -367,6 +364,7 @@ class Player:
 
         # initialize unassigned requests for large cake algorithm
         self.unassigned_requests = requests.copy()
+        self.unassigned_requests.reverse()
         cake_area = self.cake_len * self.cake_width
 
         # slice off 5% extra if only one request
@@ -443,7 +441,6 @@ class Player:
                     self.make_triangles()
                     self.cuts_created = True
 
-                print(f'len(pending cuts): {len(self.pending_cuts)}')
                 if len(self.pending_cuts) > 0:
                     # return pending cuts
                     next_cut = self.pending_cuts.pop(0)
@@ -454,7 +451,6 @@ class Player:
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
-        print(f'V: {V}')
         assignment = optimal_assignment(current_percept.requests, V)
 
         return constants.ASSIGN, assignment
