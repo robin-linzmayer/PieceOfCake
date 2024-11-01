@@ -6,6 +6,9 @@ import numpy as np
 import logging
 
 import constants
+from shapely.geometry import Polygon, LineString
+from shapely.ops import split
+import copy
 
 
 class Player:
@@ -25,21 +28,6 @@ class Player:
             tolerance (int): tolerance for the cake distribution
             cake_len (int): Length of the smaller side of the cake
         """
-
-        # precomp_path = os.path.join(precomp_dir, "{}.pkl".format(map_path))
-
-        # # precompute check
-        # if os.path.isfile(precomp_path):
-        #     # Getting back the objects:
-        #     with open(precomp_path, "rb") as f:
-        #         self.obj0, self.obj1, self.obj2 = pickle.load(f)
-        # else:
-        #     # Compute objects to store
-        #     self.obj0, self.obj1, self.obj2 = _
-
-        #     # Dump the objects
-        #     with open(precomp_path, 'wb') as f:
-        #         pickle.dump([self.obj0, self.obj1, self.obj2], f)
 
         self.rng = rng
         self.logger = logger
@@ -69,17 +57,114 @@ class Player:
             print()
             return constants.INIT, [0, 0]
 
-        if len(polygons) < len(requests):
-            if cur_pos[0] == 0:
-                return constants.CUT, [
-                    cake_width,
-                    round((cur_pos[1] + 5) % cake_len, 2),
-                ]
+        new_percept = copy.deepcopy(current_percept)
+        new_polygons = copy.deepcopy(polygons)
+
+        for i in range(50):
+            if new_percept.cur_pos[0] == 0:
+                try:
+                    new_polygons, new_percept = self.check_and_apply_action(
+                        [
+                            constants.CUT,
+                            [
+                                new_percept.cake_width,
+                                round(
+                                    (new_percept.cur_pos[1] + 5) % new_percept.cake_len,
+                                    2,
+                                ),
+                            ],
+                        ],
+                        new_polygons,
+                        new_percept,
+                    )
+
+                    print(len(new_polygons))
+                    print(new_percept.cur_pos)
+                except ValueError as e:
+                    print(f"Invalid cut 1 {e}")
             else:
-                return constants.CUT, [0, round((cur_pos[1] + 5) % cake_len, 2)]
+                try:
+                    new_polygons, new_percept = self.check_and_apply_action(
+                        [
+                            constants.CUT,
+                            [
+                                0,
+                                round(
+                                    (new_percept.cur_pos[1] + 5) % new_percept.cake_len,
+                                    2,
+                                ),
+                            ],
+                        ],
+                        new_polygons,
+                        new_percept,
+                    )
+                    print(len(new_polygons))
+                    print(new_percept.cur_pos)
+
+                except ValueError as e:
+                    print(f"Invalid cut 2 {e}")
 
         assignment = []
         for i in range(len(requests)):
             assignment.append(i)
+        return constants.ASSIGN, []
 
-        return constants.ASSIGN, assignment
+    def check_and_apply_action(self, action, polygons, current_percept):
+        if not action[0] == constants.CUT:
+            raise ValueError("Invalid action")
+
+        cur_x, cur_y = action[1]
+
+        # Check if the next position is on the boundary of the cake
+        if invalid_knife_position(action[1], current_percept):
+            raise ValueError("Invalid knife position")
+
+        # Check if the cut is horizontal across the cake boundary
+        if cur_x == 0 or cur_x == current_percept.cake_width:
+            if current_percept.cur_pos[0] == cur_x:
+                raise ValueError("Invalid cut")
+
+        # Check if the cut is vertical across the cake boundary
+        if cur_y == 0 or cur_y == current_percept.cake_len:
+            if current_percept.cur_pos[1] == cur_y:
+                raise ValueError("Invalid cut")
+
+        # Cut the cake piece
+        newPieces = []
+        for polygon in polygons:
+            line_points = LineString([tuple(current_percept.cur_pos), tuple(action[1])])
+            slices = divide_polygon(polygon, line_points)
+            for slice in slices:
+                newPieces.append(slice)
+
+        current_percept.cur_pos = action[1]
+        return newPieces, current_percept
+
+
+def invalid_knife_position(pos, current_percept):
+    cur_x, cur_y = pos
+    if (cur_x != 0 and cur_x != current_percept.cake_width) and (
+        cur_y != 0 and cur_y != current_percept.cake_len
+    ):
+        return True
+
+    if cur_x == 0 or cur_x == current_percept.cake_width:
+        if cur_y < 0 or cur_y > current_percept.cake_len:
+            return True
+
+    if cur_y == 0 or cur_y == current_percept.cake_len:
+        if cur_x < 0 or cur_x > current_percept.cake_width:
+            return True
+    return False
+
+
+def divide_polygon(polygon, line):
+    if not line.intersects(polygon):
+        return [polygon]
+    result = split(polygon, line)
+
+    polygons = []
+    for i in range(len(result.geoms)):
+        polygons.append(result.geoms[i])
+
+    return polygons

@@ -309,8 +309,8 @@ class PieceOfCakeGame:
                 returned_action = self.player.move(
                     current_percept=before_state
                 )
-            except Exception:
-                print("Exception in player code")
+            except Exception as e:
+                print(f"Exception in player code {e}")
                 returned_action = None
 
             player_time_taken = time.time() - player_start
