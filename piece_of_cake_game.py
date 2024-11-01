@@ -28,7 +28,7 @@ from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
 
-from players.g4_player import Player as G4_Player
+from players.player_4 import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
