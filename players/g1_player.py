@@ -392,12 +392,11 @@ class Player:
 
         while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
             # find m requests within tolerance from their mean
-            group = [unassigned_requests[i]]
+            group = []
             group_mean = round(sum(unassigned_requests[i:i+m]) / m, 2)
-            for j in range(i+1, i+m):
+            for j in range(i, i+m):
                 if abs(unassigned_requests[j] - group_mean) / unassigned_requests[j] * 100 <= self.tolerance:
                     group.append(unassigned_requests[j])
-
             # make verticle cut to serve rectangular pieces of similar size
             if len(group) == m:
                 cur_pos = self.knife_pos[-1]
@@ -420,7 +419,11 @@ class Player:
         triangular pieces.
         """
         triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance)
-        # for group in triangle_groups:
+        print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
+        # grouping = triangle_groups[0]['grouping']
+        # ungrouped = triangle_groups[0]['ungrouped']
+        # if grouping:
+        #     widths = [group[i][1] for group in grouping for i in range(self.num_horizontal)]
 
             
 
