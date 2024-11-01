@@ -419,12 +419,21 @@ class Player:
         triangular pieces.
         """
         triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance)
-        print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
-        # grouping = triangle_groups[0]['grouping']
-        # ungrouped = triangle_groups[0]['ungrouped']
-        # if grouping:
-        #     widths = [group[i][1] for group in grouping for i in range(self.num_horizontal)]
-
+        # print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
+        if triangle_groups:
+            grouping = triangle_groups[0]['grouping']
+            ungrouped = triangle_groups[0]['ungrouped']
+            widths = [group[1] for group in grouping]
+            # make diagonal cuts to serve triangular pieces
+            for width in widths:
+                cur_pos = self.knife_pos[-1]
+                # print(f'Current position: {cur_pos}')
+                x_dest = cur_pos[0] + width
+                y_dest = self.cake_len if cur_pos[1] == 0 else 0
+                diag_cut = (cur_pos[0], cur_pos[1], x_dest, y_dest)
+                # print(f'Diagonal cut: {diag_cut}')
+                self.pending_cuts.append(diag_cut)
+                self.knife_pos.append([diag_cut[2], diag_cut[3]])    
             
 
 
