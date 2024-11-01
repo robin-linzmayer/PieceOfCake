@@ -304,14 +304,9 @@ class PieceOfCakeGame:
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
-            try:
-                # Call the player's move function for turn on this move
-                returned_action = self.player.move(
-                    current_percept=before_state
-                )
-            except Exception as e:
-                print(f"Exception in player code {e}")
-                returned_action = None
+            returned_action = self.player.move(
+                current_percept=before_state
+            )
 
             player_time_taken = time.time() - player_start
             self.logger.debug("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
