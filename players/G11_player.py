@@ -62,7 +62,7 @@ class Player:
         new_percept = copy.deepcopy(current_percept)
         new_polygons = copy.deepcopy(polygons)
 
-        for i in range(num_cuts):
+        for cut in cuts:
             new_polygons, new_percept = self.check_and_apply_action(
                 [
                     constants.CUT,
@@ -71,6 +71,7 @@ class Player:
                 new_polygons,
                 new_percept,
             )
+        loss = cost_function(new_polygons, requests)
 
         assignment = []
         for i in range(len(requests)):
@@ -174,3 +175,7 @@ def generate_random_cuts(num_cuts, current_percept):
         cur_x, cur_y = cuts[-1]
 
     return cuts
+
+
+def cost_function(polygons, requests):
+    return np.random.random()
