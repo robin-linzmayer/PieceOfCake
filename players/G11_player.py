@@ -58,25 +58,27 @@ class Player:
 
         num_cuts = 5
         cuts = generate_random_cuts(num_cuts, current_percept)
-
-        new_percept = copy.deepcopy(current_percept)
-        new_polygons = copy.deepcopy(polygons)
-
-        for cut in cuts:
-            new_polygons, new_percept = self.check_and_apply_action(
-                [
-                    constants.CUT,
-                    cuts[i],
-                ],
-                new_polygons,
-                new_percept,
-            )
-        loss = cost_function(new_polygons, requests)
+        loss = self.get_loss_from_cuts(cuts, current_percept)
+        print(loss)
 
         assignment = []
         for i in range(len(requests)):
             assignment.append(i)
         return constants.ASSIGN, []
+
+    def get_loss_from_cuts(self, cuts, current_percept):
+        new_percept = copy.deepcopy(current_percept)
+        new_polygons = new_percept.polygons
+
+        for cut in cuts:
+            new_polygons, new_percept = self.check_and_apply_action(
+                [constants.CUT, cut],
+                new_polygons,
+                new_percept,
+            )
+        loss = cost_function(new_polygons, current_percept.requests)
+
+        return loss
 
     def check_and_apply_action(self, action, polygons, current_percept):
         if not action[0] == constants.CUT:
