@@ -1,4 +1,5 @@
 from typing import List
+from itertools import combinations
 from scipy.optimize import linear_sum_assignment
 
 import math
@@ -6,12 +7,19 @@ import numpy as np
 import logging
 import constants
 
-
+"""
+Constants
+"""
 MIN_CUT_INCREMENT = 0.01
 EASY_LEN_BOUND = 23.507
 
-
+"""
+GLOBAL FUNCTIONS
+"""
 def optimal_assignment(R, V):
+    """
+    Provide optimal assignment using the Hungarian algorithm.
+    """
     num_requests = len(R)
     num_values = len(V)
     
@@ -38,6 +46,86 @@ def euclidean_distance(point1, point2):
     return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
+def find_ratio_groupings(requests, m, tolerance):
+    """
+    Find all valid groupings of requests that meet the required ratio within tolerance.
+    Return groupings that group as many requests as possible, possibly leaving some ungrouped.
+    Each valid group includes the lower bound of the overlapping range.
+    """
+    # Define target ratios for each group size
+    if m == 2:
+        target_ratios = [1, 3]
+    elif m == 3:
+        target_ratios = [1, 3, 5]
+    elif m == 4:
+        target_ratios = [1, 3, 5, 7]
+    else:
+        print("Invalid group size.")
+        return []
+
+    valid_groupings = []
+    min_remaining_requests = len(requests)
+    
+    def is_valid_group(group):
+        """
+        Check if a group meets the required ratio within tolerance and return the lower bound.
+        """
+        normalized_group = [group[i] / target_ratios[i] for i in range(len(group))]
+        # Find overlapping range
+        lower_bounds = [nr - (tolerance / 100) * nr for nr in normalized_group]
+        upper_bounds = [nr + (tolerance / 100) * nr for nr in normalized_group]
+        lower_bound = max(lower_bounds)
+        upper_bound = min(upper_bounds)
+        if lower_bound <= upper_bound:
+            return True, lower_bound
+        return False, None
+    
+    def backtrack(remaining_requests, current_grouping):
+        """Backtracking function to find the valid groupings."""
+        nonlocal min_remaining_requests
+        nonlocal valid_groupings
+
+        # If all requests are grouped, update the results
+        if not remaining_requests:
+            if min_remaining_requests > 0:
+                min_remaining_requests = 0
+                valid_groupings.clear()
+                valid_groupings.append({'grouping': current_grouping, 'ungrouped': []})
+            elif min_remaining_requests == 0:
+                valid_groupings.append({'grouping': current_grouping, 'ungrouped': []})
+            return
+        
+        # If current ungrouped requests exceed min_remaining_requests, prune this path
+        if len(remaining_requests) > min_remaining_requests:
+            return
+        
+        # Try forming groups from remaining requests
+        for group in combinations(remaining_requests, m):
+            is_valid, lower_bound = is_valid_group(group)
+            if is_valid:
+                new_remaining = remaining_requests[:]
+                for num in group:
+                    new_remaining.remove(num)
+                # Recur with the new list and updated grouping, including the lower bound
+                backtrack(new_remaining, current_grouping + [(group, lower_bound)])
+
+        # Consider the possibility of leaving some requests ungrouped
+        if len(current_grouping) > 0:
+            if len(remaining_requests) < min_remaining_requests:
+                min_remaining_requests = len(remaining_requests)
+                valid_groupings.clear()
+                valid_groupings.append({'grouping': current_grouping, 'ungrouped': remaining_requests})
+            elif len(remaining_requests) == min_remaining_requests:
+                valid_groupings.append({'grouping': current_grouping, 'ungrouped': remaining_requests})
+
+    # Start backtracking
+    backtrack(requests, [])
+    
+    return valid_groupings
+
+"""
+Player Class
+"""
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
                  precomp_dir: str, tolerance: int) -> None:
@@ -331,9 +419,9 @@ class Player:
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
-        # m = self.num_horizontal
-        # i = 0
-        # while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
+        triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance)
+        # for group in triangle_groups:
+
             
 
 
