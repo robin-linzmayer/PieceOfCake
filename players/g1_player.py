@@ -9,7 +9,6 @@ import constants
 
 MIN_CUT_INCREMENT = 0.01
 EASY_LEN_BOUND = 23.507
-MIN_WIDTH = 0.72
 
 
 def optimal_assignment(R, V):
@@ -314,7 +313,7 @@ class Player:
             # make verticle cut to serve rectangular pieces of similar size
             if len(group) == m:
                 cur_pos = self.knife_pos[-1]
-                width = round(max(m * group_mean / self.cake_len, MIN_WIDTH), 2)
+                width = round(m * group_mean / self.cake_len, 2)
                 y_dest = 0 if cur_pos[1] == 0 else self.cake_len
                 interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, y_dest])
                 vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-y_dest)
@@ -332,7 +331,6 @@ class Player:
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
-        pass
         # m = self.num_horizontal
         # i = 0
         # while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
@@ -371,7 +369,6 @@ class Player:
 
         # initialize unassigned requests for large cake algorithm
         unassigned_requests = requests.copy()
-        unassigned_requests.reverse()
         cake_area = self.cake_len * self.cake_width
 
         # slice off 5% extra if only one request
@@ -431,6 +428,7 @@ class Player:
             else:
                 if not self.cuts_created:
                     # set number of horizontal slices
+                    # [TODO -- ADD ONE MORE LAYER TO ADDRESS MINIBALL ISSUE]
                     if self.cake_len <= 2 * EASY_LEN_BOUND:
                         self.num_horizontal = 2
                     elif self.cake_len <= 3 * EASY_LEN_BOUND:
