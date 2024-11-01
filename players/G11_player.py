@@ -56,52 +56,21 @@ class Player:
         if turn_number == 1:
             return constants.INIT, [0, 0]
 
-        num_cuts = 50
+        num_cuts = 5
         cuts = generate_random_cuts(num_cuts, current_percept)
-        print(cuts)
 
         new_percept = copy.deepcopy(current_percept)
         new_polygons = copy.deepcopy(polygons)
 
         for i in range(num_cuts):
-            if new_percept.cur_pos[0] == 0:
-                try:
-                    new_polygons, new_percept = self.check_and_apply_action(
-                        [
-                            constants.CUT,
-                            [
-                                new_percept.cake_width,
-                                round(
-                                    (new_percept.cur_pos[1] + 5) % new_percept.cake_len,
-                                    2,
-                                ),
-                            ],
-                        ],
-                        new_polygons,
-                        new_percept,
-                    )
-
-                except ValueError as e:
-                    print(f"Invalid cut 1 {e}")
-            else:
-                try:
-                    new_polygons, new_percept = self.check_and_apply_action(
-                        [
-                            constants.CUT,
-                            [
-                                0,
-                                round(
-                                    (new_percept.cur_pos[1] + 5) % new_percept.cake_len,
-                                    2,
-                                ),
-                            ],
-                        ],
-                        new_polygons,
-                        new_percept,
-                    )
-
-                except ValueError as e:
-                    print(f"Invalid cut 2 {e}")
+            new_polygons, new_percept = self.check_and_apply_action(
+                [
+                    constants.CUT,
+                    cuts[i],
+                ],
+                new_polygons,
+                new_percept,
+            )
 
         assignment = []
         for i in range(len(requests)):
@@ -201,5 +170,7 @@ def generate_random_cuts(num_cuts, current_percept):
             cuts.append([bottom, left, right][np.random.choice(3)])
         elif cur_y == current_percept.cake_len:  # Start from bottom
             cuts.append([top, left, right][np.random.choice(3)])
+
+        cur_x, cur_y = cuts[-1]
 
     return cuts
