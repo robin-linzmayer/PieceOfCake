@@ -59,7 +59,19 @@ class Player:
         num_cuts = 5
         cuts = generate_random_cuts(num_cuts, current_percept)
         loss = self.get_loss_from_cuts(cuts, current_percept)
-        print(loss)
+
+        # Gradient descent
+        learning_rate = 0.1
+        for i in range(100):
+            gradients = self.get_gradient(loss, cuts, current_percept)
+
+            for j in range(len(cuts)):
+                if cuts[j][0] == 0 or cuts[j][0] == current_percept.cake_width:
+                    cuts[j][1] -= learning_rate * gradients[j]
+                else:
+                    cuts[j][0] -= learning_rate * gradients[j]
+            loss = self.get_loss_from_cuts(cuts, current_percept)
+            print(loss)
 
         assignment = []
         for i in range(len(requests)):
@@ -79,6 +91,23 @@ class Player:
         loss = cost_function(new_polygons, current_percept.requests)
 
         return loss
+
+    def get_gradient(self, loss, cuts, current_percept):
+        dw = 0.05
+        gradients = np.zeros(len(cuts))
+        for i in range(len(cuts)):
+            new_cuts = copy.deepcopy(cuts)
+
+            if new_cuts[i][0] == 0 or new_cuts[i][0] == current_percept.cake_width:
+                # On left or right boundary
+                new_cuts[i][1] += dw
+            else:
+                # On top or bottom boundary
+                new_cuts[i][0] += dw
+
+            new_loss = self.get_loss_from_cuts(new_cuts, current_percept)
+            gradients[i] = (new_loss - loss) / dw
+        return gradients
 
     def check_and_apply_action(self, action, polygons, current_percept):
         if not action[0] == constants.CUT:
