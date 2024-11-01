@@ -54,13 +54,16 @@ class Player:
         cake_width = current_percept.cake_width
 
         if turn_number == 1:
-            print()
             return constants.INIT, [0, 0]
+
+        num_cuts = 50
+        cuts = generate_random_cuts(num_cuts, current_percept)
+        print(cuts)
 
         new_percept = copy.deepcopy(current_percept)
         new_polygons = copy.deepcopy(polygons)
 
-        for i in range(50):
+        for i in range(num_cuts):
             if new_percept.cur_pos[0] == 0:
                 try:
                     new_polygons, new_percept = self.check_and_apply_action(
@@ -78,8 +81,6 @@ class Player:
                         new_percept,
                     )
 
-                    print(len(new_polygons))
-                    print(new_percept.cur_pos)
                 except ValueError as e:
                     print(f"Invalid cut 1 {e}")
             else:
@@ -98,8 +99,6 @@ class Player:
                         new_polygons,
                         new_percept,
                     )
-                    print(len(new_polygons))
-                    print(new_percept.cur_pos)
 
                 except ValueError as e:
                     print(f"Invalid cut 2 {e}")
@@ -168,3 +167,39 @@ def divide_polygon(polygon, line):
         polygons.append(result.geoms[i])
 
     return polygons
+
+
+def generate_random_cuts(num_cuts, current_percept):
+    cur_x, cur_y = current_percept.cur_pos
+    cuts = []
+    corner_gap = 1e-3
+
+    for i in range(num_cuts):
+        # Generate random cuts
+        top = [
+            np.random.uniform(corner_gap, current_percept.cake_width - corner_gap),
+            0,
+        ]
+        bottom = [
+            np.random.uniform(corner_gap, current_percept.cake_width - corner_gap),
+            current_percept.cake_len,
+        ]
+        right = [
+            current_percept.cake_width,
+            np.random.uniform(corner_gap, current_percept.cake_len - corner_gap),
+        ]
+        left = [
+            0,
+            np.random.uniform(corner_gap, current_percept.cake_len - corner_gap),
+        ]
+
+        if cur_x == 0:  # Start from left
+            cuts.append([top, bottom, right][np.random.choice(3)])
+        elif cur_x == current_percept.cake_width:  # Start from right
+            cuts.append([top, bottom, left][np.random.choice(3)])
+        elif cur_y == 0:  # Start from top
+            cuts.append([bottom, left, right][np.random.choice(3)])
+        elif cur_y == current_percept.cake_len:  # Start from bottom
+            cuts.append([top, left, right][np.random.choice(3)])
+
+    return cuts
