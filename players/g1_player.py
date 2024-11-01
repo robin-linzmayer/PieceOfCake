@@ -46,7 +46,7 @@ def euclidean_distance(point1, point2):
     return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
-def find_ratio_groupings(requests, m, tolerance):
+def find_ratio_groupings(requests, m, tolerance, cake_len):
     """
     Find all valid groupings of requests that meet the required ratio within tolerance.
     Return groupings that group as many requests as possible, possibly leaving some ungrouped.
@@ -66,7 +66,7 @@ def find_ratio_groupings(requests, m, tolerance):
     valid_groupings = []
     min_remaining_requests = len(requests)
     
-    def is_valid_group(group):
+    def is_valid_group(group, cake_len):
         """
         Check if a group meets the required ratio within tolerance and return the lower bound.
         """
@@ -77,10 +77,11 @@ def find_ratio_groupings(requests, m, tolerance):
         lower_bound = max(lower_bounds)
         upper_bound = min(upper_bounds)
         if lower_bound <= upper_bound:
-            return True, lower_bound
+            width = round(sum([lower_bound * ratio for ratio in target_ratios]) * 2 / cake_len, 2)
+            return True, width
         return False, None
     
-    def backtrack(remaining_requests, current_grouping):
+    def backtrack(remaining_requests, current_grouping, cake_len):
         """Backtracking function to find the valid groupings."""
         nonlocal min_remaining_requests
         nonlocal valid_groupings
@@ -101,13 +102,13 @@ def find_ratio_groupings(requests, m, tolerance):
         
         # Try forming groups from remaining requests
         for group in combinations(remaining_requests, m):
-            is_valid, lower_bound = is_valid_group(group)
+            is_valid, width = is_valid_group(group, cake_len)
             if is_valid:
                 new_remaining = remaining_requests[:]
                 for num in group:
                     new_remaining.remove(num)
                 # Recur with the new list and updated grouping, including the lower bound
-                backtrack(new_remaining, current_grouping + [(group, lower_bound)])
+                backtrack(new_remaining, current_grouping + [(group, width)], cake_len)
 
         # Consider the possibility of leaving some requests ungrouped
         if len(current_grouping) > 0:
@@ -119,7 +120,7 @@ def find_ratio_groupings(requests, m, tolerance):
                 valid_groupings.append({'grouping': current_grouping, 'ungrouped': remaining_requests})
 
     # Start backtracking
-    backtrack(requests, [])
+    backtrack(requests, [], cake_len)
     
     return valid_groupings
 
@@ -418,8 +419,8 @@ class Player:
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
-        triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance)
-        # print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
+        triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance, self.cake_len)
+        print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
         if triangle_groups:
             grouping = triangle_groups[0]['grouping']
             ungrouped = triangle_groups[0]['ungrouped']
@@ -427,11 +428,9 @@ class Player:
             # make diagonal cuts to serve triangular pieces
             for width in widths:
                 cur_pos = self.knife_pos[-1]
-                # print(f'Current position: {cur_pos}')
-                x_dest = cur_pos[0] + width
+                x_dest = round(self.knife_pos[-2][0] + width, 2)
                 y_dest = self.cake_len if cur_pos[1] == 0 else 0
                 diag_cut = (cur_pos[0], cur_pos[1], x_dest, y_dest)
-                # print(f'Diagonal cut: {diag_cut}')
                 self.pending_cuts.append(diag_cut)
                 self.knife_pos.append([diag_cut[2], diag_cut[3]])    
             
