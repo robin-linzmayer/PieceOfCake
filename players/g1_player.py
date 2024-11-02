@@ -492,6 +492,9 @@ class Player:
             # Calculate cut points from params
             diagonal_cuts = []
             for i in range(n_cuts):
+                ###########################################
+                # [TODO: NEED TO ADDRESS LAST CUT]
+                ###########################################
                 if (cur_pos[1] == 0) == (i % 2 == 0):
                     t = params[i]
                     x = cur_pos[0] + t * (self.cake_width + self.cake_len - cur_pos[0])
