@@ -1,6 +1,8 @@
 from typing import List
 from itertools import combinations
 from scipy.optimize import linear_sum_assignment
+from shapely.geometry import Polygon, LineString
+from shapely.ops import split
 
 import math
 import numpy as np
@@ -123,6 +125,73 @@ def find_ratio_groupings(requests, m, tolerance, cake_len):
     backtrack(requests, [], cake_len)
     
     return valid_groupings
+
+
+def divide_polygon(polygon, cut):
+    """
+    Divide polygon into smaller polygons from provided cuts.
+    """
+    if not cut.intersects(polygon):
+        return [polygon]
+    result = split(polygon, cut)
+    polygons = []
+    for i in range(len(result.geoms)):
+        polygons.append(result.geoms[i])
+    return polygons
+
+
+def loss_function(params, n_cuts, cur_pos, prev_pos, cake_dims, target_ratios, requests):
+    """
+    Loss function for optimizing remaining requests.
+    """
+    # Set bounds from current position to remaining cake width plus cake length for last cut
+    lower_bound = cur_pos[0]
+    upper_bound = cake_dims[0] + cake_dims[1]
+    params = np.clip(params, lower_bound, upper_bound)
+
+    loss = 0.0
+
+    # Create polygons from horizontal cuts
+    trapezoid = Polygon([prev_pos, cur_pos, (cake_dims[0], cur_pos[1]), (cake_dims[0], prev_pos[1])])
+    polygon_list =[trapezoid]
+    horizontal_cuts = []
+    for i in range(1, len(target_ratios)):
+        y_val = cake_dims[1] * i / len(target_ratios)
+        horizontal_cut = LineString([(0, y_val), (cake_dims[0], y_val)])
+        horizontal_cuts.append(horizontal_cut)
+
+    for cut in horizontal_cuts:
+        new_pieces = []
+        for polygon in polygon_list:
+            slices = divide_polygon(polygon, cut)
+            new_pieces.extend(slices)
+        polygon_list = new_pieces
+
+    # Calculate cut points from params
+    diagonal_cuts = []
+    for i in range(n_cuts):
+        if (cur_pos[1] == 0) == (i % 2 == 0):
+            t = params[i]
+            x = lower_bound + t * (upper_bound - lower_bound)
+            y = cake_dims[1]
+        else:
+            t = params[i]
+            x = lower_bound + t * (upper_bound - lower_bound)
+            y = 0
+        diagonal_cut = LineString([cur_pos, (x, y)])
+
+        # Divide polygons with diagonal cuts
+        new_pieces = []
+        for polygon in polygon_list:
+            slices = divide_polygon(polygon, diagonal_cut)
+            new_pieces.extend(slices)
+        polygon_list = new_pieces
+
+    # Calculate loss as the sum of areas of the polygons
+    areas = [polygon.area for polygon in polygon_list]
+    assignments = optimal_assignment(areas, requests)
+        
+
 
 """
 Player Class
@@ -420,10 +489,10 @@ class Player:
         triangular pieces.
         """
         triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance, self.cake_len)
-        print(f'Unassigned requests: {unassigned_requests}, triangle groups: {triangle_groups}')
         if triangle_groups:
             grouping = triangle_groups[0]['grouping']
             ungrouped = triangle_groups[0]['ungrouped']
+            print(f'grouping: {grouping}, ungrouped: {ungrouped}')
             widths = [group[1] for group in grouping]
             # make diagonal cuts to serve triangular pieces
             for width in widths:
@@ -432,8 +501,17 @@ class Player:
                 y_dest = self.cake_len if cur_pos[1] == 0 else 0
                 diag_cut = (cur_pos[0], cur_pos[1], x_dest, y_dest)
                 self.pending_cuts.append(diag_cut)
-                self.knife_pos.append([diag_cut[2], diag_cut[3]])    
-            
+                self.knife_pos.append([diag_cut[2], diag_cut[3]])
+            for group in grouping:
+                for req in group[0]:
+                    unassigned_requests.remove(req)
+
+
+    def optimize_remaining_requests(self, unassigned_requests):
+        """
+        Optimize the remaining requests by making diagonal cuts.
+        """
+        pass
 
 
     def move(self, current_percept) -> (int, List[int]):
@@ -527,7 +605,6 @@ class Player:
             else:
                 if not self.cuts_created:
                     # set number of horizontal slices
-                    # [TODO -- ADD ONE MORE LAYER TO ADDRESS MINIBALL ISSUE]
                     if self.cake_len <= 2 * EASY_LEN_BOUND:
                         self.num_horizontal = 2
                     elif self.cake_len <= 3 * EASY_LEN_BOUND:
@@ -543,6 +620,7 @@ class Player:
                     self.divide_horizontally()
                     self.make_rectangles(unassigned_requests)
                     self.make_triangles(unassigned_requests)
+                    self.optimize_remaining_requests(unassigned_requests)
                     self.cuts_created = True
 
                 if len(self.pending_cuts) > 0:
