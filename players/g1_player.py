@@ -36,6 +36,8 @@ def optimal_assignment(R, V):
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
     
     # Assignment array where assignment[i] is the index of V matched to R[i]
+    print(f'col_indices: {col_indices}')
+    print(f'num_requests: {num_requests}')
     assignment = [int(col_indices[i]) for i in range(num_requests)]
     
     return assignment
@@ -465,69 +467,101 @@ class Player:
         target_ratios = [i for i in range(1, 2*m, 2)]
 
         def loss_function(params):
-            params = np.clip(params, cur_pos[0], self.cake_width + self.cake_len)
+            try:
+                params = np.clip(params, cur_pos[0], self.cake_width + self.cake_len)
 
-            # Initiate polygon list with remaining trapezoid
-            trapezoid = Polygon([prev_pos, cur_pos, (self.cake_width, cur_pos[1]), (self.cake_width, prev_pos[1])])
-            polygon_list =[trapezoid]
+                # Initiate polygon list with remaining trapezoid
+                trapezoid = Polygon([prev_pos, cur_pos, (self.cake_width, cur_pos[1]), (self.cake_width, prev_pos[1])])
+                polygon_list =[trapezoid]
 
-            # Create polygons from horizontal cuts
-            horizontal_cuts = []
-            for i in range(1, len(target_ratios)):
-                y_val = self.cake_len * i / len(target_ratios)
-                horizontal_cut = LineString([(0, y_val), (self.cake_width, y_val)])
-                horizontal_cuts.append(horizontal_cut)
+                # Create polygons from horizontal cuts
+                horizontal_cuts = []
+                for i in range(1, len(target_ratios)):
+                    y_val = self.cake_len * i / len(target_ratios)
+                    horizontal_cut = LineString([(0, y_val), (self.cake_width, y_val)])
+                    horizontal_cuts.append(horizontal_cut)
 
-            for cut in horizontal_cuts:
-                new_pieces = []
-                for polygon in polygon_list:
-                    slices = divide_polygon(polygon, cut)
-                    new_pieces.extend(slices)
-                polygon_list = new_pieces
+                for cut in horizontal_cuts:
+                    new_pieces = []
+                    for polygon in polygon_list:
+                        slices = divide_polygon(polygon, cut)
+                        new_pieces.extend(slices)
+                    polygon_list = new_pieces
 
-            # Create polygons from diagonal cuts
-            for i in range(n_cuts):
-                if (cur_pos[1] == 0) == (i % 2 == 0):
-                    # Cut from top to bottom
-                    if params[i] > self.cake_width:
-                        # Cut to right edge
-                        x = self.cake_width
-                        y = round(params[i] - self.cake_width, 2)
+                # Create polygons from diagonal cuts
+                for i in range(n_cuts):
+                    if (cur_pos[1] == 0) == (i % 2 == 0):
+                        # Cut from top to bottom
+                        if params[i] > self.cake_width:
+                            # Cut to right edge
+                            x = self.cake_width
+                            y = round(params[i] - self.cake_width, 2)
+                        else:
+                            # Cut to bottom edge
+                            x = params[i]
+                            y = self.cake_len
                     else:
-                        # Cut to bottom edge
-                        x = params[i]
-                        y = self.cake_len
-                else:
-                    # Cut from bottom to top
-                    if params[i] > self.cake_width:
-                        # Cut to right edge
-                        x = self.cake_width
-                        y = round(self.cake_len - (params[i] - self.cake_width), 2)
-                    else:
-                        # Cut to top edge
-                        x = params[i]
-                        y = 0
-                diagonal_cut = LineString([cur_pos, (x, y)])
-                new_pieces = []
-                for polygon in polygon_list:
-                    slices = divide_polygon(polygon, diagonal_cut)
-                    new_pieces.extend(slices)
-                polygon_list = new_pieces
+                        # Cut from bottom to top
+                        if params[i] > self.cake_width:
+                            # Cut to right edge
+                            x = self.cake_width
+                            y = round(self.cake_len - (params[i] - self.cake_width), 2)
+                        else:
+                            # Cut to top edge
+                            x = params[i]
+                            y = 0
+                    diagonal_cut = LineString([cur_pos, (x, y)])
+                    new_pieces = []
+                    for polygon in polygon_list:
+                        slices = divide_polygon(polygon, diagonal_cut)
+                        new_pieces.extend(slices)
+                    polygon_list = new_pieces
 
-            # Calculate loss from remaining requests
-            loss = 0.0
-            areas = [polygon.area for polygon in polygon_list]
-            assignments = optimal_assignment(areas, unassigned_requests)
-            for i in range(len(unassigned_requests)):
-                penalty_percentage = abs(areas[assignments[i]] - unassigned_requests[i]) / unassigned_requests[i] * 100
-                if penalty_percentage > self.tolerance:
-                    loss += penalty_percentage 
+                # Calculate loss from remaining requests
+                loss = 0.0
+                areas = [polygon.area for polygon in polygon_list]
+                assignments = optimal_assignment(areas, unassigned_requests)
+                for i in range(len(unassigned_requests)):
+                    penalty_percentage = abs(areas[assignments[i]] - unassigned_requests[i]) / unassigned_requests[i] * 100
+                    if penalty_percentage > self.tolerance:
+                        loss += penalty_percentage 
 
-            return loss
+                return loss
+            
+            except Exception as e:
+                print(e)
+                return np.inf
         
         # Optimize diagonal cuts
         initial_params = np.linspace(cur_pos[0], self.cake_width, n_cuts + 1)[1:]
         result = minimize(loss_function, initial_params, method='Nelder-Mead')
+        if result.success:
+            optimized_params = result.x
+
+        for i in range(n_cuts):
+            if (self.knife_pos[-1][1] == 0) == (i % 2 == 0):
+                # Cut from top to bottom
+                if optimized_params[i] > self.cake_width:
+                    # Cut to right edge
+                    x = self.cake_width
+                    y = round(optimized_params[i] - self.cake_width, 2)
+                else:
+                    # Cut to bottom edge
+                    x = optimized_params[i]
+                    y = self.cake_len
+            else:
+                # Cut from bottom to top
+                if optimized_params[i] > self.cake_width:
+                    # Cut to right edge
+                    x = self.cake_width
+                    y = round(self.cake_len - (optimized_params[i] - self.cake_width), 2)
+                else:
+                    # Cut to top edge
+                    x = optimized_params[i]
+                    y = 0
+            diagonal_cut = (self.knife_pos[-1][0], self.knife_pos[-1][1], x, y)
+            self.pending_cuts.append(diagonal_cut)
+            self.knife_pos.append([diagonal_cut[2], diagonal_cut[3]])
 
 
     def move(self, current_percept) -> (int, List[int]):
