@@ -96,37 +96,7 @@ class Player:
         gradients = np.zeros(len(cuts))
         for i in range(len(cuts)):
             new_cuts = copy.deepcopy(cuts)
-
-            if new_cuts[i][0] == 0:
-                if new_cuts[i][1] + dw > current_percept.cake_len:
-                    remainder = new_cuts[i][1] + dw - current_percept.cake_len
-                    new_cuts[i] = [remainder, current_percept.cake_len]
-                else:
-                    new_cuts[i] = [0, new_cuts[i][1] + dw]
-            elif new_cuts[i][0] == current_percept.cake_width:
-                if new_cuts[i][1] + dw > current_percept.cake_len:
-                    remainder = new_cuts[i][1] - dw
-                    new_cuts[i] = [
-                        current_percept.cake_width - remainder,
-                        current_percept.cake_len,
-                    ]
-                else:
-                    new_cuts[i] = [current_percept.cake_width, new_cuts[i][1] + dw]
-            elif new_cuts[i][1] == 0:
-                if new_cuts[i][0] + dw > current_percept.cake_width:
-                    remainder = new_cuts[i][0] + dw - current_percept.cake_width
-                    new_cuts[i] = [current_percept.cake_width, remainder]
-                else:
-                    new_cuts[i] = [new_cuts[i][0] + dw, 0]
-            elif new_cuts[i][1] == current_percept.cake_len:
-                if new_cuts[i][0] + dw > current_percept.cake_width:
-                    remainder = new_cuts[i][0] - dw
-                    new_cuts[i] = [
-                        current_percept.cake_width - remainder,
-                        current_percept.cake_len,
-                    ]
-                else:
-                    new_cuts[i] = [new_cuts[i][0] + dw, current_percept.cake_len]
+            new_cuts[i] = get_shifted_cut(cuts[i], dw, current_percept)
 
             new_loss = self.get_loss_from_cuts(new_cuts, current_percept)
             gradients[i] = (new_loss - loss) / dw
@@ -233,3 +203,38 @@ def generate_random_cuts(num_cuts, current_percept):
 
 def cost_function(polygons, requests):
     return np.random.random()
+
+
+def get_shifted_cut(cut, shift, current_percept):
+    shifted_cut = copy.deepcopy(cut)
+    if cut[0] == 0:
+        if cut[1] + shift > current_percept.cake_len:
+            remainder = cut[1] + shift - current_percept.cake_len
+            shifted_cut = [remainder, current_percept.cake_len]
+        else:
+            shifted_cut = [0, cut[1] + shift]
+    elif cut[0] == current_percept.cake_width:
+        if cut[1] + shift > current_percept.cake_len:
+            remainder = cut[1] - shift
+            shifted_cut = [
+                current_percept.cake_width - remainder,
+                current_percept.cake_len,
+            ]
+        else:
+            shifted_cut = [current_percept.cake_width, cut[1] + shift]
+    elif cut[1] == 0:
+        if cut[0] + shift > current_percept.cake_width:
+            remainder = cut[0] + shift - current_percept.cake_width
+            shifted_cut = [current_percept.cake_width, remainder]
+        else:
+            shifted_cut = [cut[0] + shift, 0]
+    elif cut[1] == current_percept.cake_len:
+        if cut[0] + shift > current_percept.cake_width:
+            remainder = cut[0] - shift
+            shifted_cut = [
+                current_percept.cake_width - remainder,
+                current_percept.cake_len,
+            ]
+        else:
+            shifted_cut = [cut[0] + shift, current_percept.cake_len]
+    return shifted_cut
