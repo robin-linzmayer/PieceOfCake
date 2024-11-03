@@ -42,6 +42,7 @@ class G2_Player:
         self.cake_len = None
         self.cake_width = None
         self.move_queue = []
+        self.requestscut=0
 
         self.strategy = Strategy.SNEAK
         self.move_object = None
@@ -121,12 +122,66 @@ class G2_Player:
         self.requests = current_percept.requests
         self.cake_len = current_percept.cake_len
         self.cake_width = current_percept.cake_width
+        self.cake_area= self.cake_len * self.cake_width
+        self.requestlength = len(self.requests)
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
+        #cake_area= self.cake_len * self.cake_width
 
-        if self.strategy == Strategy.SNEAK:
+       # for only 1 request:
+        if self.requestlength == 1:
+            if self.turn_number == 1:
+                return constants.INIT, [0,0]
+            elif self.requestscut < self.requestlength:
+                self.requestscut += 1
+                return constants.CUT, [round(2 * 0.05 * self.requests[0]/ self.cake_len, 2), self.cake_len]
+         
+            return self.assign(greedy_best_fit_assignment)
+
+        elif self.cake_area<=860:
+            if self.cake_len <= 23.507:
+                if self.turn_number == 1:
+                    self.move_queue.append([0,0])
+                    return constants.INIT, [0,0]
+                    
+                if self.requestscut < self.requestlength:
+                    polygonarea = self.requests[self.requestscut]
+                    polygonbase = round(2 * polygonarea / self.cake_len, 2)
+
+                    if self.cur_pos[1] == 0:
+                        # we're on top side of the board
+                        if self.turn_number == 2:
+                            next_move = [polygonbase, self.cake_len]
+                        else:
+                            x = round(self.move_queue[-2][0] + polygonbase, 2)
+                            y = self.cake_len
+
+                            if x > self.cake_width:
+                                x = self.cake_width
+                                y = round(2 * self.cake_area * 0.05 / (self.cake_width - self.move_queue[-2][0]), 2)
+                            next_move = [x, y]
+
+                        self.move_queue.append(next_move)
+                        self.requestscut += 1
+                        return constants.CUT, next_move
+                    else:
+                        # we're on bottom of the board
+                        x = round(self.move_queue[-2][0] + polygonbase, 2)
+                        y = 0
+
+                        if x > self.cake_width:
+                            x = self.cake_width
+                            y = self.cake_len - round(2 * self.cake_area * 0.05 / (self.cake_width - self.move_queue[-2][0]), 2)
+                        next_move = [x, y]
+                        self.move_queue.append(next_move)
+                        self.requestscut += 1
+                        return constants.CUT, next_move
+                return self.assign(greedy_best_fit_assignment)
+
+
+        elif self.strategy == Strategy.SNEAK:
             if self.turn_number == 1:
                 self.move_object = EvenCuts(
                     len(self.requests), self.cake_width, self.cake_len
