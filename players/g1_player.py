@@ -540,7 +540,7 @@ class Player:
                     y = round(optimized_params[i] - self.cake_width, 2)
                 else:
                     # Cut to bottom edge
-                    x = optimized_params[i]
+                    x = round(optimized_params[i], 2)
                     y = self.cake_len
             else:
                 # Cut from bottom to top
@@ -550,7 +550,7 @@ class Player:
                     y = round(self.cake_len - (optimized_params[i] - self.cake_width), 2)
                 else:
                     # Cut to top edge
-                    x = optimized_params[i]
+                    x = round(optimized_params[i], 2)
                     y = 0
             diagonal_cut = (self.knife_pos[-1][0], self.knife_pos[-1][1], x, y)
             self.pending_cuts.append(diagonal_cut)
