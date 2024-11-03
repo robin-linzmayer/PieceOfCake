@@ -514,10 +514,13 @@ class Player:
                     new_pieces.extend(slices)
                 polygon_list = new_pieces
 
+            # Fill in areas with zeros if there are more requests than areas
+            areas = [polygon.area for polygon in polygon_list]
+            areas.extend([0] * (len(unassigned_requests) - len(areas)))
+            assignments = optimal_assignment(unassigned_requests, areas)
+            
             # Calculate loss from remaining requests
             loss = 0.0
-            areas = [polygon.area for polygon in polygon_list]
-            assignments = optimal_assignment(unassigned_requests, areas)
             for i in range(len(unassigned_requests)):
                 penalty_percentage = abs(areas[assignments[i]] - unassigned_requests[i]) / unassigned_requests[i] * 100
                 if penalty_percentage > self.tolerance:
@@ -577,7 +580,6 @@ class Player:
         # store cake dimensions in class variables
         self.cake_len = current_percept.cake_len
         self.cake_width = current_percept.cake_width
-
 
         ####################
         # CUTTING STRATEGY #
@@ -670,7 +672,6 @@ class Player:
                     # return pending cuts
                     next_cut = self.pending_cuts.pop(0)
                     return constants.CUT, [next_cut[2], next_cut[3]]
-
 
         #######################
         # ASSIGNMENT STRATEGY #
