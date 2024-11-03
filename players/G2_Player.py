@@ -9,8 +9,7 @@ from shapely.geometry import Polygon
 from piece_of_cake_state import PieceOfCakeState
 from players.g2.helpers import *
 from players.g2.even_cuts import *
-from players.g2.assigns import sorted_assign, index_assign, hungarian_min_penalty, dp_min_penalty
-from players.g2.assigns import greedy_best_fit_assignment
+from players.g2.assigns import assign
 
 class Strategy(Enum):
     SNEAK = "sneak"
@@ -92,9 +91,9 @@ class G2_Player:
         return penalty
 
     def climb_hills(self):
-        current_penalty = self.__calculate_penalty(index_assign)
+        current_penalty = self.__calculate_penalty(assign)
         print(f"1 penalty: {current_penalty}")
-        current_penalty = self.__calculate_penalty(sorted_assign)
+        current_penalty = self.__calculate_penalty(assign)
         print(f"2 penalty: {current_penalty}")
 
         if self.turn_number == 1:
@@ -113,7 +112,7 @@ class G2_Player:
                     round((self.cur_pos[1] + 5) % self.cake_len, 2),
                 ]
 
-        return constants.ASSIGN, sorted_assign(self.polygons, self.requests)
+        return constants.ASSIGN, assign(self.polygons, self.requests)
 
     def process_percept(self, current_percept: PieceOfCakeState):
         self.polygons = current_percept.polygons
@@ -130,7 +129,7 @@ class G2_Player:
         self.process_percept(current_percept)
         #cake_area= self.cake_len * self.cake_width
 
-       # for only 1 request:
+        # for only 1 request:
         if self.requestlength == 1:
             if self.turn_number == 1:
                 return constants.INIT, [0,0]
@@ -138,7 +137,7 @@ class G2_Player:
                 self.requestscut += 1
                 return constants.CUT, [round(2 * 0.05 * self.requests[0]/ self.cake_len, 2), self.cake_len]
          
-            return self.assign(greedy_best_fit_assignment)
+            return self.assign(assign)
 
         elif self.cake_area<=860:
             if self.cake_len <= 23.507:
@@ -178,8 +177,7 @@ class G2_Player:
                         self.move_queue.append(next_move)
                         self.requestscut += 1
                         return constants.CUT, next_move
-                return self.assign(greedy_best_fit_assignment)
-
+                return self.assign(assign)
 
         elif self.strategy == Strategy.SNEAK:
             if self.turn_number == 1:
@@ -189,11 +187,7 @@ class G2_Player:
 
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
-                if len(self.requests) < 10:
-                    #print("Brute Force!")
-                    return self.assign(greedy_best_fit_assignment)
-                else:
-                    return self.assign(greedy_best_fit_assignment)
+                return self.assign(assign)
 
             return move
 
