@@ -66,10 +66,9 @@ class Player:
             gradients = self.get_gradient(loss, cuts, current_percept)
 
             for j in range(len(cuts)):
-                if cuts[j][0] == 0 or cuts[j][0] == current_percept.cake_width:
-                    cuts[j][1] -= learning_rate * gradients[j]
-                else:
-                    cuts[j][0] -= learning_rate * gradients[j]
+                cuts[j] = get_shifted_cut(
+                    cuts[j], -learning_rate * gradients[j], current_percept
+                )
             loss = self.get_loss_from_cuts(cuts, current_percept)
 
         assignment = []
@@ -211,6 +210,9 @@ def get_shifted_cut(cut, shift, current_percept):
         if cut[1] + shift > current_percept.cake_len:
             remainder = cut[1] + shift - current_percept.cake_len
             shifted_cut = [remainder, current_percept.cake_len]
+        elif cut[1] + shift < 0:
+            remainder = -(cut[1] + shift)
+            shifted_cut = [remainder, 0]
         else:
             shifted_cut = [0, cut[1] + shift]
     elif cut[0] == current_percept.cake_width:
@@ -220,12 +222,18 @@ def get_shifted_cut(cut, shift, current_percept):
                 current_percept.cake_width - remainder,
                 current_percept.cake_len,
             ]
+        elif cut[1] + shift < 0:
+            remainder = -(cut[1] + shift)
+            shifted_cut = [current_percept.cake_width - remainder, 0]
         else:
             shifted_cut = [current_percept.cake_width, cut[1] + shift]
     elif cut[1] == 0:
         if cut[0] + shift > current_percept.cake_width:
             remainder = cut[0] + shift - current_percept.cake_width
             shifted_cut = [current_percept.cake_width, remainder]
+        elif cut[0] + shift < 0:
+            remainder = -(cut[0] + shift)
+            shifted_cut = [0, remainder]
         else:
             shifted_cut = [cut[0] + shift, 0]
     elif cut[1] == current_percept.cake_len:
@@ -235,6 +243,9 @@ def get_shifted_cut(cut, shift, current_percept):
                 current_percept.cake_width - remainder,
                 current_percept.cake_len,
             ]
+        elif cut[0] + shift < 0:
+            remainder = -(cut[0] + shift)
+            shifted_cut = [0, current_percept.cake_len - remainder]
         else:
             shifted_cut = [cut[0] + shift, current_percept.cake_len]
     return shifted_cut
