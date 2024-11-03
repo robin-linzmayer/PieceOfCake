@@ -665,6 +665,15 @@ class Player:
                     self.divide_horizontally()
                     self.make_rectangles(unassigned_requests)
                     self.make_triangles(unassigned_requests)
+
+                    # add fake requests, if needed
+                    if len(unassigned_requests) % self.num_horizontal != 0:
+                        extra_cake = cake_area * 0.05
+                        num_fake_requests = self.num_horizontal - (len(unassigned_requests) % self.num_horizontal)
+                        fake_request = 100 if extra_cake / num_fake_requests > 100 else extra_cake / num_fake_requests
+                        for _ in range(num_fake_requests):
+                            unassigned_requests.append(fake_request)
+
                     self.optimize_remaining_requests(unassigned_requests)
                     self.cuts_created = True
 
