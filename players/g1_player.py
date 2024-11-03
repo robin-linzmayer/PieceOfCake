@@ -464,12 +464,8 @@ class Player:
         prev_pos = self.knife_pos[-2]
         target_ratios = [i for i in range(1, 2*m, 2)]
 
-        # Set bounds from current position to remaining cake width plus cake length for last cut
-        lower_bound = cur_pos[0]
-        upper_bound = self.cake_width + self.cake_len
-
         def loss_function(params):
-            params = np.clip(params, lower_bound, upper_bound)
+            params = np.clip(params, cur_pos[0], self.cake_width + self.cake_len)
 
             # Initiate polygon list with remaining trapezoid
             trapezoid = Polygon([prev_pos, cur_pos, (self.cake_width, cur_pos[1]), (self.cake_width, prev_pos[1])])
@@ -489,23 +485,29 @@ class Player:
                     new_pieces.extend(slices)
                 polygon_list = new_pieces
 
-            # Calculate cut points from params
-            diagonal_cuts = []
+            # Create polygons from diagonal cuts
             for i in range(n_cuts):
-                ###########################################
-                # [TODO: NEED TO ADDRESS LAST CUT]
-                ###########################################
                 if (cur_pos[1] == 0) == (i % 2 == 0):
-                    t = params[i]
-                    x = cur_pos[0] + t * (self.cake_width + self.cake_len - cur_pos[0])
-                    y = self.cake_len
+                    # Cut from top to bottom
+                    if params[i] > self.cake_width:
+                        # Cut to right edge
+                        x = self.cake_width
+                        y = round(params[i] - self.cake_width, 2)
+                    else:
+                        # Cut to bottom edge
+                        x = params[i]
+                        y = self.cake_len
                 else:
-                    t = params[i]
-                    x = cur_pos[0] + t * (self.cake_width + self.cake_len - cur_pos[0])
-                    y = 0
+                    # Cut from bottom to top
+                    if params[i] > self.cake_width:
+                        # Cut to right edge
+                        x = self.cake_width
+                        y = round(self.cake_len - (params[i] - self.cake_width), 2)
+                    else:
+                        # Cut to top edge
+                        x = params[i]
+                        y = 0
                 diagonal_cut = LineString([cur_pos, (x, y)])
-
-                # Divide polygons with diagonal cuts
                 new_pieces = []
                 for polygon in polygon_list:
                     slices = divide_polygon(polygon, diagonal_cut)
@@ -524,7 +526,7 @@ class Player:
             return loss
         
         # Optimize diagonal cuts
-        initial_params = np.linspace(lower_bound, upper_bound, n_cuts)
+        initial_params = np.linspace(cur_pos[0], self.cake_width, n_cuts + 1)[1:]
         result = minimize(loss_function, initial_params, method='Nelder-Mead')
 
 
