@@ -10,7 +10,7 @@ from scipy.optimize import linear_sum_assignment
 from shapely.geometry import LineString, Polygon
 from shapely.ops import split
 import matplotlib.pyplot as plt
-from hyperopt import fmin, tpe, hp, Trials
+from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 
 import constants
 
@@ -383,20 +383,64 @@ class GridOptimizer:
 
         Updates the cut positions to minimize the total penalty.
         """
-        step_size_y = self.cake_len / 40  # Adjust based on desired granularity
-        step_size_x = self.cake_width / 40
-
         # Define the search space in Hyperopt
         space = {
-            **{f'h_y1_{i}': hp.quniform(f'h_y1_{i}', 0, self.cake_len, step_size_y) for i in range(self.num_horizontal_cuts)},
-            **{f'h_y2_{i}': hp.quniform(f'h_y2_{i}', 0, self.cake_len, step_size_y) for i in range(self.num_horizontal_cuts)},
-            **{f'v_x1_{i}': hp.quniform(f'v_x1_{i}', 0, self.cake_width, step_size_x) for i in range(self.num_vertical_cuts)},
-            **{f'v_x2_{i}': hp.quniform(f'v_x2_{i}', 0, self.cake_width, step_size_x) for i in range(self.num_vertical_cuts)},
+            **{f'h_y1_{i}': hp.uniform(f'h_y1_{i}', 0, self.cake_len) for i in range(self.num_horizontal_cuts)},
+            **{f'h_y2_{i}': hp.uniform(f'h_y2_{i}', 0, self.cake_len) for i in range(self.num_horizontal_cuts)},
+            **{f'v_x1_{i}': hp.uniform(f'v_x1_{i}', 0, self.cake_width) for i in range(self.num_vertical_cuts)},
+            **{f'v_x2_{i}': hp.uniform(f'v_x2_{i}', 0, self.cake_width) for i in range(self.num_vertical_cuts)},
         }
 
-        # Run the optimization using TPE
+        # **Define initial parameters for a uniform grid**
+        # For horizontal cuts (rows)
+        h_y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
+        initial_params = {}
+        for i, y in enumerate(h_y_positions):
+            initial_params[f'h_y1_{i}'] = y  # Start y-coordinate
+            initial_params[f'h_y2_{i}'] = y  # End y-coordinate (same for straight horizontal line)
+
+        # For vertical cuts (columns)
+        v_x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
+        for i, x in enumerate(v_x_positions):
+            initial_params[f'v_x1_{i}'] = x  # Start x-coordinate
+            initial_params[f'v_x2_{i}'] = x  # End x-coordinate (same for straight vertical line)
+
+        # Create a Trials object
         trials = Trials()
-        best_params = fmin(fn=self.objective, space=space, algo=tpe.suggest, max_evals=10000, trials=trials)
+
+        # Evaluate the objective function with the initial parameters
+        initial_loss = self.objective(initial_params)
+
+        # Insert the initial trial into the Trials object
+        trials.insert_trial_doc({
+            'state': STATUS_OK,
+            'tid': 0,  # Trial ID
+            'spec': None,
+            'result': {'loss': initial_loss, 'status': STATUS_OK},
+            'misc': {
+                'tid': 0,
+                'cmd': ('domain_attachment', 'FMinIter_Domain'),
+                'idxs': {key: [0] for key in initial_params.keys()},
+                'vals': {key: [initial_params[key]] for key in initial_params.keys()}
+            },
+            'exp_key': None,
+            'owner': None,
+            'book_time': None,
+            'refresh_time': None,
+            'params': initial_params
+        })
+
+        # Refresh the trials object
+        trials.refresh()
+
+        # Run the optimization using TPE
+        best_params = fmin(
+            fn=self.objective,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=10000,
+            trials=trials
+        )
 
         # Update the cuts with the best parameters found
         self.horizontal_cuts = [
@@ -408,7 +452,8 @@ class GridOptimizer:
             [(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)]
             for i in range(self.num_vertical_cuts)
         ]
-        
+
+        # Generate polygons using the optimized cuts
         self.generate_polygons()
         self.display_polygons(self.polygons)
 
@@ -420,6 +465,7 @@ class GridOptimizer:
         print("Best vertical lines:")
         for i in range(self.num_vertical_cuts):
             print([(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)])
+
     
     def display_polygons(self, polygons):
         fig, ax = plt.subplots()
