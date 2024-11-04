@@ -72,7 +72,10 @@ class G2_Player:
 
         return constants.ASSIGN, assignment
 
-    def can_cake_fit_in_plate(self, cake_piece, radius=12.5):
+    def can_cake_fit_in_plate(self, cake_piece: Polygon, radius=12.5):
+        if cake_piece.area < 0.25:
+            return True
+
         cake_points = np.array(
             list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double
         )
@@ -129,10 +132,16 @@ class G2_Player:
     def best_cuts(self):
         # initialize move queue
         if not self.move_queue:
+            if self.turn_number != 1:
+                print(f"assigning now!")
+                return self.assign(greedy_best_fit_assignment)
+
             print(f"I'll think for a while now..")
             best_cuts = best_combo(self.requests, self.cake_len, self.cake_width)
 
-            self.move_queue = cuts_to_moves(best_cuts, self.cake_len, self.cake_width)
+            self.move_queue = cuts_to_moves(
+                best_cuts, self.requests, self.cake_len, self.cake_width
+            )
 
         # get the next move from the move queue
         return self.move_queue.pop(0)

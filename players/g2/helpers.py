@@ -123,7 +123,7 @@ def divide_polygon(polygon: Polygon, from_point, to_point):
     return polygons
 
 
-def can_cake_fit_in_plate(cake_piece, radius=12.5):
+def can_cake_fit_in_plate(cake_piece: Polygon, radius=12.5):
     """
     Check if the cake can fit inside a plate of radius 12.5.
 
@@ -134,6 +134,8 @@ def can_cake_fit_in_plate(cake_piece, radius=12.5):
     Returns:
     - True if the cake can fit inside the plate, False otherwise
     """
+    if cake_piece.area < 0.25:
+        return True
     # Step 1: Get the points on the cake piece and store as numpy array
 
     cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)

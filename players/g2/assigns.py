@@ -2,7 +2,10 @@ from shapely.geometry import Polygon
 import math
 from scipy.optimize import linear_sum_assignment
 
-def sorted_assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def sorted_assign(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     # Get sorted indices of polygons and requests in decreasing order of area
     sorted_polygon_indices = sorted(
         range(len(polygons)), key=lambda i: polygons[i].area, reverse=True
@@ -21,7 +24,10 @@ def sorted_assign(polygons: list[Polygon], requests: list[float], d: float) -> l
 
     return assignment
 
-def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def greedy_best_fit_assignment(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     # sort requests and polygons in descending order by size
     sorted_polygons = sorted(enumerate(polygons), key=lambda x: x[1].area, reverse=True)
     sorted_requests = sorted(enumerate(requests), key=lambda x: x[1], reverse=True)
@@ -32,8 +38,8 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
     # iterate over each request, from largest to smallest
     for request_idx, request_size in sorted_requests:
         best_fit_polygon_idx = None
-        min_penalty = float('inf')
-        closest_area_diff = float('inf')
+        min_penalty = float("inf")
+        closest_area_diff = float("inf")
 
         # search for the best fitting polygon for this request
         for poly_idx, polygon in sorted_polygons:
@@ -45,7 +51,10 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
             penalty = area_diff_percentage if area_diff_percentage > d else 0
 
             # find the polygon with minimum penalty and closest area to the request
-            if (penalty < min_penalty) or (penalty == min_penalty and abs(polygon.area - request_size) < closest_area_diff):
+            if (penalty < min_penalty) or (
+                penalty == min_penalty
+                and abs(polygon.area - request_size) < closest_area_diff
+            ):
                 best_fit_polygon_idx = poly_idx
                 min_penalty = penalty
                 closest_area_diff = abs(polygon.area - request_size)
@@ -58,7 +67,9 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
     return assignment
 
 
-def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+def hungarian_min_penalty(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     n = len(requests)
     m = len(polygons)
     cost_matrix = []
@@ -73,16 +84,17 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
         cost_matrix.append(row)
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    
+
     assignment = [-1] * len(requests)
     for i in range(len(row_ind)):
-        assignment[row_ind[i]] = col_ind[i]
+        assignment[row_ind[i]] = int(col_ind[i])
 
     return assignment
 
 
-
-def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+def dp_min_penalty(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     n = len(polygons)
     m = len(requests)
     dp = [[math.inf] * (m + 1) for _ in range(n + 1)]
@@ -93,16 +105,22 @@ def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> 
     # this fills the DP table
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            area_diff = abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100
+            area_diff = (
+                abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100
+            )
             penalty = area_diff if area_diff > d else 0
 
-            dp[i][j] = min(dp[i-1][j], dp[i-1][j-1] + penalty)
+            dp[i][j] = min(dp[i - 1][j], dp[i - 1][j - 1] + penalty)
 
     # backtrack for assignment
     i, j = n, m
     while i > 0 and j > 0:
-        if dp[i][j] == dp[i-1][j-1] + (abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100 if abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100 > d else 0):
-            assignment[j-1] = i-1
+        if dp[i][j] == dp[i - 1][j - 1] + (
+            abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100
+            if abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100 > d
+            else 0
+        ):
+            assignment[j - 1] = i - 1
             i -= 1
             j -= 1
         else:
@@ -110,9 +128,8 @@ def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> 
 
     return assignment
 
+
 from itertools import permutations
-
-
 
 
 # use just any assignment for now,

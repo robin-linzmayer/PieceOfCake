@@ -521,6 +521,8 @@ class PieceOfCakeGame:
         Returns:
         - True if the cake can fit inside the plate, False otherwise
         """
+        if cake_piece.area < 0.25:
+            return True
         # Step 1: Get the points on the cake piece and store as numpy array
 
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)

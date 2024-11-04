@@ -1,7 +1,11 @@
 from typing import Callable
 from shapely.geometry import Polygon
 import constants
-from players.g2.assigns import sorted_assign
+from players.g2.assigns import (
+    sorted_assign,
+    hungarian_min_penalty,
+    greedy_best_fit_assignment,
+)
 from players.g2.helpers import sneak, divide_polygon, can_cake_fit_in_plate
 import random
 
@@ -85,13 +89,7 @@ def __calculate_penalty(
     return penalty
 
 
-def penalty(
-    cuts: list[tuple[tuple[float, float], tuple[float, float]]],
-    requests: list[float],
-    cake_len,
-    cake_width,
-    # tolerance,
-):
+def cuts_to_polygons(cuts: list, cake_len: float, cake_width: float) -> list[Polygon]:
     polygons = [
         Polygon(
             [
@@ -112,7 +110,18 @@ def penalty(
 
         polygons = new_polygons
 
-    return __calculate_penalty(sorted_assign, requests, polygons)
+    return polygons
+
+
+def penalty(
+    cuts: list[tuple[tuple[float, float], tuple[float, float]]],
+    requests: list[float],
+    cake_len,
+    cake_width,
+    # tolerance,
+):
+    polygons = cuts_to_polygons(cuts, cake_len, cake_width)
+    return __calculate_penalty(greedy_best_fit_assignment, requests, polygons)
 
 
 def best_combo(
@@ -124,6 +133,7 @@ def best_combo(
     best_cuts = []
     min_penalty = curr_penalty = float("inf")
     for cuts in range(min_cuts, max_cuts + 1):
+        print(f"cuts-{cuts}")
         cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
 
         if (
@@ -138,7 +148,10 @@ def best_combo(
 
 
 def cuts_to_moves(
-    cuts: list[tuple[tuple[float, float], tuple[float, float]]], cake_len, cake_width
+    cuts: list[tuple[tuple[float, float], tuple[float, float]]],
+    requests,
+    cake_len,
+    cake_width,
 ) -> list[tuple[int, list]]:
     moves = []
     last_point = None
@@ -157,8 +170,5 @@ def cuts_to_moves(
         # moves.append((constants.CUT, [from_point, to_point]))
         moves.append((constants.CUT, to_point))
         last_point = to_point
-
-    # TODO: figure out assignment
-    # moves.append(sorted_assign)
 
     return moves
