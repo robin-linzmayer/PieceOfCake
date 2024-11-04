@@ -9,13 +9,21 @@ from shapely.geometry import Polygon
 from piece_of_cake_state import PieceOfCakeState
 from players.g2.helpers import *
 from players.g2.even_cuts import *
-from players.g2.assigns import sorted_assign, index_assign, hungarian_min_penalty, dp_min_penalty
+from players.g2.assigns import (
+    sorted_assign,
+    index_assign,
+    hungarian_min_penalty,
+    dp_min_penalty,
+)
 from players.g2.assigns import greedy_best_fit_assignment
+from players.g2.best_combination import best_combo, cuts_to_moves
+
 
 class Strategy(Enum):
     SNEAK = "sneak"
     CLIMB_HILLS = "climb_hills"
     SAWTOOTH = "sawtooth"
+    BEST_CUTS = "best_cuts"
 
 
 class G2_Player:
@@ -41,9 +49,11 @@ class G2_Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
-        self.move_queue = []
+        # stores next actions in a queue
+        # each action is a ({INIT | CUT | ASSIGN}, list) tuple
+        self.move_queue: list[tuple[int, list]] = []
 
-        self.strategy = Strategy.SNEAK
+        self.strategy = Strategy.BEST_CUTS
         self.move_object = None
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
@@ -56,7 +66,9 @@ class G2_Player:
         self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
     ) -> tuple[int, List[int]]:
 
-        assignment: list[int] = assign_func(self.polygons, self.requests, self.tolerance)
+        assignment: list[int] = assign_func(
+            self.polygons, self.requests, self.tolerance
+        )
 
         return constants.ASSIGN, assignment
 
@@ -114,6 +126,17 @@ class G2_Player:
 
         return constants.ASSIGN, sorted_assign(self.polygons, self.requests)
 
+    def best_cuts(self):
+        # initialize move queue
+        if not self.move_queue:
+            print(f"I'll think for a while now..")
+            best_cuts = best_combo(self.requests, self.cake_len, self.cake_width)
+
+            self.move_queue = cuts_to_moves(best_cuts, self.cake_len, self.cake_width)
+
+        # get the next move from the move queue
+        return self.move_queue.pop(0)
+
     def process_percept(self, current_percept: PieceOfCakeState):
         self.polygons = current_percept.polygons
         self.turn_number = current_percept.turn_number
@@ -135,7 +158,7 @@ class G2_Player:
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
                 if len(self.requests) < 10:
-                    #print("Brute Force!")
+                    # print("Brute Force!")
                     return self.assign(greedy_best_fit_assignment)
                 else:
                     return self.assign(greedy_best_fit_assignment)
@@ -144,6 +167,8 @@ class G2_Player:
 
         elif self.strategy == Strategy.CLIMB_HILLS:
             return self.climb_hills()
+        elif self.strategy == Strategy.BEST_CUTS:
+            return self.best_cuts()
 
         # default
         return self.climb_hills()
