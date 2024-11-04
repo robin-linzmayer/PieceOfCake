@@ -56,7 +56,7 @@ def find_best_cuts(
         else:
             to_point = random.sample(list(points.difference(DOWN)), 1)[0]
 
-        if (from_point, to_point) not in selected or (
+        if (from_point, to_point) not in selected and (
             to_point,
             from_point,
         ) not in selected:
@@ -132,7 +132,7 @@ def best_combo(
 
     best_cuts = []
     min_penalty = curr_penalty = float("inf")
-    for cuts in range(min_cuts, max_cuts + 1):
+    for cuts in range(min_cuts, max_cuts):
         print(f"cuts-{cuts}")
         cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
 
