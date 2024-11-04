@@ -56,7 +56,7 @@ class Player:
         if turn_number == 1:
             return constants.INIT, [0, 0]
 
-        num_cuts = 5
+        num_cuts = 1
         cuts = generate_random_cuts(num_cuts, current_percept)
         loss = self.get_loss_from_cuts(cuts, current_percept)
 
@@ -67,7 +67,7 @@ class Player:
 
             for j in range(len(cuts)):
                 cuts[j] = get_shifted_cut(
-                    cuts[j], -learning_rate * gradients[j], current_percept
+                    cuts[j], -learning_rate * gradients[j], (cake_width, cake_len)
                 )
             loss = self.get_loss_from_cuts(cuts, current_percept)
 
@@ -95,7 +95,9 @@ class Player:
         gradients = np.zeros(len(cuts))
         for i in range(len(cuts)):
             new_cuts = copy.deepcopy(cuts)
-            new_cuts[i] = get_shifted_cut(cuts[i], dw, current_percept)
+            new_cuts[i] = get_shifted_cut(
+                cuts[i], dw, (current_percept.cake_width, current_percept.cake_len)
+            )
 
             new_loss = self.get_loss_from_cuts(new_cuts, current_percept)
             gradients[i] = (new_loss - loss) / dw
@@ -204,48 +206,53 @@ def cost_function(polygons, requests):
     return np.random.random()
 
 
-def get_shifted_cut(cut, shift, current_percept):
+def get_shifted_cut(
+    cut,
+    shift,
+    cake_dims,
+):
+    cake_width, cake_len = cake_dims
     shifted_cut = copy.deepcopy(cut)
-    if cut[0] == 0:
-        if cut[1] + shift > current_percept.cake_len:
-            remainder = cut[1] + shift - current_percept.cake_len
-            shifted_cut = [remainder, current_percept.cake_len]
+    if cut[0] == 0:  # Left
+        if cut[1] + shift > cake_len:
+            remainder = cut[1] + shift - cake_len
+            shifted_cut = [remainder, cake_len]
         elif cut[1] + shift < 0:
             remainder = -(cut[1] + shift)
             shifted_cut = [remainder, 0]
         else:
             shifted_cut = [0, cut[1] + shift]
-    elif cut[0] == current_percept.cake_width:
-        if cut[1] + shift > current_percept.cake_len:
+    elif cut[0] == cake_width:  # Right
+        if cut[1] + shift > cake_len:
             remainder = cut[1] - shift
             shifted_cut = [
-                current_percept.cake_width - remainder,
-                current_percept.cake_len,
+                cake_width - remainder,
+                cake_len,
             ]
         elif cut[1] + shift < 0:
             remainder = -(cut[1] + shift)
-            shifted_cut = [current_percept.cake_width - remainder, 0]
+            shifted_cut = [cake_width - remainder, 0]
         else:
-            shifted_cut = [current_percept.cake_width, cut[1] + shift]
-    elif cut[1] == 0:
-        if cut[0] + shift > current_percept.cake_width:
-            remainder = cut[0] + shift - current_percept.cake_width
-            shifted_cut = [current_percept.cake_width, remainder]
+            shifted_cut = [cake_width, cut[1] + shift]
+    elif cut[1] == 0:  # Top
+        if cut[0] + shift > cake_width:
+            remainder = cut[0] + shift - cake_width
+            shifted_cut = [cake_width, remainder]
         elif cut[0] + shift < 0:
             remainder = -(cut[0] + shift)
             shifted_cut = [0, remainder]
         else:
             shifted_cut = [cut[0] + shift, 0]
-    elif cut[1] == current_percept.cake_len:
-        if cut[0] + shift > current_percept.cake_width:
+    elif cut[1] == cake_len:  # Bottom
+        if cut[0] + shift > cake_width:
             remainder = cut[0] - shift
             shifted_cut = [
-                current_percept.cake_width - remainder,
-                current_percept.cake_len,
+                cake_width - remainder,
+                cake_len,
             ]
         elif cut[0] + shift < 0:
             remainder = -(cut[0] + shift)
-            shifted_cut = [0, current_percept.cake_len - remainder]
+            shifted_cut = [0, cake_len - remainder]
         else:
-            shifted_cut = [cut[0] + shift, current_percept.cake_len]
+            shifted_cut = [cut[0] + shift, cake_len]
     return shifted_cut
