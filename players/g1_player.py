@@ -18,7 +18,7 @@ EASY_LEN_BOUND = 23.507
 """
 GLOBAL FUNCTIONS
 """
-def optimal_assignment(R, V):
+def optimal_assignment(R, V, tolerance):
     """
     Provide optimal assignment using the Hungarian algorithm.
     """
@@ -30,7 +30,12 @@ def optimal_assignment(R, V):
     # Fill the cost matrix with relative differences
     for i, r in enumerate(R):
         for j, v in enumerate(V):
-            cost_matrix[i][j] = abs(r - v) / r
+            penalty = abs(r - v) / r * 100
+            if penalty > tolerance:
+                cost_matrix[i][j] = penalty
+            else:
+                cost_matrix[i][j] = 0
+            
 
     # Solving the assignment problem
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
@@ -517,7 +522,7 @@ class Player:
             # Fill in areas with zeros if there are more requests than areas
             areas = [polygon.area for polygon in polygon_list]
             areas.extend([0] * (len(unassigned_requests) - len(areas)))
-            assignments = optimal_assignment(unassigned_requests, areas)
+            assignments = optimal_assignment(unassigned_requests, areas, self.tolerance)
             
             # Calculate loss from remaining requests
             loss = 0.0
@@ -686,7 +691,7 @@ class Player:
         # ASSIGNMENT STRATEGY #
         #######################
         V = [p.area for p in polygons]
-        assignment = optimal_assignment(current_percept.requests, V)
+        assignment = optimal_assignment(current_percept.requests, V, self.tolerance)
 
         return constants.ASSIGN, assignment
     
