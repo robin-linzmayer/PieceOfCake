@@ -132,14 +132,18 @@ def best_combo(
 
     best_cuts = []
     min_penalty = curr_penalty = float("inf")
+    best_cut_no = min_cuts
     for cuts in range(min_cuts, max_cuts + 1):
+        # we've probably crossed the optimal no. of cuts
+        if best_cut_no + 5 < cuts:
+            break
         print(f"\ncuts-{cuts}")
 
         curr_best_cuts = []
         best_contender = best_curr_penalty = float("inf")
         # try 100 combinations for each cut,
         # use best one
-        for _ in range(1000):
+        for _ in range(200):
             cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
             curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width)
 
@@ -151,6 +155,19 @@ def best_combo(
         if not best_cuts or best_curr_penalty < min_penalty:
             best_cuts = best_contender
             min_penalty = best_curr_penalty
+            best_cut_no = cuts
+
+    # found the optimal no. of cuts
+    # spam those
+    print(f"spamming optimal cut ({best_cut_no})")
+    for _ in range(2000):
+        cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
+        curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width)
+
+        if curr_penalty < min_penalty:
+            print(f"found lower penalty ({curr_penalty})")
+            best_cuts = cuts_contender
+            min_penalty = curr_penalty
 
     return best_cuts
 
