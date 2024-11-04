@@ -103,22 +103,29 @@ def divide_polygon(polygon: Polygon, from_point, to_point):
     - Two polygons (as shapely Polygon objects) that result from dividing the original polygon
     """
 
+    polygon = polygon.convex_hull
     line = LineString([tuple(from_point), tuple(to_point)])
     # Create the convex polygon and the line segment using Shapely
     # polygon = Polygon(polygon_points)
     # line = LineString(line_points)
 
     # Check if the line intersects with the polygon
-    if not line.intersects(polygon):
-        return [polygon]
-    # Split the polygon into two pieces
-    result = split(polygon, line)
+    try:
+        if not line.intersects(polygon):
+            return [polygon]
+        # Split the polygon into two pieces
+        result = split(polygon, line)
+    except Exception as e:
+        print(f"Error dividing polygon {polygon} with line {line}")
+        raise e
 
     # Convert the result into individual polygons
 
     polygons = []
     for i in range(len(result.geoms)):
-        polygons.append(result.geoms[i])
+        # convex_hull always creates valid polygons
+        # unlike split()
+        polygons.append(result.geoms[i].convex_hull)
 
     return polygons
 
