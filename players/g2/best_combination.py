@@ -1,6 +1,8 @@
+from typing import Callable
+from shapely.geometry import Polygon
 import constants
 from players.g2.assigns import sorted_assign
-from players.g2.helpers import sneak
+from players.g2.helpers import sneak, divide_polygon, can_cake_fit_in_plate
 import random
 
 
@@ -59,12 +61,58 @@ def find_best_cuts(
     return list(selected)
 
 
-def penalty(cuts: list[tuple[tuple[float, float], tuple[float, float]]]):
+def __calculate_penalty(
+    assign_func: Callable[[list[Polygon], list[float]], list[int]],
+    requests: list[float],
+    polygons: list[Polygon],
+    tolerance=0,
+) -> float:
+    penalty = 0
+    assignments: list[int] = assign_func(polygons, requests, tolerance)
+
+    for request_index, assignment in enumerate(assignments):
+        # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
+        if assignment == -1 or (not can_cake_fit_in_plate(polygons[assignment])):
+            penalty += 100
+        else:
+            penalty_percentage = (
+                100
+                * abs(polygons[assignment].area - requests[request_index])
+                / requests[request_index]
+            )
+            if penalty_percentage > tolerance:
+                penalty += penalty_percentage
+    return penalty
+
+
+def penalty(
+    cuts: list[tuple[tuple[float, float], tuple[float, float]]],
+    requests: list[float],
+    cake_len,
+    cake_width,
+    # tolerance,
+):
+    polygons = [
+        Polygon(
+            [
+                (0, 0),
+                (0, cake_len),
+                (cake_width, cake_len),
+                (cake_width, 0),
+            ]
+        )
+    ]
+
     for cut in cuts:
         from_point = cut[0]
         to_point = cut[1]
+        new_polygons = []
+        for polygon in polygons:
+            new_polygons.extend(divide_polygon(polygon, from_point, to_point))
 
-    return 0
+        polygons = new_polygons
+
+    return __calculate_penalty(sorted_assign, requests, polygons)
 
 
 def best_combo(
@@ -74,11 +122,17 @@ def best_combo(
     min_cuts, max_cuts = get_cuts_spread(requests)
 
     best_cuts = []
+    min_penalty = curr_penalty = float("inf")
     for cuts in range(min_cuts, max_cuts + 1):
         cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
 
-        if not best_cuts or penalty(cuts_contender) < penalty(best_cuts):
+        if (
+            not best_cuts
+            or (curr_penalty := penalty(cuts_contender, requests, cake_len, cake_width))
+            < min_penalty
+        ):
             best_cuts = cuts_contender
+            min_penalty = curr_penalty
 
     return best_cuts
 
