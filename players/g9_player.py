@@ -1,8 +1,6 @@
 import bisect
 from itertools import accumulate
 import math
-import os
-import pickle
 from typing import List
 
 import numpy as np
@@ -84,15 +82,17 @@ def test_best_grid_cuts(requests, cake_len, cake_width, cake_area, tolerance):
     max_horz_cuts = math.floor(math.sqrt(len(requests)))
 
     # Get best grid cut with original list of requests
+    altered_piece = None
     best_num_horz_cuts, best_x_coords, min_total_penalty = get_best_grid_cuts(
-        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance
+        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
     )
 
     # Test if adding fake request pieces minimizes penalty to increase factors in cake cuts.
     for r in set(requests):  # Use a set to avoid duplicate processing
-        altered_requests = requests + [r]
+        altered_piece = r
+        altered_requests = requests + [altered_piece]
         num_horz_cuts, x_coords, curr_penalty = get_best_grid_cuts(
-            altered_requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance
+            altered_requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
         )
 
         if curr_penalty is not None and (min_total_penalty is None or curr_penalty <= min_total_penalty):
@@ -200,7 +200,7 @@ def get_horizontal_cuts(num_horz_cuts, cake_len, cake_width, ends_at_bottom):
 # num_horz_cuts truly means horizontal areas but we can pretend that we would need to make a cut along the top of the cake.
 # Would rather have it be this way so that it is consistent with num_vert_cuts (we do need to make a final cut for the extra 5%)
 def get_best_grid_cuts(
-        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance
+        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
 ):
     requests_sorted = sorted(requests, reverse=True)
 
@@ -246,7 +246,8 @@ def get_best_grid_cuts(
         )
 
         # Objective Function
-        prob += pulp.lpSum([s_j[j] for j in range(len(requests))])
+        alt_index = requests.index(altered_piece) if altered_piece is not None else -1
+        prob += pulp.lpSum([s_j[j] for j in range(len(requests)) if j != alt_index])
 
         # Total Width Constraint (Adjusted)
         prob += pulp.lpSum([x[i] for i in range(num_vert_cuts)]) <= cake_width
