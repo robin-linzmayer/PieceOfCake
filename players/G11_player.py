@@ -61,6 +61,9 @@ class Player:
             cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
             loss = self.get_loss_from_cuts(cuts, current_percept)
 
+            best_cuts = copy.deepcopy(cuts)
+            min_loss = loss
+
             # Gradient descent
             learning_rate = 0.1
             for i in tqdm(range(100)):
@@ -76,9 +79,12 @@ class Player:
                     )
                     cur_x, cur_y = cuts[j]
                 loss = self.get_loss_from_cuts(cuts, current_percept)
+                if loss < min_loss:
+                    best_cuts = copy.deepcopy(cuts)
+                    min_loss = loss
                 print(f"Loss: {loss}")
 
-            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in cuts]
+            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
             return constants.INIT, self.cuts[0]
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
