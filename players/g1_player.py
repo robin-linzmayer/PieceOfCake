@@ -470,7 +470,8 @@ class Player:
         target_ratios = [i for i in range(1, 2*m, 2)]
 
         def loss_function(params):
-            params = np.clip(params, cur_pos[0], self.cake_width + self.cake_len)
+            params[:-1] = np.clip(params[:-1], cur_pos[0], self.cake_width)
+            params[-1] = np.clip(params[-1], cur_pos[0], self.cake_width + self.cake_len)
 
             # Initiate polygon list with remaining trapezoid
             trapezoid = Polygon([prev_pos, cur_pos, (self.cake_width, cur_pos[1]), (self.cake_width, prev_pos[1])])
@@ -673,7 +674,10 @@ class Player:
 
                     # add fake requests, if needed
                     if len(unassigned_requests) % self.num_horizontal != 0:
-                        extra_cake = cake_area * 0.05
+                        trapezoid = Polygon([self.knife_pos[-2], self.knife_pos[-1],
+                                             (self.cake_width, self.knife_pos[-1][1]),
+                                             (self.cake_width, self.knife_pos[-2][1])])
+                        extra_cake = round(trapezoid.area - sum(unassigned_requests), 2)
                         num_fake_requests = self.num_horizontal - (len(unassigned_requests) % self.num_horizontal)
                         fake_request = 100 if extra_cake / num_fake_requests > 100 else extra_cake / num_fake_requests
                         for _ in range(num_fake_requests):
