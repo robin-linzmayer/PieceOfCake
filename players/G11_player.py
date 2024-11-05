@@ -237,50 +237,51 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
     shifted_cut = copy.deepcopy(cut)
     if cut[0] == 0:  # Left
         if cut[1] + shift > cake_len:
-            if cur_y != cake_len:
-                remainder = cut[1] + shift - cake_len
-                shifted_cut = [remainder, cake_len]
-            # Otherwise do nothing
+            remainder = (
+                cut[1] + shift - cake_len
+                if cut[1] + shift - cake_len < cake_width
+                else cake_width
+            )
+            shifted_cut = [remainder, cake_len]
         elif cut[1] + shift < 0:
-            if cur_y != 0:
-                remainder = -(cut[1] + shift)
-                shifted_cut = [0, remainder]
+            remainder = (
+                -(cut[1] + shift) if -(cut[1] + shift) < cake_width else cake_width
+            )
+            shifted_cut = [remainder, 0]
         else:
             shifted_cut = [0, cut[1] + shift]
     elif cut[0] == cake_width:  # Right
         if cut[1] + shift > cake_len:
-            if cur_y != cake_len:
-                remainder = cut[1] - shift
-                shifted_cut = [cake_width - remainder, cake_len]
+            remainder = cut[1] - shift if cake_width - (cut[1] - shift) > 0 else 0
+            shifted_cut = [cake_width - remainder, cake_len]
         elif cut[1] + shift < 0:
-            if cur_y != 0:
-                remainder = -(cut[1] + shift)
-                shifted_cut = [cake_width - remainder, 0]
+            remainder = -(cut[1] + shift) if cake_width - (cut[1] + shift) > 0 else 0
+            shifted_cut = [cake_width - remainder, 0]
         else:
             shifted_cut = [cake_width, cut[1] + shift]
     elif cut[1] == 0:  # Top
         if cut[0] + shift > cake_width:
-            if cur_x != cake_width:
-                remainder = cut[0] + shift - cake_width
-                shifted_cut = [cake_width, remainder]
+            remainder = (
+                cut[0] + shift - cake_width
+                if cut[0] + shift - cake_width < cake_len
+                else cake_len
+            )
+            shifted_cut = [cake_width, remainder]
         elif cut[0] + shift < 0:
-            if cur_x != 0:
-                remainder = -(cut[0] + shift)
-                shifted_cut = [0, remainder]
+            remainder = -(cut[0] + shift) if -(cut[0] + shift) < cake_len else cake_len
+            shifted_cut = [0, remainder]
         else:
             shifted_cut = [cut[0] + shift, 0]
     elif cut[1] == cake_len:  # Bottom
         if cut[0] + shift > cake_width:
-            if cur_x != cake_width:
-                remainder = cut[0] - shift
-                shifted_cut = [
-                    cake_width,
-                    cake_len - remainder,
-                ]
+            remainder = cut[0] - shift if cake_len - (cut[0] - shift) > 0 else 0
+            shifted_cut = [
+                cake_width,
+                cake_len - remainder,
+            ]
         elif cut[0] + shift < 0:
-            if cur_x != 0:
-                remainder = -(cut[0] + shift)
-                shifted_cut = [0, cake_len - remainder]
+            remainder = -(cut[0] + shift) if cake_len - (cut[0] + shift) > 0 else 0
+            shifted_cut = [0, cake_len - remainder]
         else:
             shifted_cut = [cut[0] + shift, cake_len]
     return shifted_cut
