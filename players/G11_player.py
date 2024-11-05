@@ -65,7 +65,7 @@ class Player:
             gradients = self.get_gradient(loss, cuts, current_percept)
             print(f"Gradients: {gradients}")
 
-            cur_x, cur_y = current_percept.cur_pos
+            cur_x, cur_y = cuts[0]
             for j in range(len(cuts)):
                 cuts[j] = get_shifted_cut(
                     cuts[j],
@@ -84,7 +84,9 @@ class Player:
         new_percept = copy.deepcopy(current_percept)
         new_polygons = new_percept.polygons
 
-        for cut in cuts:
+        new_percept.cur_pos = cuts[0]
+
+        for cut in cuts[1:]:
             new_polygons, new_percept = self.check_and_apply_action(
                 [constants.CUT, cut],
                 new_polygons,
@@ -98,7 +100,7 @@ class Player:
         dw = 0.05
         gradients = np.zeros(len(cuts))
 
-        cur_x, cur_y = current_percept.cur_pos
+        cur_x, cur_y = cuts[0]
         for i in range(len(cuts)):
             new_cuts = copy.deepcopy(cuts)
             new_cuts[i] = get_shifted_cut(
@@ -116,7 +118,7 @@ class Player:
     def check_and_apply_action(self, action, polygons, current_percept):
         if not action[0] == constants.CUT:
             raise ValueError("Invalid action")
-
+        
         cur_x, cur_y = action[1]
         print(f"Cut: {action[1]}")
 
