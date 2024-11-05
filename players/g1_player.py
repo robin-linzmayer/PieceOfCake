@@ -14,6 +14,7 @@ Constants
 """
 MIN_CUT_INCREMENT = 0.01
 EASY_LEN_BOUND = 23.507
+MIN_TOLERANCE = 5
 
 """
 GLOBAL FUNCTIONS
@@ -412,12 +413,15 @@ class Player:
         m = self.num_horizontal
         i = 0
 
+        # Manually set tolerance to at least 5% for the purpose of making triangles
+        adj_tolerance = max(self.tolerance, MIN_TOLERANCE)
+
         while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
             # find m requests within tolerance from their mean
             group = []
             group_mean = round(sum(unassigned_requests[i:i+m]) / m, 2)
             for j in range(i, i+m):
-                if abs(unassigned_requests[j] - group_mean) / unassigned_requests[j] * 100 <= self.tolerance:
+                if abs(unassigned_requests[j] - group_mean) / unassigned_requests[j] * 100 <= adj_tolerance:
                     group.append(unassigned_requests[j])
             # make verticle cut to serve rectangular pieces of similar size
             if len(group) == m:
@@ -440,7 +444,10 @@ class Player:
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
-        triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, self.tolerance, self.cake_len)
+        # Manually set tolerance to at least 5% for the purpose of making triangles
+        adj_tolerance = max(self.tolerance, MIN_TOLERANCE)
+        
+        triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, adj_tolerance, self.cake_len)
         if triangle_groups:
             grouping = triangle_groups[0]['grouping']
             ungrouped = triangle_groups[0]['ungrouped']
@@ -470,8 +477,7 @@ class Player:
         target_ratios = [i for i in range(1, 2*m, 2)]
 
         def loss_function(params):
-            params[:-1] = np.clip(params[:-1], cur_pos[0], self.cake_width)
-            params[-1] = np.clip(params[-1], cur_pos[0], self.cake_width + self.cake_len)
+            params = np.clip(params, cur_pos[0], self.cake_width + self.cake_len)
 
             # Initiate polygon list with remaining trapezoid
             trapezoid = Polygon([prev_pos, cur_pos, (self.cake_width, cur_pos[1]), (self.cake_width, prev_pos[1])])
@@ -536,7 +542,7 @@ class Player:
         
         # Optimize diagonal cuts
         initial_params = np.linspace(cur_pos[0], self.cake_width, n_cuts + 1)[1:]
-        result = minimize(loss_function, initial_params, method='Nelder-Mead')
+        result = minimize(loss_function, initial_params, method='Nelder-Mead', bounds=[(cur_pos[0], self.cake_width + self.cake_len)] * n_cuts)
         if result.success:
             optimized_params = result.x
 
@@ -694,7 +700,7 @@ class Player:
         #######################
         # ASSIGNMENT STRATEGY #
         #######################
-        V = [p.area for p in polygons]
+        V = [round(p.area, 2) for p in polygons]
         assignment = optimal_assignment(current_percept.requests, V, self.tolerance)
 
         return constants.ASSIGN, assignment
