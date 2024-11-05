@@ -78,18 +78,14 @@ class Player:
                 loss = self.get_loss_from_cuts(cuts, current_percept)
                 print(f"Loss: {loss}")
 
-            self.cuts = cuts
-
-            return constants.INIT, cuts[0]
+            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in cuts]
+            return constants.INIT, self.cuts[0]
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
-        elif turn_number == len(self.cuts):
-            # return constants.ASSIGN, optimal_assignment(
-            #     requests, [polygon.area for polygon in polygons]
-            # )
-            return constants.ASSIGN, []
-        else:
-            raise ValueError("Invalid turn number")
+
+        return constants.ASSIGN, optimal_assignment(
+            requests, [polygon.area for polygon in polygons]
+        )
 
     def get_loss_from_cuts(self, cuts, current_percept):
         new_percept = copy.deepcopy(current_percept)
@@ -113,7 +109,7 @@ class Player:
 
         cur_x, cur_y = cuts[0]
         for i in range(len(cuts)):
-        # for i in tqdm(range(len(cuts))):
+            # for i in tqdm(range(len(cuts))):
             new_cuts = copy.deepcopy(cuts)
             new_cuts[i] = get_shifted_cut(
                 cuts[i],
