@@ -10,6 +10,7 @@ import constants
 from shapely.geometry import Polygon, LineString
 from shapely.ops import split
 import copy
+from tqdm import tqdm
 
 
 class Player:
@@ -62,7 +63,7 @@ class Player:
 
             # Gradient descent
             learning_rate = 0.1
-            for i in range(100):
+            for i in tqdm(range(100)):
                 gradients = self.get_gradient(loss, cuts, current_percept)
 
                 cur_x, cur_y = cuts[0]
@@ -112,6 +113,7 @@ class Player:
 
         cur_x, cur_y = cuts[0]
         for i in range(len(cuts)):
+        # for i in tqdm(range(len(cuts))):
             new_cuts = copy.deepcopy(cuts)
             new_cuts[i] = get_shifted_cut(
                 cuts[i],
