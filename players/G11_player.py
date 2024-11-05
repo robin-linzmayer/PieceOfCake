@@ -87,8 +87,8 @@ class Player:
         new_percept.cur_pos = cuts[0]
 
         for cut in cuts[1:]:
-            new_polygons, new_percept = self.check_and_apply_action(
-                [constants.CUT, cut],
+            new_polygons, new_percept = self.cut_cake(
+                cut,
                 new_polygons,
                 new_percept,
             )
@@ -115,36 +115,20 @@ class Player:
             gradients[i] = (new_loss - loss) / dw
         return gradients
 
-    def check_and_apply_action(self, action, polygons, current_percept):
-        if not action[0] == constants.CUT:
-            raise ValueError("Invalid action")
-        
-        cur_x, cur_y = action[1]
-        print(f"Cut: {action[1]}")
-
+    def cut_cake(self, cut, polygons, current_percept):       
         # Check if the next position is on the boundary of the cake
-        if invalid_knife_position(action[1], current_percept):
+        if invalid_knife_position(cut, current_percept):
             raise ValueError("Invalid knife position")
-
-        # Check if the cut is horizontal across the cake boundary
-        if cur_x == 0 or cur_x == current_percept.cake_width:
-            if current_percept.cur_pos[0] == cur_x:
-                raise ValueError("Invalid cut")
-
-        # Check if the cut is vertical across the cake boundary
-        if cur_y == 0 or cur_y == current_percept.cake_len:
-            if current_percept.cur_pos[1] == cur_y:
-                raise ValueError("Invalid cut")
 
         # Cut the cake piece
         newPieces = []
         for polygon in polygons:
-            line_points = LineString([tuple(current_percept.cur_pos), tuple(action[1])])
+            line_points = LineString([tuple(current_percept.cur_pos), tuple(cut)])
             slices = divide_polygon(polygon, line_points)
             for slice in slices:
                 newPieces.append(slice)
 
-        current_percept.cur_pos = action[1]
+        current_percept.cur_pos = cut
         return newPieces, current_percept
 
 
