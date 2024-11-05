@@ -337,6 +337,13 @@ class Player:
                 interim_pos_3 = self.add_available_cut(interim_pos_2, [self.cake_width, MIN_CUT_INCREMENT], 1, MIN_CUT_INCREMENT)
                 return self.add_available_cut(interim_pos_3, to_pos, 0, MIN_CUT_INCREMENT)
 
+    def reset_to_recompute(self):
+        """
+        Reset cut history for purposes of recomputing cuts.
+        """
+        self.num_requests_cut = 0
+        self.knife_pos = self.knife_pos[0:1]
+        self.pending_cuts = []
 
     def set_starting_pos(self):
         """
@@ -404,7 +411,7 @@ class Player:
             self.knife_pos.append([cut_3[2], cut_3[3]])
 
 
-    def make_rectangles(self, unassigned_requests):
+    def make_rectangles(self, unassigned_requests, min_tolerance):
         """
         Find groups of m requests (where m is the number of horizontal slices) of the
         same size within the tolerance. Make verticle cuts to serve rectangular pieces
@@ -414,7 +421,7 @@ class Player:
         i = 0
 
         # Manually set tolerance to at least 5% for the purpose of making triangles
-        adj_tolerance = max(self.tolerance, MIN_TOLERANCE)
+        adj_tolerance = max(self.tolerance, min_tolerance)
 
         while len(unassigned_requests) >= m and i <= len(unassigned_requests) - m:
             # find m requests within tolerance from their mean
@@ -439,13 +446,13 @@ class Player:
                 i += 1
 
 
-    def make_triangles(self, unassigned_requests):
+    def make_triangles(self, unassigned_requests, min_tolerance):
         """
         Optimally allocate remaining pieces by making diagonal cuts and serving
         triangular pieces.
         """
         # Manually set tolerance to at least 5% for the purpose of making triangles
-        adj_tolerance = max(self.tolerance, MIN_TOLERANCE)
+        adj_tolerance = max(self.tolerance, min_tolerance)
         
         triangle_groups = find_ratio_groupings(unassigned_requests, self.num_horizontal, adj_tolerance, self.cake_len)
         if triangle_groups:
@@ -571,6 +578,17 @@ class Player:
             self.pending_cuts.append(diagonal_cut)
             self.knife_pos.append([diagonal_cut[2], diagonal_cut[3]])
 
+    def add_fake_requests(self, unassigned_requests):
+        trapezoid = Polygon([self.knife_pos[-2], self.knife_pos[-1],
+                                             (self.cake_width, self.knife_pos[-1][1]),
+                                             (self.cake_width, self.knife_pos[-2][1])])
+        extra_cake = round(trapezoid.area - sum(unassigned_requests), 2)
+        num_fake_requests = self.num_horizontal - (len(unassigned_requests) % self.num_horizontal)
+        fake_request = 100 if extra_cake / num_fake_requests > 100 else extra_cake / num_fake_requests
+        for _ in range(num_fake_requests):
+            unassigned_requests.append(fake_request)
+        
+        return unassigned_requests
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which returns an action.
@@ -675,20 +693,26 @@ class Player:
 
                     # main cutting algorithm
                     self.divide_horizontally()
-                    self.make_rectangles(unassigned_requests)
-                    self.make_triangles(unassigned_requests)
+                    self.make_rectangles(unassigned_requests, MIN_TOLERANCE)
+                    self.make_triangles(unassigned_requests, MIN_TOLERANCE)
 
                     # add fake requests, if needed
                     if len(unassigned_requests) % self.num_horizontal != 0:
-                        trapezoid = Polygon([self.knife_pos[-2], self.knife_pos[-1],
-                                             (self.cake_width, self.knife_pos[-1][1]),
-                                             (self.cake_width, self.knife_pos[-2][1])])
-                        extra_cake = round(trapezoid.area - sum(unassigned_requests), 2)
-                        num_fake_requests = self.num_horizontal - (len(unassigned_requests) % self.num_horizontal)
-                        fake_request = 100 if extra_cake / num_fake_requests > 100 else extra_cake / num_fake_requests
-                        for _ in range(num_fake_requests):
-                            unassigned_requests.append(fake_request)
+                        unassigned_requests = self.add_fake_requests(unassigned_requests)
 
+                    # if more than 2 optimizing cuts needed, recompute cuts on a higher tolerance
+                    if len(unassigned_requests) / self.num_horizontal > 2:
+                        self.reset_to_recompute()
+                        unassigned_requests = requests.copy()
+
+                        self.divide_horizontally()
+                        self.make_rectangles(unassigned_requests, 10)
+                        self.make_triangles(unassigned_requests, 10)
+
+                    # add fake requests, if needed
+                    if len(unassigned_requests) % self.num_horizontal != 0:
+                        unassigned_requests = self.add_fake_requests(unassigned_requests)
+                    
                     self.optimize_remaining_requests(unassigned_requests)
                     self.cuts_created = True
 
@@ -704,6 +728,3 @@ class Player:
         assignment = optimal_assignment(current_percept.requests, V, self.tolerance)
 
         return constants.ASSIGN, assignment
-    
-    
-    
