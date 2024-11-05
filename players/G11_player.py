@@ -58,15 +58,23 @@ class Player:
             cake_width = current_percept.cake_width
 
             num_cuts = 2 * len(requests)
-            cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-            loss = self.get_loss_from_cuts(cuts, current_percept)
+            num_restarts = 50
 
-            best_cuts = copy.deepcopy(cuts)
-            min_loss = loss
+            min_loss = float("inf")
+
+            for i in range(num_restarts):
+                cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
+                loss = self.get_loss_from_cuts(cuts, current_percept)
+                print(f'Restart {i} Loss: {loss}')
+                if loss < min_loss:
+                    best_cuts = copy.deepcopy(cuts)
+                    min_loss = loss
+            
+            cuts = best_cuts
 
             # Gradient descent
             learning_rate = 0.1
-            for i in tqdm(range(100)):
+            while loss > 0.01:
                 gradients = self.get_gradient(loss, cuts, current_percept)
 
                 cur_x, cur_y = cuts[0]
@@ -274,7 +282,9 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
                 shifted_cut = [cake_width - remainder, cake_len]
         elif cut[1] + shift < 0:
             if cur_y != 0:
-                remainder = -(cut[1] + shift) if cake_width - (cut[1] + shift) > 0 else 0
+                remainder = (
+                    -(cut[1] + shift) if cake_width - (cut[1] + shift) > 0 else 0
+                )
                 shifted_cut = [cake_width - remainder, 0]
         else:
             shifted_cut = [cake_width, cut[1] + shift]
@@ -289,7 +299,9 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
                 shifted_cut = [cake_width, remainder]
         elif cut[0] + shift < 0:
             if cur_x != 0:
-                remainder = -(cut[0] + shift) if -(cut[0] + shift) < cake_len else cake_len
+                remainder = (
+                    -(cut[0] + shift) if -(cut[0] + shift) < cake_len else cake_len
+                )
                 shifted_cut = [0, remainder]
         else:
             shifted_cut = [cut[0] + shift, 0]
