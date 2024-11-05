@@ -546,15 +546,16 @@ class Player:
                     loss += penalty_percentage 
 
             return loss
-        
-        # Optimize diagonal cuts
+
+        # Run optimization
         initial_params = np.linspace(cur_pos[0], self.cake_width, n_cuts + 1)[1:]
-        result = minimize(loss_function, initial_params, method='Nelder-Mead', bounds=[(cur_pos[0], self.cake_width + self.cake_len)] * n_cuts)
+        bounds = [(cur_pos[0], self.cake_width + self.cake_len)] * n_cuts
+        result = minimize(loss_function, initial_params, method='Nelder-Mead', bounds=bounds)
         if result.success:
             optimized_params = result.x
 
         for i in range(n_cuts):
-            if (self.knife_pos[-1][1] == 0) == (i % 2 == 0):
+            if self.knife_pos[-1][1] == 0:
                 # Cut from top to bottom
                 if optimized_params[i] > self.cake_width:
                     # Cut to right edge
