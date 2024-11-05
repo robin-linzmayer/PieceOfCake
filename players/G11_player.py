@@ -53,17 +53,17 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
-        if turn_number == 1:
-            return constants.INIT, [0, 0]
-
         num_cuts = 1
-        cuts = generate_random_cuts(num_cuts, current_percept)
+        cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
+        print(f"Initial cuts: {cuts}")
         loss = self.get_loss_from_cuts(cuts, current_percept)
 
         # Gradient descent
         learning_rate = 0.1
         for i in range(100):
+            print(f"Iteration {i}, Cuts: {cuts}")
             gradients = self.get_gradient(loss, cuts, current_percept)
+            print(f"Gradients: {gradients}")
 
             cur_x, cur_y = current_percept.cur_pos
             for j in range(len(cuts)):
@@ -79,7 +79,6 @@ class Player:
         assignment = []
         for i in range(len(requests)):
             assignment.append(i)
-        return constants.ASSIGN, []
 
     def get_loss_from_cuts(self, cuts, current_percept):
         new_percept = copy.deepcopy(current_percept)
@@ -119,6 +118,7 @@ class Player:
             raise ValueError("Invalid action")
 
         cur_x, cur_y = action[1]
+        print(f"Cut: {action[1]}")
 
         # Check if the next position is on the boundary of the cake
         if invalid_knife_position(action[1], current_percept):
@@ -175,37 +175,43 @@ def divide_polygon(polygon, line):
     return polygons
 
 
-def generate_random_cuts(num_cuts, current_percept):
-    cur_x, cur_y = current_percept.cur_pos
-    cuts = []
+def generate_random_cuts(num_cuts, cake_dims):
+    cake_width, cake_len = cake_dims
     corner_gap = 1e-3
+    cur_x, cur_y = [
+        [0, np.random.uniform(corner_gap, cake_len - corner_gap)],
+        [cake_width, np.random.uniform(corner_gap, cake_len - corner_gap)],
+        [np.random.uniform(corner_gap, cake_width - corner_gap), 0],
+        [np.random.uniform(corner_gap, cake_width - corner_gap), cake_len],
+    ][np.random.choice(4)]
 
+    cuts = [[cur_x, cur_y]]
     for i in range(num_cuts):
         # Generate random cuts
         top = [
-            np.random.uniform(corner_gap, current_percept.cake_width - corner_gap),
+            np.random.uniform(corner_gap, cake_width - corner_gap),
             0,
         ]
         bottom = [
-            np.random.uniform(corner_gap, current_percept.cake_width - corner_gap),
-            current_percept.cake_len,
+            np.random.uniform(corner_gap, cake_width - corner_gap),
+            cake_len,
         ]
         right = [
-            current_percept.cake_width,
-            np.random.uniform(corner_gap, current_percept.cake_len - corner_gap),
+            cake_width,
+            np.random.uniform(corner_gap, cake_len - corner_gap),
         ]
         left = [
             0,
-            np.random.uniform(corner_gap, current_percept.cake_len - corner_gap),
+            np.random.uniform(corner_gap, cake_len - corner_gap),
         ]
 
         if cur_x == 0:  # Start from left
             cuts.append([top, bottom, right][np.random.choice(3)])
-        elif cur_x == current_percept.cake_width:  # Start from right
+        elif cur_x == cake_width:  # Start from right
             cuts.append([top, bottom, left][np.random.choice(3)])
         elif cur_y == 0:  # Start from top
             cuts.append([bottom, left, right][np.random.choice(3)])
-        elif cur_y == current_percept.cake_len:  # Start from bottom
+        elif cur_y == cake_len:  # Start from bottom
             cuts.append([top, left, right][np.random.choice(3)])
 
         cur_x, cur_y = cuts[-1]
@@ -240,6 +246,7 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
                 remainder = cut[1] - shift
                 shifted_cut = [cake_width - remainder, cake_len]
         elif cut[1] + shift < 0:
+            print(f"Cut: {cut}, Shift: {shift}, Cur: {cur_x, cur_y}")
             if cur_y != 0:
                 remainder = -(cut[1] + shift)
                 shifted_cut = [cake_width - remainder, 0]
