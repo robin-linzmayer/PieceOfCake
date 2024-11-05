@@ -107,7 +107,7 @@ class Player:
         return loss
 
     def get_gradient(self, loss, cuts, current_percept):
-        dw = 0.05
+        dw = current_percept.cake_width / 100
         gradients = np.zeros(len(cuts))
 
         cur_x, cur_y = cuts[0]
