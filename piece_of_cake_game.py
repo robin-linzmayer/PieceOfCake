@@ -380,21 +380,29 @@ class PieceOfCakeGame:
             print("No action returned")
             return False
         if type(action) is not tuple:
+            print("Not a tuple")
             return False
         if len(action) != 2:
+            print("len not 2")
             return False
         if type(action[0]) is not int:
+            print("action type Not an int")
             return False
         if action[0] < 1 or action[0] > 3:
+            print("action type not between 1 and 3")
             return False
         if type(action[1]) is not list:
+            print("tuple not in list")
             return False
         if action[0] == constants.INIT and self.turns != 1:
+            print("init called but its not turn 1")
             return False
         if (action[0] == constants.INIT or action[0] == constants.CUT) and len(action[1]) != 2:
+            print("some error")
             return False
         # Check if action[1] is a list of float values with maximum 2 decimal places
         if (action[0] == constants.INIT or action[0] == constants.CUT) and not all(isinstance(x, (int, float)) and x == round(x, 2) for x in action[1]):
+            print("not a float with 2 decimals")
             return False
 
         # For assign action, check
@@ -438,24 +446,29 @@ class PieceOfCakeGame:
 
             # Check if the next position is on the boundary of the cake
             if self.invalid_knife_position(action[1]):
+                print("Not on boundary!")
                 return False
 
             # If the next position is same then the cut is invalid
             if self.cur_pos[0] == cur_x and self.cur_pos[1] == cur_y:
+                print("Same position!")
                 return False
 
             # If the cut has already been made then it's invalid
             if self.prev_pos is not None and ((self.prev_pos[0], self.prev_pos[1], cur_x, cur_y) in self.cake_cuts or (cur_x, cur_y, self.prev_pos[0], self.prev_pos[1]) in self.cake_cuts):
+                print("Same cut!")
                 return False
 
             # Check if the cut is horizontal across the cake boundary
             if cur_x == 0 or cur_x == self.cake_width:
                 if self.cur_pos[0] == cur_x:
+                    print("Across horz boundary!")
                     return False
 
             # Check if the cut is vertical across the cake boundary
             if cur_y == 0 or cur_y == self.cake_len:
                 if self.cur_pos[1] == cur_y:
+                    print("Across vert boundary!")
                     return False
 
             # Cut the cake piece
@@ -473,6 +486,8 @@ class PieceOfCakeGame:
         elif action[0] == constants.ASSIGN:
             self.penalty = 0
             self.assignment = action[1]
+            print(self.polygon_list)
+            print(action[1])
             for request_index, assignment in enumerate(action[1]):
                 # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
                 if assignment == -1 or (not self.can_cake_fit_in_plate(self.polygon_list[assignment])):
