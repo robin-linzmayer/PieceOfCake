@@ -1,6 +1,7 @@
 import os
 import pickle
 from typing import List
+from scipy.optimize import linear_sum_assignment
 
 import numpy as np
 import math
@@ -232,6 +233,7 @@ class Player:
                     area = self.requests_list[x]
 
             x += 1
+            
 
         # Make parallelogram with last point on bottom edge
         if positions[-1][1] == self.cake_len:
@@ -408,12 +410,15 @@ class Player:
             else:
                 self.generate_corner_cuts(requests)
                 next_pos = self.zigzag_positions[self.current_zigzag_index]
+                print("=============")
                 return constants.INIT, [round(next_pos[0], 2), round(next_pos[1], 2)]
 
 
         # Continue zigzag cutting
         if turn_number > 1 and not self.zigzag_complete:
             self.current_zigzag_index += 1
+
+         
             if self.current_zigzag_index < len(self.zigzag_positions):
                 next_pos = self.zigzag_positions[self.current_zigzag_index]
                 
@@ -421,21 +426,87 @@ class Player:
             else:
                 self.zigzag_complete = True  # Zigzag is done
 
-        # After zigzag, make perpendicular cuts
-        if self.zigzag_complete and len(polygons) != len(requests):
-            # Cut vertically to further divide each segment
-            x_cut = round(cur_pos[0] + (cake_width / 2), 2) % cake_width
-            return constants.CUT, [x_cut, cur_pos[1]]
+        
+            
+        # # After zigzag, make perpendicular cuts
+        # if self.zigzag_complete and len(polygons) != len(requests):
+        #     # Cut vertically to further divide each segment
+        #     x_cut = round(cur_pos[0] + (cake_width / 2), 2) % cake_width
+        #     return constants.CUT, [x_cut, cur_pos[1]]
 
         # Assign pieces to requests after all cuts are done
-        assignment = list(range(len(requests)))
-        return constants.ASSIGN, assignment
+
+        print("Matching Polygons to Requests")
+
+        # Assign the pieces
+        areas =[i.area for i in polygons]
+        print(areas)
+        assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
+        print(assignment)
+        print(assignment[:len(requests)])
+        return constants.ASSIGN, assignment[:len(requests)][::-1]
+        
+
+        # assignment = list(range(len(requests)))
+        # return constants.ASSIGN, assignment
 
     def round_position(self, position: List[float]) -> List[float]:
         return [round(position[0], 2), round(position[1], 2)]
+    
 
     def validate_position(self, position: List[float], cake_len: int, cake_width: int) -> List[float]:
         x, y = position
         x = max(0, min(x, cake_width))  # Bound x within the width
         y = max(0, min(y, cake_len))    # Bound y within the length
         return self.round_position([x, y])
+    
+
+    # def return_matches(self, polygons, requests):
+    #     matches = self.hungarian_algorithm(polygons, requests)
+    #     print(matches)
+
+    #     # return the indices of the polygons in order of the requests
+    #     assignment = [match[0] for match in matches]
+
+    #     return assignment
+    
+    # def hungarian_algorithm(self, polygons, requests):
+    #     """
+    #         Function to implement the Hungarian algorithm for optimal assignment
+    #     """
+    #     cost_matrix = self.create_cost_matrix(polygons, requests)
+
+    #     # Use the Hungarian method to find the optimal assignment
+    #     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    #     matches = []
+
+    #     for i, j in zip(row_ind, col_ind):
+    #         if cost_matrix[i][j] < np.inf:
+    #             penalty = cost_matrix[i][j]
+
+    #             # THIS RETURNS AN INDEX!!!! MAY NEED TO BE ADJUSTED
+    #             matches.append((i, j, penalty))
+
+
+    #     return matches
+    
+    # def create_cost_matrix(self, polygons, requests):
+    #         n = len(polygons)
+    #         m = len(requests)
+
+    #         cost_matrix = np.full((n, m), np.inf)  # Initialize with infinity
+
+    #         for i in range(n):
+    #             for j in range(m):
+
+    #                 difference = abs(polygons[i].area - requests[j])
+
+    #                 if difference <= self.tolerance:
+    #                     cost_matrix[i][j] = 0		# No penalty
+    #                 else:
+    #                     cost_matrix[i][j] = (difference / requests[j]) * 100 # Penalty
+
+
+
+    #         return cost_matrix
