@@ -708,12 +708,14 @@ class Player:
                         self.divide_horizontally()
                         self.make_rectangles(unassigned_requests, 10)
                         self.make_triangles(unassigned_requests, 10)
+                        
+                        # add fake requests, if needed
+                        if len(unassigned_requests) % self.num_horizontal != 0:
+                            unassigned_requests = self.add_fake_requests(unassigned_requests)
 
-                    # add fake requests, if needed
-                    if len(unassigned_requests) % self.num_horizontal != 0:
-                        unassigned_requests = self.add_fake_requests(unassigned_requests)
+                    if len(unassigned_requests) > 0:
+                        self.optimize_remaining_requests(unassigned_requests)
                     
-                    self.optimize_remaining_requests(unassigned_requests)
                     self.cuts_created = True
 
                 if len(self.pending_cuts) > 0:
