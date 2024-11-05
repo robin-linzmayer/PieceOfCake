@@ -34,6 +34,7 @@ class Player:
         self.logger = logger
         self.tolerance = tolerance
         self.cake_len = None
+        self.cuts = None
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the cake
@@ -47,37 +48,47 @@ class Player:
                 constants.CUT - If wants to cut the cake
                 constants.ASSIGN - If wants to assign the pieces
         """
-        polygons = current_percept.polygons
         turn_number = current_percept.turn_number
-        cur_pos = current_percept.cur_pos
         requests = current_percept.requests
-        cake_len = current_percept.cake_len
-        cake_width = current_percept.cake_width
+        polygons = current_percept.polygons
 
-        num_cuts = 1
-        cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-        loss = self.get_loss_from_cuts(cuts, current_percept)
+        if turn_number == 1:
+            cake_len = current_percept.cake_len
+            cake_width = current_percept.cake_width
 
-        # Gradient descent
-        learning_rate = 0.1
-        for i in range(100):
-            gradients = self.get_gradient(loss, cuts, current_percept)
-
-            cur_x, cur_y = cuts[0]
-            for j in range(len(cuts)):
-                cuts[j] = get_shifted_cut(
-                    cuts[j],
-                    -learning_rate * gradients[j],
-                    (cake_width, cake_len),
-                    (cur_x, cur_y),
-                )
-                cur_x, cur_y = cuts[j]
+            num_cuts = 2 * len(requests)
+            cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
             loss = self.get_loss_from_cuts(cuts, current_percept)
-            print(f"Loss: {loss}")
 
-        assignment = []
-        for i in range(len(requests)):
-            assignment.append(i)
+            # Gradient descent
+            learning_rate = 0.1
+            for i in range(100):
+                gradients = self.get_gradient(loss, cuts, current_percept)
+
+                cur_x, cur_y = cuts[0]
+                for j in range(len(cuts)):
+                    cuts[j] = get_shifted_cut(
+                        cuts[j],
+                        -learning_rate * gradients[j],
+                        (cake_width, cake_len),
+                        (cur_x, cur_y),
+                    )
+                    cur_x, cur_y = cuts[j]
+                loss = self.get_loss_from_cuts(cuts, current_percept)
+                print(f"Loss: {loss}")
+
+            self.cuts = cuts
+
+            return constants.INIT, cuts[0]
+        elif turn_number <= len(self.cuts):
+            return constants.CUT, self.cuts[turn_number - 1]
+        elif turn_number == len(self.cuts):
+            # return constants.ASSIGN, optimal_assignment(
+            #     requests, [polygon.area for polygon in polygons]
+            # )
+            return constants.ASSIGN, []
+        else:
+            raise ValueError("Invalid turn number")
 
     def get_loss_from_cuts(self, cuts, current_percept):
         new_percept = copy.deepcopy(current_percept)
@@ -285,3 +296,25 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
         else:
             shifted_cut = [cut[0] + shift, cake_len]
     return shifted_cut
+
+
+def optimal_assignment(R, V):
+    V.remove(V[len(V) // 2])
+    num_requests = len(R)
+    num_values = len(V)
+
+    cost_matrix = np.zeros((num_requests, num_values))
+
+    # Fill the cost matrix with relative differences
+    for i, r in enumerate(R):
+        for j, v in enumerate(V):
+            cost_matrix[i][j] = abs(r - v) / r
+
+    # Solving the assignment problem
+    row_indices, col_indices = linear_sum_assignment(cost_matrix)
+
+    # Assignment array where assignment[i] is the index of V matched to R[i]
+    assignment = [int(col_indices[i]) for i in range(num_requests)]
+    assignment = [i + 1 if (i >= len(assignment) // 2) else i for i in assignment]
+
+    return assignment
