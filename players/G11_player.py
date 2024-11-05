@@ -4,6 +4,7 @@ from typing import List
 
 import numpy as np
 import logging
+from scipy.optimize import linear_sum_assignment
 
 import constants
 from shapely.geometry import Polygon, LineString
@@ -55,15 +56,12 @@ class Player:
 
         num_cuts = 1
         cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-        print(f"Initial cuts: {cuts}")
         loss = self.get_loss_from_cuts(cuts, current_percept)
 
         # Gradient descent
         learning_rate = 0.1
         for i in range(100):
-            print(f"Iteration {i}, Cuts: {cuts}")
             gradients = self.get_gradient(loss, cuts, current_percept)
-            print(f"Gradients: {gradients}")
 
             cur_x, cur_y = cuts[0]
             for j in range(len(cuts)):
@@ -75,6 +73,7 @@ class Player:
                 )
                 cur_x, cur_y = cuts[j]
             loss = self.get_loss_from_cuts(cuts, current_percept)
+            print(f"Loss: {loss}")
 
         assignment = []
         for i in range(len(requests)):
@@ -115,7 +114,7 @@ class Player:
             gradients[i] = (new_loss - loss) / dw
         return gradients
 
-    def cut_cake(self, cut, polygons, current_percept):       
+    def cut_cake(self, cut, polygons, current_percept):
         # Check if the next position is on the boundary of the cake
         if invalid_knife_position(cut, current_percept):
             raise ValueError("Invalid knife position")
@@ -206,7 +205,29 @@ def generate_random_cuts(num_cuts, cake_dims):
 
 
 def cost_function(polygons, requests):
-    return np.random.random()
+    R = requests
+    V = [polygon.area for polygon in polygons]
+
+    V.remove(V[len(V) // 2])  # Remove the middle value
+    num_requests = len(R)
+    num_values = len(V)
+
+    cost_matrix = np.zeros((num_requests, num_values))
+
+    # Fill the cost matrix with relative differences
+    for i, r in enumerate(R):
+        for j, v in enumerate(V):
+            cost_matrix[i][j] = abs(r - v) / r
+
+    # Solving the assignment problem
+    row_indices, col_indices = linear_sum_assignment(cost_matrix)
+
+    # Calculate the total cost by summing the optimal assignment costs
+    total_cost = sum(
+        cost_matrix[row_indices[i], col_indices[i]] for i in range(len(row_indices))
+    )
+
+    return total_cost
 
 
 def get_shifted_cut(cut, shift, cake_dims, pos):
@@ -232,7 +253,6 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
                 remainder = cut[1] - shift
                 shifted_cut = [cake_width - remainder, cake_len]
         elif cut[1] + shift < 0:
-            print(f"Cut: {cut}, Shift: {shift}, Cur: {cur_x, cur_y}")
             if cur_y != 0:
                 remainder = -(cut[1] + shift)
                 shifted_cut = [cake_width - remainder, 0]
