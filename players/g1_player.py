@@ -560,7 +560,7 @@ class Player:
                 if optimized_params[i] > self.cake_width:
                     # Cut to right edge
                     x = self.cake_width
-                    y = round(optimized_params[i] - self.cake_width, 2)
+                    y = round(self.cake_len - (optimized_params[i] - self.cake_width), 2)
                 else:
                     # Cut to bottom edge
                     x = round(optimized_params[i], 2)
@@ -570,7 +570,7 @@ class Player:
                 if optimized_params[i] > self.cake_width:
                     # Cut to right edge
                     x = self.cake_width
-                    y = round(self.cake_len - (optimized_params[i] - self.cake_width), 2)
+                    y = round(optimized_params[i] - self.cake_width, 2)
                 else:
                     # Cut to top edge
                     x = round(optimized_params[i], 2)
