@@ -5,6 +5,7 @@ import time
 import signal
 import numpy as np
 import math
+import traceback
 import matplotlib.pyplot as plt
 
 from shapely import points, centroid
@@ -19,6 +20,7 @@ from players.default_player import Player as DefaultPlayer
 from players.G2_Player import G2_Player
 from players.g6_player import Player as G6_Player
 from players.g1_player import Player as G1_Player
+from players.g8_player import G8_Player
 from players.group10_player import Player as G10_Player
 from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
@@ -28,7 +30,7 @@ from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
 
-from players.g4_player import Player as G4_Player
+from players.player_4 import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
@@ -314,8 +316,9 @@ class PieceOfCakeGame:
                 returned_action = self.player.move(
                     current_percept=before_state
                 )
-            except Exception:
-                print("Exception in player code")
+            except Exception as e:
+                print(f"Exception in player code: {e}")
+                traceback.print_exc()
                 returned_action = None
 
             player_time_taken = time.time() - player_start
@@ -521,7 +524,7 @@ class PieceOfCakeGame:
         # Return True if cake piece has de minimis area
         if cake_piece.area < 0.25:
             return True
-        
+
         # Step 1: Get the points on the cake piece and store as numpy array
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
 
