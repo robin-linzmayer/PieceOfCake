@@ -122,8 +122,20 @@ def divide_requests(requests):
         else: h_sums[int(i/s)] += val
     return total_sum, h_sums, v_sums
 
+def grid_enough(requests, width, length, tolerance=0):
+    """
+    Return whether the requests can be distributed well enough that an uneven
+    grid approach is worthwhile. 
+    """
+    total, h_sums, v_sums = divide_requests(requests)
+    h_variance = length * (max(h_sums) - min(h_sums))/total
+    v_variance = width * (max(v_sums) - min(v_sums))/total
+    return min(h_variance, v_variance) <= max(1, tolerance)
+
 def estimate_uneven_penalty(requests, cake_width, cake_len, tolerance=0):
-    ""
+    """
+    prob dump this
+    """
     total, h_sums, v_sums = divide_requests(requests)
     polygon_sizes = []
     polygons = []

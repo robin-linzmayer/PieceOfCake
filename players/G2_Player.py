@@ -127,22 +127,21 @@ class G2_Player:
         self.requestlength = len(self.requests)
 
     def decide_strategy(self):
-        uneven_estimate_vals = estimate_uneven_penalty(self.requests, self.cake_width, self.cake_len, self.tolerance)
-        uneven_estimate = uneven_estimate_vals[0]
-        print("ESTIMATED PENALTY=",uneven_estimate)
-        self.hkh_polygons = uneven_estimate_vals[1]
         if is_uniform(self.requests, self.tolerance):
             self.strategy = Strategy.EVEN
             self.move_object = EvenCuts(
                 self.requests, self.cake_width, self.cake_len
             )
-        elif 1:
+        elif grid_enough(self.requests, self.cake_width, self.cake_len, self.tolerance):
             self.strategy = Strategy.UNEVEN
             self.move_object = UnevenCuts(
                 self.requests, self.cake_width, self.cake_len
             )
-        else:
-            self.strategy = Strategy.SAWTOOTH
+        else: # Default
+            self.strategy = Strategy.UNEVEN
+            self.move_object = UnevenCuts(
+                self.requests, self.cake_width, self.cake_len
+            )
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
