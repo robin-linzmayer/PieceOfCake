@@ -136,8 +136,6 @@ class Player:
                                           round(self.cake_len - max(boundary_points[0][1], boundary_points[1][1]) ,2)))
                     res["radius"] = 30
 
-            print("'radius': " + str(res["radius"]))
-
 
             if res["radius"] <= 12.5:
                 # Starting on left edge
@@ -375,11 +373,8 @@ class Player:
                 temp = self.cake_width - positions[-1][0]
 
                 positions.append((0.01, self.cake_len))
-                positions.append((0, round(positions[-2][1] - distance)))
+                positions.append((0, round(positions[-2][1] - distance, 2)))
                 positions.append((round(positions[-4][0] - distance, 2), 0))
-
-
-
             
             x += 1
 
@@ -439,12 +434,25 @@ class Player:
         print("Matching Polygons to Requests")
 
         # Assign the pieces
-        areas =[i.area for i in polygons]
-        print(areas)
-        assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
-        print(assignment)
-        print(assignment[:len(requests)])
-        return constants.ASSIGN, assignment[:len(requests)][::-1]
+        areas = [i.area for i in polygons]
+        #print("areas" + str(areas))
+        match = 0
+        assignment = []
+        for r in requests:
+            diff = 100
+            for a in areas:
+                #print(a)
+                if abs(r-a) < diff:
+                    if areas.index(a) not in assignment:
+                        match = a
+                        diff = abs(r-a)
+            assignment.append(areas.index(match))
+
+        #assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
+        print("assignment: " + str(assignment))
+        #print("also: " + str(assignment[:len(requests)][::-1]))
+        #print(assignment[:len(requests)])
+        return constants.ASSIGN, assignment
         
 
         # assignment = list(range(len(requests)))
