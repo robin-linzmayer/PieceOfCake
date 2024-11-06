@@ -1,5 +1,6 @@
 from typing import Callable
 from shapely.geometry import Polygon
+from tqdm import tqdm
 import constants
 from players.g2.assigns import (
     sorted_assign,
@@ -29,16 +30,18 @@ def get_cuts_spread(requests: list[float]) -> tuple[int, int]:
     return min_cuts, max_cuts
 
 
-def find_best_cuts(
-    requests: list[float], cuts: int, cake_len: float, cake_width: float
+def generate_cuts(
+    cuts: int,
+    cake_len: float,
+    cake_width: float,
+    jumps: int,
 ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
     # how many different points should be considered on each edge
-    JUMPS = 6
-    GAP = JUMPS - 1
-    LEFT = [(0, round(cake_len * i / GAP, 2)) for i in range(JUMPS)]
-    RIGHT = [(cake_width, round(cake_len * i / GAP, 2)) for i in range(JUMPS)]
-    UP = [(round(cake_width * i / GAP, 2), 0) for i in range(JUMPS)]
-    DOWN = [(round(cake_width * i / GAP, 2), cake_len) for i in range(JUMPS)]
+    GAP = jumps - 1
+    LEFT = [(0, round(cake_len * i / GAP, 2)) for i in range(jumps)]
+    RIGHT = [(cake_width, round(cake_len * i / GAP, 2)) for i in range(jumps)]
+    UP = [(round(cake_width * i / GAP, 2), 0) for i in range(jumps)]
+    DOWN = [(round(cake_width * i / GAP, 2), cake_len) for i in range(jumps)]
 
     points = set(LEFT + RIGHT + UP + DOWN)
 
@@ -132,7 +135,9 @@ def best_combo(
     cake_width: float,
     tolerance: int,
 ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
-
+    # 1. SEARCH
+    # search for optimal no. of cuts
+    print("\n1. SEARCH\nsearch optimal no. of cuts")
     min_cuts, max_cuts = get_cuts_spread(requests)
 
     best_cuts = []
@@ -148,8 +153,8 @@ def best_combo(
         best_contender = best_curr_penalty = float("inf")
         # try 100 combinations for each cut,
         # use best one
-        for _ in range(100):
-            cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
+        for _ in range(200):
+            cuts_contender = generate_cuts(cuts, cake_len, cake_width, 6)
             curr_penalty = penalty(
                 cuts_contender, requests, cake_len, cake_width, tolerance
             )
@@ -164,21 +169,37 @@ def best_combo(
             min_penalty = best_curr_penalty
             best_cut_no = cuts
 
+    # 2. SPAM
     # found the optimal no. of cuts
-    # spam those
-    print(f"spamming optimal cut ({best_cut_no})")
-    for _ in range(1000):
-        cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
+    # spam combinations for that number
+    print(f"\n 2. SPAM\nspamming optimal cut ({best_cut_no})")
+    for _ in tqdm(range(2000)):
+        cuts_contender = generate_cuts(requests, cuts, cake_len, cake_width, 12)
         curr_penalty = penalty(
             cuts_contender, requests, cake_len, cake_width, tolerance
         )
 
         if curr_penalty < min_penalty:
-            print(f"found lower penalty ({curr_penalty})")
+            tqdm.write(f"found lower penalty ({curr_penalty})")
             best_cuts = cuts_contender
             min_penalty = curr_penalty
 
+    # 3. SHAKE
+    # shift line's around in the optimal set
+    # of cuts for slightly lower penalties
+    best_cuts = shake(best_cuts, min_penalty)
+
     return best_cuts
+
+
+def shake(cuts: list[tuple[tuple[float, float], tuple[float, float]]], pen: float):
+    # NUM_CANDIDATES = 60
+    # CUTOFF = NUM_CANDIDATES / 4
+    # candidates = []
+
+    # while
+
+    return cuts
 
 
 def cuts_to_moves(
