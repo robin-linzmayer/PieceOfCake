@@ -174,7 +174,7 @@ def best_combo(
     # spam combinations for that number
     print(f"\n 2. SPAM\nspamming optimal cut ({best_cut_no})")
     for _ in tqdm(range(2000)):
-        cuts_contender = generate_cuts(requests, cuts, cake_len, cake_width, 12)
+        cuts_contender = generate_cuts(cuts, cake_len, cake_width, 12)
         curr_penalty = penalty(
             cuts_contender, requests, cake_len, cake_width, tolerance
         )
