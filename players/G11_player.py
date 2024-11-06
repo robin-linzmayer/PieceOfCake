@@ -323,7 +323,6 @@ def get_shifted_cut(cut, shift, cake_dims, pos):
 
 
 def optimal_assignment(R, V):
-    V.remove(V[len(V) // 2])
     num_requests = len(R)
     num_values = len(V)
 
