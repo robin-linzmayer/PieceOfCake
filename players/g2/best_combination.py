@@ -163,7 +163,7 @@ def best_combo(
                 best_contender = cuts_contender
                 best_curr_penalty = curr_penalty
 
-        print(f"penalty: {best_curr_penalty}")
+        print(f"{round(best_curr_penalty, 2)} penalty")
         if not best_cuts or best_curr_penalty < min_penalty:
             best_cuts = best_contender
             min_penalty = best_curr_penalty
@@ -180,7 +180,7 @@ def best_combo(
         )
 
         if curr_penalty < min_penalty:
-            tqdm.write(f"found lower penalty ({curr_penalty})")
+            tqdm.write(f"found lower penalty ({round(curr_penalty, 2)})")
             best_cuts = cuts_contender
             min_penalty = curr_penalty
 
@@ -194,7 +194,7 @@ def best_combo(
 
 def create_offspring(cuts, c1, c2, cake_len, cake_width):
     offspring = []
-    MUTATION_PROB = 0.2
+    MUTATION_PROB = 0.4
     MUTATION_DIST = 0.1
 
     for idx in range(len(c1)):
@@ -288,11 +288,11 @@ def shake(
     tolerance,
 ):
     # number of candidates in tribe
-    NUM_CANDIDATES = 40
+    NUM_CANDIDATES = 20
     # number of candidates cut off after each epoc
-    CUTOFF = 15
+    CUTOFF = 6
     # number of epocs we must pass without evolving until we terminate
-    MAX_UNCHANGED_EPOCS = 50
+    MAX_UNCHANGED_EPOCS = 30
 
     candidates = [[[[0.0, 0.0], [0.0, 0.0]] for _ in range(len(cuts))]] * 2
 
@@ -309,7 +309,7 @@ def shake(
     min_penalty = pen
     best_epoc = 0
     curr_epoc = 0
-    while curr_epoc < best_epoc + MAX_UNCHANGED_EPOCS:
+    while 0 < min_penalty and curr_epoc < best_epoc + MAX_UNCHANGED_EPOCS:
         while len(candidates) < NUM_CANDIDATES:
             offspring = create_offspring(
                 cuts, *random.sample(candidates, 2), cake_len, cake_width
@@ -319,7 +319,7 @@ def shake(
         sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
         candidates = candidates[:-CUTOFF]  # cut worst candidates
         print(
-            f"epoc {curr_epoc}: {penalty(cuts, requests, cake_len, cake_width, tolerance)} -> {penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance)}"
+            f"epoc {curr_epoc}: {round(penalty(cuts, requests, cake_len, cake_width, tolerance), 2)} -> {round(penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance), 2)}"
         )
 
         curr_epoc += 1
