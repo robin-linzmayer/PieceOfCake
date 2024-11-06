@@ -147,7 +147,7 @@ def best_combo(
         # we've probably crossed the optimal no. of cuts
         if best_cut_no + 5 < cuts:
             break
-        print(f"\ncuts-{cuts}")
+        print(f"{cuts} cuts: ", end="")
 
         curr_best_cuts = []
         best_contender = best_curr_penalty = float("inf")
@@ -163,7 +163,7 @@ def best_combo(
                 best_contender = cuts_contender
                 best_curr_penalty = curr_penalty
 
-        print(f"lowest penalty: {best_curr_penalty}")
+        print(f"penalty: {best_curr_penalty}")
         if not best_cuts or best_curr_penalty < min_penalty:
             best_cuts = best_contender
             min_penalty = best_curr_penalty
@@ -287,9 +287,13 @@ def shake(
     cake_width: float,
     tolerance,
 ):
-    NUM_CANDIDATES = 60
-    CUTOFF = int(NUM_CANDIDATES / 4)
-    MAX_EPOCS = 300
+    # number of candidates in tribe
+    NUM_CANDIDATES = 40
+    # number of candidates cut off after each epoc
+    CUTOFF = 15
+    # number of epocs we must pass without evolving until we terminate
+    MAX_UNCHANGED_EPOCS = 50
+
     candidates = [[[[0.0, 0.0], [0.0, 0.0]] for _ in range(len(cuts))]] * 2
 
     # initialize population
@@ -301,8 +305,11 @@ def shake(
 
     sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
     candidates = candidates[:-CUTOFF]  # cut worst candidates
-    for i in range(MAX_EPOCS):
 
+    min_penalty = pen
+    best_epoc = 0
+    curr_epoc = 0
+    while curr_epoc < best_epoc + MAX_UNCHANGED_EPOCS:
         while len(candidates) < NUM_CANDIDATES:
             offspring = create_offspring(
                 cuts, *random.sample(candidates, 2), cake_len, cake_width
@@ -312,8 +319,21 @@ def shake(
         sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
         candidates = candidates[:-CUTOFF]  # cut worst candidates
         print(
-            f"epoc {i}: {penalty(cuts, requests, cake_len, cake_width, tolerance)} -> {penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance)}"
+            f"epoc {curr_epoc}: {penalty(cuts, requests, cake_len, cake_width, tolerance)} -> {penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance)}"
         )
+
+        curr_epoc += 1
+        if (
+            curr_penalty := penalty(
+                combined_cuts(cuts, candidates[0]),
+                requests,
+                cake_len,
+                cake_width,
+                tolerance,
+            )
+        ) < min_penalty:
+            min_penalty = curr_penalty
+            best_epoc = curr_epoc
 
     return combined_cuts(cuts, candidates[0])
 
