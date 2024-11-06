@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import time
-import signal
 import numpy as np
 import math
 import traceback
@@ -26,11 +25,11 @@ from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
 from players.g5_player import Player as G5_Player
 from players.group_3 import Player as G3_Player
+from players.g4_player import Player as G4_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
 
-from players.player_4 import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
@@ -130,15 +129,10 @@ class PieceOfCakeGame:
 
             start_time = 0
             is_timeout = False
-            if self.use_timeout:
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(constants.timeout)
             try:
                 start_time = time.time()
                 player = player_class(rng=self.rng, logger=self.get_player_logger(player_name),
                                       precomp_dir=precomp_dir, tolerance=self.tolerance)
-                if self.use_timeout:
-                    signal.alarm(0)  # Clear alarm
             except TimeoutException:
                 is_timeout = True
                 player = None
@@ -288,6 +282,10 @@ class PieceOfCakeGame:
         # Create the convex polygon and the line segment using Shapely
         # polygon = Polygon(polygon_points)
         # line = LineString(line_points)
+
+        # make polygon input geometry valid
+        if self.player_name == "Group 2":
+            polygon = polygon.convex_hull
 
         # Check if the line intersects with the polygon
         if not line.intersects(polygon):
@@ -526,7 +524,6 @@ class PieceOfCakeGame:
             return True
 
         # Step 1: Get the points on the cake piece and store as numpy array
-
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
 
         # Step 2: Find the minimum bounding circle of the cake piece
