@@ -289,6 +289,10 @@ class PieceOfCakeGame:
         # polygon = Polygon(polygon_points)
         # line = LineString(line_points)
 
+        # make polygon input geometry valid
+        if self.player_name == "Group 2":
+            polygon = polygon.convex_hull
+
         # Check if the line intersects with the polygon
         if not line.intersects(polygon):
             return [polygon]
@@ -521,6 +525,8 @@ class PieceOfCakeGame:
         Returns:
         - True if the cake can fit inside the plate, False otherwise
         """
+        if cake_piece.area < 0.25:
+            return True
         # Step 1: Get the points on the cake piece and store as numpy array
 
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)

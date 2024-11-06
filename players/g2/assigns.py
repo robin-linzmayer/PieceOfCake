@@ -18,17 +18,19 @@ import miniball
     return [polygon for i, polygon in enumerate(polygons) if i not in removed_indices]
 """
 
+
 def can_cake_fit_in_plate(cake_piece, radius=12.5):
     if not isinstance(cake_piece, Polygon):
         raise TypeError("Expected a Polygon object.")
-    cake_points = np.array(
-        list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double
-    )
+    cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
     res = miniball.miniball(cake_points)
 
     return res["radius"] <= radius
 
-def calculate_total_penalty(assignment: list[int], polygons: list[Polygon], requests: list[float], d: float) -> float:
+
+def calculate_total_penalty(
+    assignment: list[int], polygons: list[Polygon], requests: list[float], d: float
+) -> float:
     total_penalty = 0.0
 
     for request_idx, polygon_idx in enumerate(assignment):
@@ -41,7 +43,7 @@ def calculate_total_penalty(assignment: list[int], polygons: list[Polygon], requ
             continue  # Avoid division by zero for dummy requests
 
         polygon_area = polygons[polygon_idx].area
-        
+
         # Check if the polygon fits on the plate
         if not can_cake_fit_in_plate(polygons[polygon_idx]):
             # Full penalty for invalid polygons
@@ -50,20 +52,25 @@ def calculate_total_penalty(assignment: list[int], polygons: list[Polygon], requ
 
         # Calculate the percentage difference from the requested size
         area_diff_percentage = abs(polygon_area - request_size) / request_size * 100
-        
+
         # If the percentage difference exceeds the tolerance, add the penalty
         if area_diff_percentage > d:
             total_penalty += area_diff_percentage
 
     return total_penalty
 
+
 def assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
     # Filter valid polygons
     valid_polygons = polygons
 
     # List of assignment function names
-    assignment_functions = [ "hungarian_min_penalty", "greedy_best_fit_assignment", "dp_min_penalty", "sorted_assign"]
-    
+    assignment_functions = [
+        "hungarian_min_penalty",
+        "greedy_best_fit_assignment",
+        "dp_min_penalty",
+        "sorted_assign",
+    ]
 
     # Generate assignments and their penalties
     assignments = []
@@ -84,7 +91,10 @@ def assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int
     print(f"Here is the total penalty: {min(penalties)}")
     return assignments[min_penalty_index]
 
-def sorted_assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def sorted_assign(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     # Get sorted indices of polygons and requests in decreasing order of area
     sorted_polygon_indices = sorted(
         range(len(polygons)), key=lambda i: polygons[i].area, reverse=True
@@ -103,7 +113,11 @@ def sorted_assign(polygons: list[Polygon], requests: list[float], d: float) -> l
 
     return assignment
 
-def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def greedy_best_fit_assignment(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
+    # sort requests and polygons in descending order by size
     sorted_polygons = sorted(enumerate(polygons), key=lambda x: x[1].area, reverse=True)
     sorted_requests = sorted(enumerate(requests), key=lambda x: x[1], reverse=True)
 
@@ -112,8 +126,8 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
 
     for request_idx, request_size in sorted_requests:
         best_fit_polygon_idx = None
-        min_penalty = float('inf')
-        closest_area_diff = float('inf')
+        min_penalty = float("inf")
+        closest_area_diff = float("inf")
 
         for poly_idx, polygon in sorted_polygons:
             if poly_idx in used_polygons:
@@ -123,10 +137,16 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
             if not can_cake_fit_in_plate(polygon):
                 penalty = 100  # Full penalty for polygons that do not fit
             else:
-                area_diff_percentage = abs(polygon.area - request_size) / request_size * 100
+                area_diff_percentage = (
+                    abs(polygon.area - request_size) / request_size * 100
+                )
                 penalty = area_diff_percentage if area_diff_percentage > d else 0
 
-            if (penalty < min_penalty) or (penalty == min_penalty and abs(polygon.area - request_size) < closest_area_diff):
+            # find the polygon with minimum penalty and closest area to the request
+            if (penalty < min_penalty) or (
+                penalty == min_penalty
+                and abs(polygon.area - request_size) < closest_area_diff
+            ):
                 best_fit_polygon_idx = poly_idx
                 min_penalty = penalty
                 closest_area_diff = abs(polygon.area - request_size)
@@ -137,7 +157,10 @@ def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d
 
     return assignment
 
-def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def dp_min_penalty(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     n = len(polygons)
     m = len(requests)
     dp = [[math.inf] * (m + 1) for _ in range(n + 1)]
@@ -148,16 +171,22 @@ def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> 
     # this fills the DP table
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            area_diff = abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100
+            area_diff = (
+                abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100
+            )
             penalty = area_diff if area_diff > d else 0
 
-            dp[i][j] = min(dp[i-1][j], dp[i-1][j-1] + penalty)
+            dp[i][j] = min(dp[i - 1][j], dp[i - 1][j - 1] + penalty)
 
     # backtrack for assignment
     i, j = n, m
     while i > 0 and j > 0:
-        if dp[i][j] == dp[i-1][j-1] + (abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100 if abs(polygons[i-1].area - requests[j-1]) / requests[j-1] * 100 > d else 0):
-            assignment[j-1] = i-1
+        if dp[i][j] == dp[i - 1][j - 1] + (
+            abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100
+            if abs(polygons[i - 1].area - requests[j - 1]) / requests[j - 1] * 100 > d
+            else 0
+        ):
+            assignment[j - 1] = i - 1
             i -= 1
             j -= 1
         else:
@@ -165,7 +194,10 @@ def dp_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> 
 
     return assignment
 
-def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+
+def hungarian_min_penalty(
+    polygons: list[Polygon], requests: list[float], d: float
+) -> list[int]:
     # Define a zero area polygon as one with all coordinates (0, 0)
     def is_zero_area_polygon(polygon: Polygon) -> bool:
         return all(coord == (0, 0) for coord in polygon.exterior.coords)
@@ -184,7 +216,9 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
         print(f"Added {num_dummy_requests} dummy requests.")
     elif num_requests > num_polygons:
         num_dummy_polygons = num_requests - num_polygons
-        polygons_copy += [Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
+        polygons_copy += [
+            Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])
+        ] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
         print(f"Added {num_dummy_polygons} dummy polygons.")
 
     # Build cost matrix (penalties)
@@ -196,7 +230,9 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
             if not can_cake_fit_in_plate(polygon):
                 penalty = 100  # Full penalty if polygon doesn't fit
             else:
-                polygon_area = polygon.area if not is_zero_area_polygon(polygon) else 0  # Handle zero area polygons
+                polygon_area = (
+                    polygon.area if not is_zero_area_polygon(polygon) else 0
+                )  # Handle zero area polygons
                 if request_size == 0:  # No penalty for dummy requests
                     penalty = 0
                 else:
@@ -216,9 +252,15 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
 
     # Verify data type and format
     assert isinstance(assignment, list), "Assignment should be a list"
-    assert all(isinstance(x, int) for x in assignment), "All elements in assignment should be integers"
-    assert len(assignment) == len(requests), "Assignment length should match the number of requests"
-    assert all(0 <= x < len(polygons) for x in assignment if x != -1), "Indices in assignment should refer to valid polygons"
+    assert all(
+        isinstance(x, int) for x in assignment
+    ), "All elements in assignment should be integers"
+    assert len(assignment) == len(
+        requests
+    ), "Assignment length should match the number of requests"
+    assert all(
+        0 <= x < len(polygons) for x in assignment if x != -1
+    ), "Indices in assignment should refer to valid polygons"
 
     # Print for debugging
     print("Assignment:", assignment)
