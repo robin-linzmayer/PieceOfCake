@@ -182,9 +182,9 @@ class G2_Player:
         elif self.strategy == Strategy.SNEAK:
             if self.turn_number == 1:
                 self.move_object = EvenCuts(
-                    len(self.requests), self.cake_width, self.cake_len
+                    self.requests, self.cake_width, self.cake_len
                 )
-
+                
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
                 return self.assign(assign)

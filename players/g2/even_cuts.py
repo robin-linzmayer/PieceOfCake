@@ -3,14 +3,15 @@ import numpy as np
 from players.g2.helpers import *
 
 class EvenCuts:
-    def __init__(self, num_requests, cake_width, cake_len):
+    def __init__(self, requests, cake_width, cake_len):
         self.phase = "HORIZONTAL"
         self.direction = ""
-        self.n = num_requests
         self.cake_width = cake_width
         self.cake_len = cake_len
-        self.s_x = cake_width / np.sqrt(self.n)
-        self.s_y = cake_len / np.sqrt(self.n)
+
+        best = (max(requests) + min(requests)) / 2
+        self.s_x = np.sqrt(best * self.cake_width / self.cake_len)
+        self.s_y = np.sqrt(best * self.cake_len / self.cake_width)
         self.move_queue = []
 
     def even_cuts(self, pos):

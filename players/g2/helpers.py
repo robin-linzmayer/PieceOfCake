@@ -82,3 +82,10 @@ def bounce(margin):
     if margin == 0:
         return 0.01
     return round(margin - 0.01, 2)
+
+def is_uniform(requests, tolerance=0) -> bool:
+    """
+    Returns whether or not the requests can be considered uniform
+    """
+    if len(requests) < 1: return True
+    return (max(requests) - min(requests)) >= (2 * tolerance)
