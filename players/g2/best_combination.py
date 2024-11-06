@@ -69,7 +69,7 @@ def __calculate_penalty(
     assign_func: Callable[[list[Polygon], list[float]], list[int]],
     requests: list[float],
     polygons: list[Polygon],
-    tolerance=0,
+    tolerance,
 ) -> float:
     penalty = 0
     assignments: list[int] = assign_func(polygons, requests, tolerance)
@@ -118,14 +118,19 @@ def penalty(
     requests: list[float],
     cake_len,
     cake_width,
-    # tolerance,
+    tolerance,
 ):
     polygons = cuts_to_polygons(cuts, cake_len, cake_width)
-    return __calculate_penalty(greedy_best_fit_assignment, requests, polygons)
+    return __calculate_penalty(
+        greedy_best_fit_assignment, requests, polygons, tolerance
+    )
 
 
 def best_combo(
-    requests: list[float], cake_len: float, cake_width: float
+    requests: list[float],
+    cake_len: float,
+    cake_width: float,
+    tolerance: int,
 ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
 
     min_cuts, max_cuts = get_cuts_spread(requests)
@@ -143,9 +148,11 @@ def best_combo(
         best_contender = best_curr_penalty = float("inf")
         # try 100 combinations for each cut,
         # use best one
-        for _ in range(200):
+        for _ in range(100):
             cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
-            curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width)
+            curr_penalty = penalty(
+                cuts_contender, requests, cake_len, cake_width, tolerance
+            )
 
             if not curr_best_cuts or curr_penalty < best_curr_penalty:
                 best_contender = cuts_contender
@@ -160,9 +167,11 @@ def best_combo(
     # found the optimal no. of cuts
     # spam those
     print(f"spamming optimal cut ({best_cut_no})")
-    for _ in range(2000):
+    for _ in range(1000):
         cuts_contender = find_best_cuts(requests, cuts, cake_len, cake_width)
-        curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width)
+        curr_penalty = penalty(
+            cuts_contender, requests, cake_len, cake_width, tolerance
+        )
 
         if curr_penalty < min_penalty:
             print(f"found lower penalty ({curr_penalty})")

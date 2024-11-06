@@ -137,7 +137,9 @@ class G2_Player:
                 return self.assign(greedy_best_fit_assignment)
 
             print(f"I'll think for a while now..")
-            best_cuts = best_combo(self.requests, self.cake_len, self.cake_width)
+            best_cuts = best_combo(
+                self.requests, self.cake_len, self.cake_width, self.tolerance
+            )
 
             self.move_queue = cuts_to_moves(
                 best_cuts, self.requests, self.cake_len, self.cake_width
