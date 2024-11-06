@@ -62,6 +62,7 @@ class G8_Player:
         self.edges = None
         self.cake = None
         self.solution = None
+        self.solution_polygons = None
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function that retrieves the current state of the cake map and returns an cake movement
@@ -99,12 +100,13 @@ class G8_Player:
             ]
 
             self.solution = self.solve()
+            self.solution_polygons = list(self.solution)
             x, y = self.solution.pop(0)
 
             return constants.INIT, [round(x, 2), round(y, 2)]
 
         if len(self.solution) == 0:
-            return self.assign_polygons(current_percept.polygons)
+            return self.assign_polygons(self.solution_polygons)
 
         x, y = self.solution.pop(0)
 
@@ -182,32 +184,34 @@ class G8_Player:
         return penalties, self.calculate_cut_length(points)
 
     def generate_initial_points(self):
-        """Generate possible starting points along the perimeter"""
+        """Generate optimized starting points along the perimeter"""
         points = []
-        samples = 5
+        # Increase samples for more granularity only if necessary
+        samples = max(5, len(self.requests))  # Adaptive sampling based on requests
 
         for (x1, y1), (x2, y2) in self.edges:
-            for t in np.linspace(0, 1, samples):
+            for t in np.linspace(0, 1, samples, endpoint=False):
                 x = x1 + t * (x2 - x1)
                 y = y1 + t * (y2 - y1)
                 points.append((x, y))
-
+        
         return points
 
     def generate_next_points(self, current_point: tuple[float, float]):
-        """Generate possible next points on valid edges"""
+        """Generate optimized next points on valid edges"""
         points = []
-        samples = 25
+        # Reduce samples to lower computational cost
+        samples = max(15, len(self.requests))  # Adaptive sampling
 
         current_edge = self.get_edge(current_point)
 
         for i, ((x1, y1), (x2, y2)) in enumerate(self.edges):
             if i != current_edge:  # Can't cut to same edge
-                for t in np.linspace(0, 1, samples):
+                for t in np.linspace(0, 1, samples, endpoint=False):
                     x = x1 + t * (x2 - x1)
                     y = y1 + t * (y2 - y1)
                     points.append((x, y))
-
+        
         return points
 
     def calculate_cut_length(self, points: list[tuple[float, float]]) -> float:
@@ -312,10 +316,23 @@ class G8_Player:
 
         return total_penalty
 
-    def assign_polygons(self, pieces: list[Polygon]) -> tuple[str, list[int]]:
+    def assign_polygons(self, cuts: list[tuple[float, float]]) -> tuple[str, list[int]]:
         """
         Get optimal mapping of requests to pieces using exact game penalty calculation.
         """
+        # Get pieces after all cuts
+        pieces = [self.cake]
+        for i in range(len(cuts) - 1):
+            cut_line = LineString([cuts[i], cuts[i + 1]])
+            new_pieces = []
+            for piece in pieces:
+                if cut_line.intersects(piece):
+                    split_result = split(piece, cut_line)
+                    new_pieces.extend(list(split_result.geoms))
+                else:
+                    new_pieces.append(piece)
+            pieces = new_pieces
+
         n_pieces = len(pieces)
         n_requests = len(self.requests)
         max_size = max(n_pieces, n_requests)
