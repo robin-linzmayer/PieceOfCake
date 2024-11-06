@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import time
-import signal
 import numpy as np
 import math
 import traceback
@@ -26,11 +25,11 @@ from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
 from players.g5_player import Player as G5_Player
 from players.group_3 import Player as G3_Player
+from players.g4_player import Player as G4_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
 
-from players.player_4 import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
@@ -130,15 +129,10 @@ class PieceOfCakeGame:
 
             start_time = 0
             is_timeout = False
-            if self.use_timeout:
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(constants.timeout)
             try:
                 start_time = time.time()
                 player = player_class(rng=self.rng, logger=self.get_player_logger(player_name),
                                       precomp_dir=precomp_dir, tolerance=self.tolerance)
-                if self.use_timeout:
-                    signal.alarm(0)  # Clear alarm
             except TimeoutException:
                 is_timeout = True
                 player = None
