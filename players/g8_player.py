@@ -64,7 +64,6 @@ class G8_Player:
         self.solution = None
         self.beam_uuid_to_pieces = {}
 
-
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function that retrieves the current state of the cake map and returns an cake movement
 
@@ -138,7 +137,9 @@ class G8_Player:
                             continue
 
                     new_points = current_points + [next_point]
-                    penalty, cut_length, new_beam_uuid = self.evaluate_cut_sequence(new_points, uuid)
+                    penalty, cut_length, new_beam_uuid = self.evaluate_cut_sequence(
+                        new_points, uuid
+                    )
                     score = penalty + cut_length * 1e-6
 
                     if penalty > best_score:
@@ -149,7 +150,7 @@ class G8_Player:
                         best_solution = new_points
 
                     new_beam.append((score, new_points, new_beam_uuid))
-                
+
                 # We should never use this beam uuids again
                 if uuid in self.beam_uuid_to_pieces:
                     del self.beam_uuid_to_pieces[uuid]
@@ -170,11 +171,11 @@ class G8_Player:
         cuts = []
         for i in range(len(points) - 1):
             cuts.append(LineString([points[i], points[i + 1]]))
-        
+
         cut = cuts[0] if len(cuts) == 1 else cuts[-1]
-        
+
         pieces = [self.cake] if len(cuts) == 1 else self.beam_uuid_to_pieces[uuid]
-        
+
         new_pieces = []
         for piece in pieces:
             if cut.intersects(piece):
@@ -183,7 +184,7 @@ class G8_Player:
             else:
                 new_pieces.append(piece)
         pieces = new_pieces
-        
+
         new_beam_uuid = uuid4()
         self.beam_uuid_to_pieces[new_beam_uuid] = pieces
 
