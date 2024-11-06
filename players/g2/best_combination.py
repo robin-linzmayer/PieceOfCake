@@ -187,19 +187,135 @@ def best_combo(
     # 3. SHAKE
     # shift line's around in the optimal set
     # of cuts for slightly lower penalties
-    best_cuts = shake(best_cuts, min_penalty)
+    best_cuts = shake(best_cuts, requests, min_penalty, cake_len, cake_width, tolerance)
 
     return best_cuts
 
 
-def shake(cuts: list[tuple[tuple[float, float], tuple[float, float]]], pen: float):
-    # NUM_CANDIDATES = 60
-    # CUTOFF = NUM_CANDIDATES / 4
-    # candidates = []
+def create_offspring(cuts, c1, c2, cake_len, cake_width):
+    offspring = []
+    MUTATION_PROB = 0.2
+    MUTATION_DIST = 0.1
 
-    # while
+    for idx in range(len(c1)):
+        toss = random.random()
+        if toss < 0.5:
+            genome = [i.copy() for i in c1[idx]]
+        else:
+            genome = [i.copy() for i in c2[idx]]
 
-    return cuts
+        mut = random.random()
+        if mut < MUTATION_PROB:
+            l, r = cuts[idx]
+            # mutate left point
+            if mut < MUTATION_PROB / 2:
+                # which axis in the point can we modify while
+                # ensuring the point remains on the cake border
+                if l[0] == 0 or l[0] == cake_width:  # l is on LEFT | RIGHT border
+                    if (
+                        mut < MUTATION_PROB / 4
+                        and l[1] + genome[0][1] + MUTATION_DIST < cake_len
+                    ):
+                        genome[0][1] += MUTATION_DIST
+                    elif 0 < l[1] + genome[0][1] - MUTATION_DIST:
+                        genome[0][1] -= MUTATION_DIST
+                elif l[1] == 0 or l[1] == cake_len:  # l is on TOP | BOTTOM border
+                    if (
+                        mut < MUTATION_PROB / 4
+                        and l[0] + genome[0][0] + MUTATION_DIST < cake_width
+                    ):
+                        genome[0][0] += MUTATION_DIST
+                    elif 0 < l[0] + genome[0][0] - MUTATION_DIST:
+                        genome[0][0] -= MUTATION_DIST
+
+            # mutate right point
+            else:
+                # which axis in the point can we modify while
+                # ensuring the point remains on the cake border
+                if r[0] == 0 or r[0] == cake_width:  # r is on LEFT | RIGHT border
+                    if (
+                        mut - MUTATION_PROB / 2 < MUTATION_PROB / 4
+                        and r[1] + genome[1][1] + MUTATION_DIST < cake_len
+                    ):
+                        genome[1][1] += MUTATION_DIST
+                    elif 0 < r[1] + genome[1][1] - MUTATION_DIST:
+                        genome[1][1] -= MUTATION_DIST
+                elif r[1] == 0 or r[1] == cake_len:  # r is on TOP | BOTTOM border
+                    if (
+                        mut - MUTATION_PROB / 2 < MUTATION_PROB / 4
+                        and r[1] + genome[1][0] + MUTATION_DIST < cake_len
+                    ):
+                        genome[1][0] += MUTATION_DIST
+                    elif 0 < r[0] + genome[1][0] - MUTATION_DIST:
+                        genome[1][0] -= MUTATION_DIST
+
+        genome = [[round(num, 2) for num in sublist] for sublist in genome]
+        offspring.append(genome)
+
+    return offspring
+
+
+def combined_cuts(cuts, candidate):
+    return [
+        [
+            [
+                round(cuts[idx][0][i] + candidate[idx][0][i], 2)
+                for i in range(len(cuts[idx]))
+            ],
+            [
+                round(cuts[idx][1][i] + candidate[idx][1][i], 2)
+                for i in range(len(cuts[idx]))
+            ],
+        ]
+        for idx in range(len(cuts))
+    ]
+
+
+def sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance):
+    candidates.sort(
+        key=lambda c: penalty(
+            combined_cuts(cuts, c), requests, cake_len, cake_width, tolerance
+        )
+    )
+
+
+def shake(
+    cuts: list[tuple[tuple[float, float], tuple[float, float]]],
+    requests,
+    pen: float,
+    cake_len: float,
+    cake_width: float,
+    tolerance,
+):
+    NUM_CANDIDATES = 60
+    CUTOFF = int(NUM_CANDIDATES / 4)
+    MAX_EPOCS = 300
+    candidates = [[[[0.0, 0.0], [0.0, 0.0]] for _ in range(len(cuts))]] * 2
+
+    # initialize population
+    while len(candidates) < NUM_CANDIDATES:
+        offspring = create_offspring(
+            cuts, *random.sample(candidates, 2), cake_len, cake_width
+        )
+        candidates.append(offspring)
+
+    sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
+    candidates = candidates[:-CUTOFF]  # cut worst candidates
+    for i in range(MAX_EPOCS):
+
+        while len(candidates) < NUM_CANDIDATES:
+            offspring = create_offspring(
+                cuts, *random.sample(candidates, 2), cake_len, cake_width
+            )
+            candidates.append(offspring)
+
+        sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
+        candidates = candidates[:-CUTOFF]  # cut worst candidates
+        print(
+            f"epoc {i}: {penalty(cuts, requests, cake_len, cake_width, tolerance)} -> {penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance)}"
+        )
+
+    return combined_cuts(cuts, candidates[0])
 
 
 def cuts_to_moves(
