@@ -220,7 +220,7 @@ class Player:
             #Up to down
             if i%2 != 0:
                 self.cutList.append(self.move_straight(cur, 'D'))
-                self.cutList.append([breadcrumb_goto,self.cake_len-0.02])
+                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
                 self.cutList.append([w,self.cake_len])
             
             #Down to up
@@ -232,7 +232,7 @@ class Player:
         if self.cutList[-1][0]!= self.cake_width:
             if self.cutList[-1][1] == 0:
                 self.cutList.append(self.move_straight(self.cutList[-1], 'D'))
-                self.cutList.append([breadcrumb_goto,self.cake_len-0.02])
+                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
                 self.cutList.append([round(self.cake_width-0.02,2),self.cake_len])
             else:
                 self.cutList.append(self.move_straight(self.cutList[-1], 'U'))
