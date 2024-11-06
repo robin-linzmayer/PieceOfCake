@@ -25,12 +25,11 @@ from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
 from players.g5_player import Player as G5_Player
 from players.group_3 import Player as G3_Player
-from players.g11_player import Player as G11_Player
+from players.g4_player import Player as G4_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
 
-from players.player_4 import Player as G4_Player
 
 class PieceOfCakeGame:
     def __init__(self, args, root):
