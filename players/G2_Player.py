@@ -45,7 +45,19 @@ class G2_Player:
         self.move_queue = []
         self.requestscut=0
 
-        self.strategy = Strategy.UNEVEN
+        if is_uniform(self.requests, self.tolerance):
+            self.strategy = Strategy.EVEN
+            self.move_object = EvenCuts(
+                self.requests, self.cake_width, self.cake_len
+            )
+        elif 1:
+            self.strategy = Strategy.UNEVEN
+            self.move_object = UnevenCuts(
+                self.requests, self.cake_width, self.cake_len
+            )
+        else:
+            self.strategy = Strategy.SAWTOOTH
+        
         self.move_object = None
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
@@ -181,11 +193,6 @@ class G2_Player:
                 return self.assign(assign)
 
         elif self.strategy == Strategy.EVEN:
-            if self.turn_number == 1:
-                self.move_object = EvenCuts(
-                    self.requests, self.cake_width, self.cake_len
-                )
-                
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
                 return self.assign(assign)
@@ -193,11 +200,6 @@ class G2_Player:
             return move
         
         elif self.strategy == Strategy.UNEVEN:
-            if self.turn_number == 1:
-                self.move_object = UnevenCuts(
-                    self.requests, self.cake_width, self.cake_len
-                )
-                
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
                 return self.assign(assign)
