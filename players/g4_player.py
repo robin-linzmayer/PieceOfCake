@@ -59,41 +59,43 @@ class Player:
 
             num_cuts = len(requests)
             num_restarts = 10
+            num_iterations = 100
 
             min_loss = float("inf")
 
-            for i in range(num_restarts):
+            for restart in range(num_restarts):
                 cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
                 loss = self.get_loss_from_cuts(cuts, current_percept)
-                print(f"Restart {i} Loss: {loss}")
+                print(f"Restart {restart} Loss: {loss}")
+
                 if loss < min_loss:
                     best_cuts = copy.deepcopy(cuts)
                     min_loss = loss
 
-            cuts = best_cuts
+                cuts = best_cuts
 
-            # Gradient descent
-            learning_rate = 0.1
+                # Gradient descent
+                learning_rate = 0.1
 
-            epoch = 0
-            while loss > 0.01 and epoch < 1000:
-                gradients = self.get_gradient(loss, cuts, current_percept)
+                epoch = 0
+                while loss > 0.01 and epoch < num_iterations:
+                    gradients = self.get_gradient(loss, cuts, current_percept)
 
-                cur_x, cur_y = cuts[0]
-                for j in range(len(cuts)):
-                    cuts[j] = get_shifted_cut(
-                        cuts[j],
-                        -learning_rate * gradients[j],
-                        (cake_width, cake_len),
-                        (cur_x, cur_y),
-                    )
-                    cur_x, cur_y = cuts[j]
-                loss = self.get_loss_from_cuts(cuts, current_percept)
-                if loss < min_loss:
-                    best_cuts = copy.deepcopy(cuts)
-                    min_loss = loss
-                print(f"Iteration: {epoch}, Loss: {loss}")
-                epoch += 1
+                    cur_x, cur_y = cuts[0]
+                    for j in range(len(cuts)):
+                        cuts[j] = get_shifted_cut(
+                            cuts[j],
+                            -learning_rate * gradients[j],
+                            (cake_width, cake_len),
+                            (cur_x, cur_y),
+                        )
+                        cur_x, cur_y = cuts[j]
+                    loss = self.get_loss_from_cuts(cuts, current_percept)
+                    if loss < min_loss:
+                        best_cuts = copy.deepcopy(cuts)
+                        min_loss = loss
+                    print(f"Iteration: {epoch}, Loss: {loss}")
+                    epoch += 1
 
             print(f"Best penalty: {min_loss * 100}")
 
