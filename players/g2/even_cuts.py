@@ -10,8 +10,12 @@ class EvenCuts:
         self.cake_len = cake_len
 
         best = (max(requests) + min(requests)) / 2
-        self.s_x = np.sqrt(best * self.cake_width / self.cake_len)
-        self.s_y = np.sqrt(best * self.cake_len / self.cake_width)
+        
+        n = len(requests)
+        w = int(np.sqrt(n))
+        self.s_x = self.cake_width / w
+        self.s_y = best / self.s_x
+
         self.move_queue = []
 
     def even_cuts(self, pos):

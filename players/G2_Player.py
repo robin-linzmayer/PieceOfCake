@@ -9,10 +9,12 @@ from shapely.geometry import Polygon
 from piece_of_cake_state import PieceOfCakeState
 from players.g2.helpers import *
 from players.g2.even_cuts import *
+from players.g2.uneven_cuts import *
 from players.g2.assigns import assign
 
 class Strategy(Enum):
-    SNEAK = "sneak"
+    EVEN = "even"
+    UNEVEN = "uneven"
     CLIMB_HILLS = "climb_hills"
     SAWTOOTH = "sawtooth"
 
@@ -43,7 +45,7 @@ class G2_Player:
         self.move_queue = []
         self.requestscut=0
 
-        self.strategy = Strategy.SNEAK
+        self.strategy = Strategy.UNEVEN
         self.move_object = None
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
@@ -127,7 +129,6 @@ class G2_Player:
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
-        #cake_area= self.cake_len * self.cake_width
 
         # for only 1 request:
         if self.requestlength == 1:
@@ -179,9 +180,21 @@ class G2_Player:
                         return constants.CUT, next_move
                 return self.assign(assign)
 
-        elif self.strategy == Strategy.SNEAK:
+        elif self.strategy == Strategy.EVEN:
             if self.turn_number == 1:
                 self.move_object = EvenCuts(
+                    self.requests, self.cake_width, self.cake_len
+                )
+                
+            move = self.move_object.move(self.turn_number, self.cur_pos)
+            if move == None:
+                return self.assign(assign)
+
+            return move
+        
+        elif self.strategy == Strategy.UNEVEN:
+            if self.turn_number == 1:
+                self.move_object = UnevenCuts(
                     self.requests, self.cake_width, self.cake_len
                 )
                 
