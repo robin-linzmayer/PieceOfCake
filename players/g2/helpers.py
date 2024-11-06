@@ -2,6 +2,9 @@ from shapely.ops import split
 from shapely.geometry import Polygon, LineString
 import numpy as np
 import miniball
+import math
+
+from players.g2.assigns import *
 
 
 def sneak(start_pos, end_pos, cake_width, cake_len):
@@ -151,3 +154,89 @@ def can_cake_fit_in_plate(cake_piece: Polygon, radius=12.5):
     res = miniball.miniball(cake_points)
 
     return res["radius"] <= radius
+
+
+def is_uniform(requests, tolerance=0) -> bool:
+    """
+    Returns whether or not the requests can be considered uniform
+    """
+    if len(requests) < 1:
+        return True
+    return (max(requests) - min(requests)) <= (2 * tolerance)
+
+
+def divide_requests(requests):
+    """
+    If we were to divide the requests into a nearly-square array,
+    we return the total sum of every request in the list, a list of
+    the sums of all the requests that would be in each row, and a
+    list of the sums of all the requests that would be in each column
+    """
+    n = len(requests)
+    s = int(math.sqrt(n))
+    requests_copy = requests[:]
+    median = (max(requests) + min(requests)) / 2
+    if n % s != 0:
+        n = s * math.ceil(n / s)
+    while len(requests_copy) < n:
+        requests_copy.append(median)
+    total_sum = 0
+    h_sums = []
+    v_sums = []
+    for i in range(0, len(requests_copy)):
+        val = requests_copy[i]
+        total_sum += val
+
+        if i < s:
+            v_sums.append(val)
+        else:
+            v_sums[int(i % s)] += val
+
+        if int(i / s) >= len(h_sums):
+            h_sums.append(val)
+        else:
+            h_sums[int(i / s)] += val
+    return total_sum, h_sums, v_sums
+
+
+def grid_enough(requests, width, length, tolerance=0):
+    """
+    Return whether the requests can be distributed well enough that an uneven
+    grid approach is worthwhile.
+    """
+    total, h_sums, v_sums = divide_requests(requests)
+    h_variance = length * (max(h_sums) - min(h_sums)) / total
+    v_variance = width * (max(v_sums) - min(v_sums)) / total
+    return min(h_variance, v_variance) <= max(1, tolerance)
+
+
+def estimate_uneven_penalty(requests, cake_width, cake_len, tolerance=0):
+    """
+    prob dump this
+    """
+    total, h_sums, v_sums = divide_requests(requests)
+    polygon_sizes = []
+    polygons = []
+    for h in h_sums:
+        h_size = cake_len * h / total
+        for v in v_sums:
+            v_size = cake_width * v / total
+            p = create_polygon(h_size, v_size)
+            polygons.append(p)
+            polygon_sizes.append(round(p.area, 2))
+    print("POLYGON SIZES =", sorted(polygon_sizes))
+    print("NUM POLYGONS =", len(polygons))
+    assignment = hungarian_min_penalty(polygons, requests, tolerance)
+    return calculate_total_penalty(assignment, polygons, requests, tolerance), polygons
+
+
+def create_polygon(width, height):
+    """Creates a polygon representing a rectangle given its width and height."""
+
+    # Define the coordinates of the rectangle's corners
+    coordinates = [(0, 0), (width, 0), (width, height), (0, height), (0, 0)]
+
+    # Create the polygon using the coordinates
+    polygon = Polygon(coordinates)
+
+    return polygon
