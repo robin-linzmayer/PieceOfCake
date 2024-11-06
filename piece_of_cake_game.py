@@ -283,6 +283,10 @@ class PieceOfCakeGame:
         # polygon = Polygon(polygon_points)
         # line = LineString(line_points)
 
+        # make polygon input geometry valid
+        if self.player_name == "Group 2":
+            polygon = polygon.convex_hull
+
         # Check if the line intersects with the polygon
         if not line.intersects(polygon):
             return [polygon]
