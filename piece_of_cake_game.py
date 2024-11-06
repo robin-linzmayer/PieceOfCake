@@ -486,8 +486,8 @@ class PieceOfCakeGame:
         elif action[0] == constants.ASSIGN:
             self.penalty = 0
             self.assignment = action[1]
-            print(self.polygon_list)
-            print(action[1])
+            #print(self.polygon_list)
+            #print(action[1])
             for request_index, assignment in enumerate(action[1]):
                 # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
                 if assignment == -1 or (not self.can_cake_fit_in_plate(self.polygon_list[assignment])):
