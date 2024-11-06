@@ -1,3 +1,5 @@
+import math
+
 def sneak(start_pos, end_pos, cake_width, cake_len):
         """
         Given a start position & goal position, uses the 1-pixel shaving technique
@@ -88,4 +90,33 @@ def is_uniform(requests, tolerance=0) -> bool:
     Returns whether or not the requests can be considered uniform
     """
     if len(requests) < 1: return True
-    return (max(requests) - min(requests)) >= (2 * tolerance)
+    return (max(requests) - min(requests)) <= (2 * tolerance)
+
+def divide_requests(requests):
+    """
+    If we were to divide the requests into a nearly-square array,
+    we return the total sum of every request in the list, a list of 
+    the sums of all the requests that would be in each row, and a 
+    list of the sums of all the requests that would be in each column
+    """
+    n = len(requests)
+    s = int(math.sqrt(n))
+    requests_copy = requests[:]
+    median = (max(requests) + min(requests)) / 2
+    if n%s != 0: n = s * math.ceil(n/s)
+    while len(requests_copy) < n:
+        requests_copy.append(median)
+    total_sum = 0
+    h_sums = []
+    v_sums = []
+    for i in range(0,len(requests_copy)):
+        val = requests_copy[i]
+        total_sum += val
+
+        if i<s: v_sums.append(val)
+        else: v_sums[int(i%s)] += val
+
+        if int(i/s) >= len(h_sums): h_sums.append(val)
+        else: h_sums[int(i/s)] += val
+    return total_sum, h_sums, v_sums
+

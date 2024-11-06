@@ -44,19 +44,6 @@ class G2_Player:
         self.cake_width = None
         self.move_queue = []
         self.requestscut=0
-
-        if is_uniform(self.requests, self.tolerance):
-            self.strategy = Strategy.EVEN
-            self.move_object = EvenCuts(
-                self.requests, self.cake_width, self.cake_len
-            )
-        elif 1:
-            self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(
-                self.requests, self.cake_width, self.cake_len
-            )
-        else:
-            self.strategy = Strategy.SAWTOOTH
         
         self.move_object = None
 
@@ -138,9 +125,25 @@ class G2_Player:
         self.cake_area= self.cake_len * self.cake_width
         self.requestlength = len(self.requests)
 
+    def decide_strategy(self):
+        if is_uniform(self.requests, self.tolerance):
+            self.strategy = Strategy.EVEN
+            self.move_object = EvenCuts(
+                self.requests, self.cake_width, self.cake_len
+            )
+        elif 1:
+            self.strategy = Strategy.UNEVEN
+            self.move_object = UnevenCuts(
+                self.requests, self.cake_width, self.cake_len
+            )
+        else:
+            self.strategy = Strategy.SAWTOOTH
+
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
+        if self.turn_number == 1:
+            self.decide_strategy()
 
         # for only 1 request:
         if self.requestlength == 1:

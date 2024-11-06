@@ -1,6 +1,5 @@
 import constants
 import numpy as np
-import math
 from players.g2.helpers import *
 
 class UnevenCuts:
@@ -73,24 +72,3 @@ class UnevenCuts:
 
         return None
         
-def divide_requests(requests):
-    n = len(requests)
-    s = int(np.sqrt(n))
-    requests_copy = requests[:]
-    median = (max(requests) + min(requests)) / 2
-    if n%s != 0: n = s * math.ceil(n/s)
-    while len(requests_copy) < n:
-        requests_copy.append(median)
-    total_sum = 0
-    h_sums = []
-    v_sums = []
-    for i in range(0,len(requests_copy)):
-        val = requests_copy[i]
-        total_sum += val
-
-        if i<s: v_sums.append(val)
-        else: v_sums[int(i%s)] += val
-
-        if int(i/s) >= len(h_sums): h_sums.append(val)
-        else: h_sums[int(i/s)] += val
-    return total_sum, h_sums, v_sums
