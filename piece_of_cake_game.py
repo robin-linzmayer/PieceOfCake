@@ -526,7 +526,6 @@ class PieceOfCakeGame:
             return True
 
         # Step 1: Get the points on the cake piece and store as numpy array
-
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
 
         # Step 2: Find the minimum bounding circle of the cake piece
