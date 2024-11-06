@@ -19,4 +19,4 @@ env/
 *.pyc
 __pycache__/
 myenv/
-g4_logs/*
+g4_logs/*miniball/

@@ -20,29 +20,8 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
-        self.cuts = []  # Planned cuts
-        self.assignments = []
-        self.excess_cut_active = False  # Flag for managing excess cuts
 
-    def plan_cuts(self, requests: List[float]) -> List[Tuple[int, float]]:
-        """Plan initial cuts based on the customer requests, dividing the cake accordingly."""
-        total_area = self.cake_len * self.cake_width
-        sorted_requests = sorted(requests, reverse=True)
-        cut_positions = []
-        current_y = 0
-        
-        for request_size in sorted_requests:
-            if current_y >= self.cake_len:
-                break
-            requested_length = request_size / self.cake_width
-            end_y = min(current_y + requested_length, self.cake_len)
-            cut_positions.append((end_y, request_size))
-            current_y = end_y
-        
-        self.logger.info(f"Planned cuts: {cut_positions}")
-        return cut_positions
-
-    def move(self, current_percept) -> (int, List[int]):
+    def move(self, current_percept) -> Tuple[int, List[int]]:
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cur_pos = current_percept.cur_pos
@@ -50,57 +29,23 @@ class Player:
         self.cake_len = current_percept.cake_len
         self.cake_width = current_percept.cake_width
 
+        print('Turn', turn_number, '\n')
+        
+        vertical_cuts = get_vertical_cuts(requests, self.cake_len, self.cake_width)
+        cut_coords = inject_crumb_coords(vertical_cuts, self.cake_len, self.cake_width)
+        cut_coords = inject_horizontal_cut(cut_coords, self.cake_len, self.cake_width)
+
         if turn_number == 1:
-            self.cuts = self.plan_cuts(requests)
-            self.assignments = self.cuts
-            return constants.INIT, [0, 0]
+            return constants.INIT, cut_coords[0]        
 
-        # Check if all requests have been fulfilled
-        if len(polygons) >= len(requests):
-            assignment = self.assign_pieces(requests, polygons)
-            
-            # End condition if all requests have matching pieces
-            if all(a != -1 for a in assignment):
-                if not self.excess_cut_active:
-                    self.excess_cut_active = True
-                    self.cuts = self.plan_excess_cuts(polygons)
-                    return self.make_excess_cut(cur_pos)
-                return constants.ASSIGN, assignment
+        # print(len(cut_coords), cut_coords)
 
-        # Continue performing planned cuts if there are any left
-        if self.cuts and not self.excess_cut_active:
-            end_y, _ = self.cuts.pop(0)
-            return constants.CUT, [self.cake_width if cur_pos[0] == 0 else 0, round(end_y, 2)]
-
-        # Make excess cuts if needed
-        if self.excess_cut_active and self.cuts:
-            return self.make_excess_cut(cur_pos)
-
-        # Fallback if no cuts left
-        self.logger.warning("Fallback: no cuts left but game didn't end.")
-        return constants.ASSIGN, self.assign_pieces(requests, polygons)
-
-    def make_excess_cut(self, cur_pos):
-        """Handles additional cuts to remove any remaining excess."""
-        end_y, _ = self.cuts.pop(0)
-        if cur_pos[0] == 0:
-            return constants.CUT, [self.cake_width, round(end_y, 2)]
-        else:
-            return constants.CUT, [0, round(end_y, 2)]
-
-    def plan_excess_cuts(self, polygons) -> List[Tuple[int, float]]:
-        """Plans additional cuts to remove excess unassigned portions of the cake."""
-        excess_cuts = []
-        polygons_sorted = get_polygon_areas(polygons)
+        if turn_number < len(cut_coords) + 1:
+            return constants.CUT, cut_coords[turn_number - 1]
         
-        for i, (index, area) in enumerate(polygons_sorted):
-            if area > self.cake_width * 10:  # Arbitrary threshold to identify larger excess pieces
-                excess_cut_pos = (i + 1) * (self.cake_len / len(polygons_sorted))  # Evenly space cuts
-                excess_cuts.append((excess_cut_pos, area))
-        
-        self.logger.info(f"Planned excess cuts: {excess_cuts}")
-        return excess_cuts
-
+        assignment = self.assign_pieces(requests, polygons)
+        return constants.ASSIGN, assignment
+    
     def assign_pieces(self, requests: List[float], polygons: List[float]) -> List[int]:
         """Assigns pieces to requests based on area similarity within tolerance."""
         assignment = [-1] * len(requests)
@@ -114,3 +59,43 @@ class Player:
                     polygons_sorted.pop(i)
                     break
         return assignment
+
+def get_vertical_cuts(requests, cake_len, cake_width):
+    sorted_requests = sorted(requests, reverse=True)
+
+    # TODO handle odd number of requests!
+    pairs = [sorted_requests[i] + sorted_requests[i + 1] for i in range(0, len(sorted_requests), 2)]
+
+    x_widths = [pair / cake_len for pair in pairs]
+    x_widths.append(cake_width - sum(x_widths))
+
+    x_coords = [x_widths[0]]
+    for i in range(1, len(x_widths)):
+        x_coords.append(x_coords[i - 1] + x_widths[i])
+
+    x_coords = [round(x, 2) for x in x_coords for _ in range(2)]
+    y_coords = [0, cake_len, cake_len, 0]
+        
+    vertical_cuts = [[x, y] for x, y in zip(x_coords, y_coords * (len(x_coords) // 4))]
+    return vertical_cuts
+
+def inject_crumb_coords(vertical_cuts, cake_len, cake_width):
+    final_cuts = []
+
+    for i, cut in enumerate(vertical_cuts):
+        final_cuts.append(cut)
+
+        if (i + 1) % 2 == 0:
+            final_cuts.append(get_crumb_coord(cut, cake_len, cake_width))
+
+    return final_cuts
+
+def get_crumb_coord(cut, cake_len, cake_width):
+    x = cake_width if cut[0] > (cake_width / 2) else 0
+    knife_error = 0.01
+    y = round(cake_len - knife_error, 2) if cut[1] == cake_len else knife_error
+    return [x, y]
+
+def inject_horizontal_cut(vertical_cuts, cake_len, cake_width):
+    # define start as the x coordinate of the first vertical cut
+    return [[cake_width, cake_len/2], [0, cake_len/2], [0.01, 0], [0, 0.01]] + vertical_cuts
