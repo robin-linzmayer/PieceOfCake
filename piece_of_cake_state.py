@@ -1,13 +1,13 @@
+from dataclasses import dataclass
+
+from shapely import Polygon
+
+
+@dataclass
 class PieceOfCakeState:
-    def __init__(self, polygons, cur_pos, turn_number, requests, cake_len, cake_width):
-        """
-            Args:
-                polygons (List[Polygon]): List of polygons
-                cur_pos (Tuple[int, int]): Current position of the knife
-        """
-        self.polygons = polygons
-        self.cur_pos = cur_pos
-        self.turn_number = turn_number
-        self.requests = requests
-        self.cake_len = cake_len
-        self.cake_width = cake_width
+    polygons: list[Polygon]
+    cur_pos: tuple[int, int]
+    turn_number: int
+    requests: list[float]
+    cake_len: float
+    cake_width: float

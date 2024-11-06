@@ -4,6 +4,7 @@ import sys
 import time
 import numpy as np
 import math
+import traceback
 import matplotlib.pyplot as plt
 
 from shapely import points, centroid
@@ -18,6 +19,7 @@ from players.default_player import Player as DefaultPlayer
 from players.G2_Player import G2_Player
 from players.g6_player import Player as G6_Player
 from players.g1_player import Player as G1_Player
+from players.g8_player import G8_Player
 from players.group10_player import Player as G10_Player
 from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
@@ -304,9 +306,15 @@ class PieceOfCakeGame:
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
-            returned_action = self.player.move(
-                current_percept=before_state
-            )
+            try:
+                # Call the player's move function for turn on this move
+                returned_action = self.player.move(
+                    current_percept=before_state
+                )
+            except Exception as e:
+                print(f"Exception in player code: {e}")
+                traceback.print_exc()
+                returned_action = None
 
             player_time_taken = time.time() - player_start
             self.logger.debug("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
@@ -508,6 +516,10 @@ class PieceOfCakeGame:
         Returns:
         - True if the cake can fit inside the plate, False otherwise
         """
+        # Return True if cake piece has de minimis area
+        if cake_piece.area < 0.25:
+            return True
+
         # Step 1: Get the points on the cake piece and store as numpy array
 
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
