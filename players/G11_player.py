@@ -57,24 +57,26 @@ class Player:
             cake_len = current_percept.cake_len
             cake_width = current_percept.cake_width
 
-            num_cuts = 2 * len(requests)
-            num_restarts = 50
+            num_cuts = len(requests)
+            num_restarts = 10
 
             min_loss = float("inf")
 
             for i in range(num_restarts):
                 cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
                 loss = self.get_loss_from_cuts(cuts, current_percept)
-                print(f'Restart {i} Loss: {loss}')
+                print(f"Restart {i} Loss: {loss}")
                 if loss < min_loss:
                     best_cuts = copy.deepcopy(cuts)
                     min_loss = loss
-            
+
             cuts = best_cuts
 
             # Gradient descent
             learning_rate = 0.1
-            while loss > 0.01:
+
+            epoch = 0
+            while loss > 0.01 and epoch < 1000:
                 gradients = self.get_gradient(loss, cuts, current_percept)
 
                 cur_x, cur_y = cuts[0]
@@ -90,7 +92,10 @@ class Player:
                 if loss < min_loss:
                     best_cuts = copy.deepcopy(cuts)
                     min_loss = loss
-                print(f"Loss: {loss}")
+                print(f"Iteration: {epoch}, Loss: {loss}")
+                epoch += 1
+
+            print(f"Best penalty: {min_loss * 100}")
 
             self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
             return constants.INIT, self.cuts[0]
