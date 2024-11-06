@@ -11,13 +11,7 @@ from players.g2.helpers import *
 from players.g2.even_cuts import *
 from players.g2.uneven_cuts import *
 from players.g2.best_combination import best_combo, cuts_to_moves
-from players.g2.assigns import (
-    assign,
-    sorted_assign,
-    hungarian_min_penalty,
-    dp_min_penalty,
-    greedy_best_fit_assignment,
-)
+from players.g2.assigns import assign
 
 
 class Strategy(Enum):
@@ -129,14 +123,14 @@ class G2_Player:
                     round((self.cur_pos[1] + 5) % self.cake_len, 2),
                 ]
 
-        return constants.ASSIGN, assign(self.polygons, self.requests)
+        return self.assign(assign)
 
     def best_cuts(self):
         # initialize move queue
         if not self.move_queue:
             if self.turn_number != 1:
                 print(f"assigning now!")
-                return self.assign(greedy_best_fit_assignment)
+                return self.assign(assign)
 
             print(f"I'll think for a while now..")
             best_cuts = best_combo(
@@ -244,18 +238,15 @@ class G2_Player:
 
         elif self.strategy == Strategy.EVEN:
             move = self.move_object.move(self.turn_number, self.cur_pos)
+
             if move == None:
-                if len(self.requests) < 10:
-                    # print("Brute Force!")
-                    return self.assign(greedy_best_fit_assignment)
-                else:
-                    return self.assign(greedy_best_fit_assignment)
                 return self.assign(assign)
 
             return move
 
         elif self.strategy == Strategy.UNEVEN:
             move = self.move_object.move(self.turn_number, self.cur_pos)
+            
             if move == None:
                 return self.assign(assign)
 
@@ -263,6 +254,7 @@ class G2_Player:
 
         elif self.strategy == Strategy.CLIMB_HILLS:
             return self.climb_hills()
+        
         elif self.strategy == Strategy.BEST_CUTS:
             return self.best_cuts()
 
