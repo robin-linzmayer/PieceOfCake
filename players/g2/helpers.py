@@ -1,4 +1,6 @@
 import math
+from shapely.geometry import Polygon
+from players.g2.assigns import *
 
 def sneak(start_pos, end_pos, cake_width, cake_len):
         """
@@ -120,3 +122,30 @@ def divide_requests(requests):
         else: h_sums[int(i/s)] += val
     return total_sum, h_sums, v_sums
 
+def estimate_uneven_penalty(requests, cake_width, cake_len, tolerance=0):
+    ""
+    total, h_sums, v_sums = divide_requests(requests)
+    polygon_sizes = []
+    polygons = []
+    for h in h_sums:
+        h_size = cake_len * h / total
+        for v in v_sums:
+            v_size = cake_width * v / total
+            p = create_polygon(h_size, v_size)
+            polygons.append(p)
+            polygon_sizes.append(round(p.area, 2))
+    print("POLYGON SIZES =",sorted(polygon_sizes))
+    print("NUM POLYGONS =",len(polygons))
+    assignment = hungarian_min_penalty(polygons, requests, tolerance)
+    return calculate_total_penalty(assignment, polygons, requests, tolerance), polygons
+
+def create_polygon(width, height):
+    """Creates a polygon representing a rectangle given its width and height."""
+
+    # Define the coordinates of the rectangle's corners
+    coordinates = [(0, 0), (width, 0), (width, height), (0, height), (0, 0)]
+
+    # Create the polygon using the coordinates
+    polygon = Polygon(coordinates)
+
+    return polygon

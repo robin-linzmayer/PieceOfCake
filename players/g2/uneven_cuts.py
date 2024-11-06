@@ -1,5 +1,4 @@
 import constants
-import numpy as np
 from players.g2.helpers import *
 
 class UnevenCuts:
@@ -71,4 +70,3 @@ class UnevenCuts:
             return constants.CUT, cut
 
         return None
-        

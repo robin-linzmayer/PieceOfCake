@@ -44,6 +44,7 @@ class G2_Player:
         self.cake_width = None
         self.move_queue = []
         self.requestscut=0
+        self.strategy = None
         
         self.move_object = None
 
@@ -126,6 +127,10 @@ class G2_Player:
         self.requestlength = len(self.requests)
 
     def decide_strategy(self):
+        uneven_estimate_vals = estimate_uneven_penalty(self.requests, self.cake_width, self.cake_len, self.tolerance)
+        uneven_estimate = uneven_estimate_vals[0]
+        print("ESTIMATED PENALTY=",uneven_estimate)
+        self.hkh_polygons = uneven_estimate_vals[1]
         if is_uniform(self.requests, self.tolerance):
             self.strategy = Strategy.EVEN
             self.move_object = EvenCuts(
