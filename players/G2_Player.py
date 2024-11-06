@@ -14,7 +14,6 @@ from players.g2.best_combination import best_combo, cuts_to_moves
 from players.g2.assigns import (
     assign,
     sorted_assign,
-    index_assign,
     hungarian_min_penalty,
     dp_min_penalty,
     greedy_best_fit_assignment,
@@ -55,7 +54,7 @@ class G2_Player:
         # stores next actions in a queue
         # each action is a ({INIT | CUT | ASSIGN}, list) tuple
         self.move_queue: list[tuple[int, list]] = []
-        self.strategy = Strategy.SNEAK
+        self.strategy = None
         self.requestscut = 0
         self.move_object = None
 
@@ -169,7 +168,7 @@ class G2_Player:
             self.strategy = Strategy.UNEVEN
             self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len)
         else:  # Default
-            self.strategy = Strategy.UNEVEN
+            self.strategy = Strategy.BEST_CUTS
             self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len)
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
