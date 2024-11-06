@@ -344,6 +344,5 @@ def optimal_assignment(R, V):
 
     # Assignment array where assignment[i] is the index of V matched to R[i]
     assignment = [int(col_indices[i]) for i in range(num_requests)]
-    assignment = [i + 1 if (i >= len(assignment) // 2) else i for i in assignment]
 
     return assignment
