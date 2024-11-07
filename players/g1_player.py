@@ -467,7 +467,7 @@ class Player:
             min_val = tol_ranges[0][0]
 
             for k in range(1, len(lower_bounds)):
-                if lower_bounds[k] <= upper_bounds[i]:
+                if lower_bounds[k] <= upper_bounds[0]:
                     group.append(unassigned_requests[i+k])
                     min_val = max(min_val, lower_bounds[k])
                 else:
