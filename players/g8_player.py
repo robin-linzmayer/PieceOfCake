@@ -124,6 +124,8 @@ class G8_Player:
 
         best_solution = None
         best_score = float("inf")
+        best_beam_score = float("inf")
+        best_score_depth = 0
 
         with tqdm(total=max_depth) as pbar:
             while counter < max_depth:
@@ -145,12 +147,12 @@ class G8_Player:
                         )
                         score = penalty + cut_length * 1e-6
 
-                        if penalty > best_score:
+                        if penalty > best_score + 50:
                             continue
 
                         if penalty <= best_score:
                             best_score = penalty
-                            best_solution = new_points
+                            # best_solution = new_points
 
                         new_beam.append((score, new_points, new_beam_uuid))
 
@@ -160,6 +162,19 @@ class G8_Player:
 
                 # Keep best beam_width solutions
                 beam = sorted(new_beam, key=lambda x: x[0])[:beam_width]
+
+                # Early return if score is not improving
+                if beam[0][0] < best_beam_score:
+                    best_score_depth = counter
+                    best_beam_score = beam[0][0]
+                    best_solution = beam[0][1]
+                    print(f"Best score depth: {best_score_depth}")
+                    print(f"Best score : {beam[0][0]}")
+                print(f"Counter: {counter}")
+
+                if best_score_depth + 5 == counter:
+                    break
+
                 counter += 1
                 pbar.update(1)
 
@@ -207,6 +222,7 @@ class G8_Player:
                 x = x1 + t * (x2 - x1)
                 y = y1 + t * (y2 - y1)
                 points.append((x, y))
+                # points.append((round(x, 2), round(y, 2)))
 
         return points
 
@@ -223,6 +239,7 @@ class G8_Player:
                     x = x1 + t * (x2 - x1)
                     y = y1 + t * (y2 - y1)
                     points.append((x, y))
+                    # points.append((round(x, 2), round(y, 2)))
 
         return points
 
@@ -294,26 +311,23 @@ class G8_Player:
 
             area = piece.area
             for j, request in enumerate(self.requests):
-                # Calculate exactly as game does
                 percentage_diff = 100 * abs(area - request) / request
                 if percentage_diff <= self.tolerance:
                     cost_matrix[i, j] = 0  # No penalty within tolerance
                 else:
-                    cost_matrix[i, j] = percentage_diff  # Full percentage as penalty
+                    cost_matrix[i, j] = percentage_diff
 
         # Find optimal assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # Calculate total penalty exactly as game would
-        total_penalty = 0
+        # Convert to assignment list format that game uses
         assignments = [-1] * n_requests
-
-        # Make assignments and calculate penalties
         for piece_idx, request_idx in zip(row_ind, col_ind):
             if piece_idx < n_pieces and request_idx < n_requests:
                 assignments[request_idx] = piece_idx
 
         # Calculate penalty exactly as game does
+        total_penalty = 0
         for request_idx, piece_idx in enumerate(assignments):
             if piece_idx == -1 or not self.fits_on_plate(pieces[piece_idx]):
                 total_penalty += 100
@@ -327,6 +341,56 @@ class G8_Player:
                     total_penalty += percentage_diff
 
         return total_penalty
+
+    # def calculate_penalties(self, pieces: list[Polygon]):
+    #     """Calculate penalties exactly as the game does"""
+    #     n_pieces = len(pieces)
+    #     n_requests = len(self.requests)
+    #     max_size = max(n_pieces, n_requests)
+    #
+    #     # Create cost matrix
+    #     cost_matrix = np.full((max_size, max_size), 100.0)
+    #
+    #     # Fill in penalties exactly as game calculates them
+    #     for i, piece in enumerate(pieces):
+    #         if not self.fits_on_plate(piece):
+    #             continue
+    #
+    #         area = piece.area
+    #         for j, request in enumerate(self.requests):
+    #             # Calculate exactly as game does
+    #             percentage_diff = 100 * abs(area - request) / request
+    #             if percentage_diff <= self.tolerance:
+    #                 cost_matrix[i, j] = 0  # No penalty within tolerance
+    #             else:
+    #                 cost_matrix[i, j] = percentage_diff  # Full percentage as penalty
+    #
+    #     # Find optimal assignment
+    #     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    #
+    #     # Calculate total penalty exactly as game would
+    #     total_penalty = 0
+    #     assignments = [-1] * n_requests
+    #
+    #     # Make assignments and calculate penalties
+    #     for piece_idx, request_idx in zip(row_ind, col_ind):
+    #         if piece_idx < n_pieces and request_idx < n_requests:
+    #             assignments[request_idx] = piece_idx
+    #
+    #     # Calculate penalty exactly as game does
+    #     for request_idx, piece_idx in enumerate(assignments):
+    #         if piece_idx == -1 or not self.fits_on_plate(pieces[piece_idx]):
+    #             total_penalty += 100
+    #         else:
+    #             percentage_diff = (
+    #                 100
+    #                 * abs(pieces[piece_idx].area - self.requests[request_idx])
+    #                 / self.requests[request_idx]
+    #             )
+    #             if percentage_diff > self.tolerance:
+    #                 total_penalty += percentage_diff
+    #
+    #     return total_penalty
 
     def assign_polygons(self, pieces: list[Polygon]) -> tuple[str, list[int]]:
         """
