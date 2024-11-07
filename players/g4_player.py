@@ -59,7 +59,7 @@ class Player:
 
             num_cuts = len(requests)
             num_restarts = 10
-            num_iterations = 100
+            num_steps = 100
 
             min_loss = float("inf")
 
@@ -77,8 +77,8 @@ class Player:
                 # Gradient descent
                 learning_rate = 0.1
 
-                epoch = 0
-                while loss > 0.01 and epoch < num_iterations:
+                step = 0
+                while loss > 0.01 and step < num_steps:
                     gradients = self.get_gradient(loss, cuts, current_percept)
 
                     cur_x, cur_y = cuts[0]
@@ -94,8 +94,8 @@ class Player:
                     if loss < min_loss:
                         best_cuts = copy.deepcopy(cuts)
                         min_loss = loss
-                    print(f"Iteration: {epoch}, Loss: {loss}")
-                    epoch += 1
+                    print(f"Step: {step}, Loss: {loss}")
+                    step += 1
 
             print(f"Best penalty: {min_loss * 100}")
 
