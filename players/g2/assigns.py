@@ -130,7 +130,7 @@ def greedy_best_fit_assignment(
         closest_area_diff = float("inf")
 
         for poly_idx, polygon in sorted_polygons:
-            if poly_idx in used_polygons:
+            if poly_idx in used_polygons or polygon.area < (10-d):
                 continue
 
             # Check if the polygon fits on the plate
@@ -227,7 +227,7 @@ def hungarian_min_penalty(
         row = []
         for polygon in polygons_copy:
             # Check if the polygon fits on the plate
-            if not can_cake_fit_in_plate(polygon):
+            if not can_cake_fit_in_plate(polygon) or polygon.area < 10 - d:
                 penalty = 100  # Full penalty if polygon doesn't fit
             else:
                 polygon_area = (

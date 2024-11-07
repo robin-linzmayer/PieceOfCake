@@ -160,10 +160,40 @@ class G2_Player:
             self.move_object = EvenCuts(self.requests, self.cake_width, self.cake_len)
         elif grid_enough(self.requests, self.cake_width, self.cake_len, self.tolerance):
             self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
+            # self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
         else:  # Default
             self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
+            
+    def uneven_cuts(self):
+        if self.turn_number == 1:
+            self.all_uneven_cuts = get_all_uneven_cuts(self.requests, self.tolerance, self.cake_width, self.cake_len)
+            self.i = 0
+            self.hkh_move_queue = []
+            return constants.INIT, [0.01, 0]
+        
+        if len(self.hkh_move_queue) == 0 and self.i < len(self.all_uneven_cuts):
+            start = self.all_uneven_cuts[self.i][0]
+            end = self.all_uneven_cuts[self.i][1]
+            self.i += 1
+            
+            dist_from_start = abs(self.cur_pos[0]-start[0]) + abs(self.cur_pos[1]-start[1])
+            dist_from_end = abs(self.cur_pos[0]-end[0]) + abs(self.cur_pos[1]-end[1])
+            if dist_from_start < dist_from_end:
+                self.hkh_move_queue.extend(sneak(self.cur_pos, start, self.cake_width, self.cake_len))
+                self.hkh_move_queue.append(end)
+            else:
+                self.hkh_move_queue.extend(sneak(self.cur_pos, end, self.cake_width, self.cake_len))
+                self.hkh_move_queue.append(start)
+
+        if len(self.hkh_move_queue) > 0:
+            next_val = self.hkh_move_queue.pop(0)
+            cut = [round(next_val[0], 2), round(next_val[1], 2)]
+            return constants.CUT, cut
+        
+        penalty = estimate_uneven_penalty(self.requests, self.cake_width, self.cake_len, self.tolerance)
+        print("EXPECTED PENALTY=",penalty)
+        assigment = greedy_best_fit_assignment(self.polygons, self.requests, self.tolerance)
+        return constants.ASSIGN, assigment
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
@@ -245,12 +275,7 @@ class G2_Player:
             return move
         
         elif self.strategy == Strategy.UNEVEN:
-            move = self.move_object.move(self.turn_number, self.cur_pos)
-            
-            if move == None:
-                return self.assign(hungarian_min_penalty)
-
-            return move
+            return self.uneven_cuts()
 
         elif self.strategy == Strategy.CLIMB_HILLS:
             return self.climb_hills()

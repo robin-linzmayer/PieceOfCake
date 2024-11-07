@@ -198,71 +198,82 @@ def divide_requests_evenly(requests):
             h_sums[int(i / s)] += val
     return total_sum, h_sums, v_sums
 
-def penalty_from_split(requests, s, tolerance):
+def penalty_from_split(requests, s, tolerance, cake_len, cake_width):
     """
     
     """
-    h_sums = []
+    heights = []
     num_penalty = 0
     i = 0
-    print()
-    print("SUM CALCULATION:")
-    print("s=",s)
+    total_sum = sum(requests)
+    len_adjustment = math.sqrt(total_sum * cake_len / cake_width) / total_sum
+
     while i < len(requests):
         to_check = requests[i:i+s]
 
-        print(to_check)
         h_sum = sum(to_check)
         if len(to_check) < s:
             h_sum = s * h_sum / len(to_check)
-        h_sums.append(h_sum)
-        if max(to_check) - min(to_check) > 2 * tolerance:
-            num_penalty += 1
+        height = h_sum * len_adjustment
+        heights.append(height)
+        if height > 25:
+            num_penalty += s*1000
+        else:
+            min_allowed = max(to_check) - (2 * tolerance)
+            num_penalty += sum(i < min_allowed for i in to_check)
         i += s
-    
-    return num_penalty, h_sums
 
-def calculate_vertical_sums(requests, s):
-    v_sums = []
-    total_sum = 0
+    widths = []
     k = math.ceil(len(requests) / s)
+    width_adjustment = math.sqrt(total_sum * cake_width / cake_len) / total_sum
     for i in range(0,s):
-        li = requests[i::s]
-        v_sum = sum(li)
-        if len(li) < k:
-            v_sum = k * v_sum / len(li)
-        v_sums.append(v_sum)
-        total_sum += v_sum
-    return v_sums, total_sum
+        to_check = requests[i::s]
+        v_sum = sum(to_check)
+        if len(to_check) < k:
+            v_sum = k * v_sum / len(to_check)
+        width = v_sum * width_adjustment
+        widths.append(width)
+        if width > 25:
+            num_penalty += k*1000
+        else:
+            max_poss_height = math.sqrt((25*25)-(width*width))
+            if max(heights) > max_poss_height:
+                num_penalty += sum(i > max_poss_height for i in heights)
+            else:
+                min_allowed = max(to_check) - (2 * tolerance)
+                num_penalty += sum(i < min_allowed for i in to_check)
+    
+    return num_penalty, total_sum, heights, widths
 
 
-def get_best_split(requests, tolerance):
+def get_best_split(requests, tolerance, cake_width, cake_len):
     """
     """
     n = len(requests)
-    s = int(math.sqrt(n))
-    best_s = s
-    min_penalty, h_sums = penalty_from_split(requests, s, tolerance)
+    s = int(n * 25 / cake_width)
+    min_penalty, total_sum, best_heights, best_widths = penalty_from_split(requests, s, tolerance, cake_len, cake_width)
+    
     s -= 1
-    while s > 1 and min_penalty > 0:
-        penalty, sums = penalty_from_split(requests, s, tolerance)
+    min_s = max(2, cake_len / 25)
+    
+    while s >= min_s and min_penalty > 0:
+        penalty, sum, h, w = penalty_from_split(requests, s, tolerance, cake_len, cake_width)
         if penalty < min_penalty:
             min_penalty = penalty
-            best_s = s
-            h_sums = sums
+            total_sum = sum
+            best_heights = h
+            best_widths = w
         s -= 1
-    s = best_s
-    v_sums, total_sum = calculate_vertical_sums(requests, s)
 
-    return total_sum, h_sums, v_sums
+    return total_sum, best_heights, best_widths
 
 def get_all_uneven_cuts(requests, tolerance, cake_width, cake_len):
-    total_sum, h_sums, v_sums = get_best_split(requests, tolerance)
+    _, heights, widths = get_best_split(requests, tolerance, cake_width, cake_len)
     cuts = []
     # add horizontal cuts
     depth = 0
-    for sum in h_sums:
-        depth += round(cake_len * sum / total_sum, 2)
+    for h in heights:
+        depth += round(h, 2)
         if depth < cake_len:
             start = [0, depth]
             end = [cake_width, depth]
@@ -270,9 +281,8 @@ def get_all_uneven_cuts(requests, tolerance, cake_width, cake_len):
 
     # add vertical cuts
     across = 0
-    adjusted_width = total_sum / cake_len
-    for sum in v_sums:
-        across += round(adjusted_width * sum / total_sum)
+    for w in widths:
+        across += round(w, 2)
         if across < cake_width:
             start = [across, 0]
             end = [across, cake_len]
@@ -295,20 +305,18 @@ def estimate_uneven_penalty(requests, cake_width, cake_len, tolerance=0):
     """
     prob dump this
     """
-    total, h_sums, v_sums = divide_requests_evenly(requests)
+    _, heights, widths = get_best_split(requests, tolerance,cake_width, cake_len)
     polygon_sizes = []
     polygons = []
-    for h in h_sums:
-        h_size = cake_len * h / total
-        for v in v_sums:
-            v_size = cake_width * v / total
-            p = create_polygon(h_size, v_size)
+    for height in heights:
+        for width in widths:
+            p = create_polygon(height, width)
             polygons.append(p)
-            polygon_sizes.append(round(p.area, 2))
-    print("POLYGON SIZES =", sorted(polygon_sizes))
+            # polygon_sizes.append(round(p.area, 2))
+    # print("POLYGON SIZES =", sorted(polygon_sizes))
     print("NUM POLYGONS =", len(polygons))
-    assignment = hungarian_min_penalty(polygons, requests, tolerance)
-    return calculate_total_penalty(assignment, polygons, requests, tolerance), polygons
+    assignment = greedy_best_fit_assignment(polygons, requests, tolerance)
+    return calculate_total_penalty(assignment, polygons, requests, tolerance)
 
 
 def create_polygon(width, height):
