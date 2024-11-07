@@ -8,6 +8,7 @@ import traceback
 import constants
 import math
 import itertools
+from scipy.optimize import linear_sum_assignment
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -168,12 +169,8 @@ class Player:
         if self.cake_len*self.cake_width < 0:
             pass
 
-        # TODO: Find number of vertical stacks
-        num_ver_stacks = 4
-        print(num_ver_stacks)
-
-        #TODO: Find number of horizontal stacks based on vertical stacks
-        num_stacks = 6
+        #TODO: Find number of horizontal stacks
+        num_stacks = len(self.requests)//4
 
         areas = sorted(self.requests)
 
@@ -181,7 +178,7 @@ class Player:
         if len(areas)%num_stacks != 0:
             pass
 
-        print(areas)
+        print(areas, len(areas))
         groups = {i: [] for i in range(num_stacks)}
         
         i=0
@@ -240,8 +237,8 @@ class Player:
                 self.cutList.append([round(self.cake_width-0.02,2),0])
         
         #Horizontal cuts!
-        l1 = [round(small/widths[i],2) for i,small in enumerate(groups[0][:-1])]
-        l2 = [round(big/widths[i],2) for i,big in enumerate(groups[num_stacks-1][:-1])]
+        l1 = [round(small/widths[i],2) for i,small in enumerate(groups[0])]
+        l2 = [round(big/widths[i],2) for i,big in enumerate(groups[num_stacks-1])]
         cum_l1 = [round(s, 2) for s in itertools.accumulate(l1)]
         cum_l2 = [round(s, 2) for s in itertools.accumulate(l2)]
         print(cum_l1, cum_l2, l1, l2)
@@ -304,10 +301,15 @@ class Player:
                     return constants.CUT, [0, round((cur_pos[1] + 5)%self.cake_len, 2)]
 
             # Assign the pieces
-            areas =[i.area for i in polygons]
-            assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
-            print(assignment[:len(requests)])
-            return constants.ASSIGN, assignment[:len(requests)][::-1]
+            areas =[round(i.area,2) for i in polygons]            
+            c = np.array([
+                [abs(request - area) / request * 100 if abs(request - area) / request * 100 > self.tolerance else 0
+                for area in areas] for request in self.requests
+            ])
+                    
+            _, assignment = linear_sum_assignment(c)
+            print(assignment.tolist()[:len(requests)])
+            return constants.ASSIGN, assignment.tolist()[:len(requests)]
         
         except Exception as e:
             print(e)
