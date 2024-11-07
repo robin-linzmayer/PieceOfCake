@@ -115,7 +115,7 @@ class G8_Player:
     def solve(self) -> list[tuple[float, float]]:
         """Find optimal cutting sequence using beam search"""
         beam_width = min(50, len(self.requests) * 5)
-        max_depth = len(self.requests) + 1
+        max_depth = len(self.requests) + 10
         counter = 0
 
         # Initialize beam with possible first points
@@ -173,6 +173,9 @@ class G8_Player:
                 print(f"Counter: {counter}")
 
                 if best_score_depth + 5 == counter:
+                    break
+
+                if best_beam_score < 0.1:
                     break
 
                 counter += 1
