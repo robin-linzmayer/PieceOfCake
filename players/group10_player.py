@@ -87,43 +87,11 @@ class Player:
 
             # assign pieces
             if (cut_number > len(self.requests)):
-                # print("I AM TRYING TO ASSIGN PIECES")
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
             
-            current_area = self.requests[cut_number - 1]
-            
-            x = cur_pos[0]
-            y = cur_pos[1]
-
-            if self.base_case_switch:
-                # TODO: this currently retraces the past cut and creates triangles from the same point
-                x = self.cuts[cut_number - 2][0]
-                y = self.cuts[cut_number - 2][1]
-                if y != 0:
-                    y = self.cuts[cut_number - 2][1] - round(2 * current_area / self.working_height, 2)
-                
-                self.cuts.append((x, y))
-                return constants.CUT, [x, y]
-
-            if (cut_number == 1):
-                x = round(2 * current_area / self.cake_len, 2)
-            else:
-                x = round(self.cuts[cut_number - 2][0] + (2 * current_area / self.cake_len), 2)
-
-            y = (0, self.cake_len) [cut_number % 2]
-
-            if x > self.cake_width:
-                area_left = (self.cake_len * self.cake_width) / 1.05 * .05 # finding the extra cake portion
-                self.working_height = self.cake_width - cur_pos[0]
-                if (cut_number < len(self.requests)): # not on our last request
-                    area_left += sum(self.requests[cut_number:])
-                x = self.cake_width
-                y = round(2 * area_left / self.working_height, 2)
-                self.base_case_switch = True
-
-            self.cuts.append((x, y))
-            return constants.CUT, [x, y]
+            return self.smallCake()
+    
         elif self.uniform_mode:
             if (cut_number > len(self.uniform_cuts) - 1):
                 # print("I AM TRYING TO ASSIGN PIECES")
@@ -153,6 +121,61 @@ class Player:
     
     def calcDiagonal(self):
         return (math.sqrt((self.cake_len * self.cake_len) + (self.cake_width * self.cake_width)))
+    
+    def smallCake(self):
+        current_area = self.requests[cut_number - 1]
+        
+        x = cur_pos[0]
+        y = cur_pos[1]
+
+        
+        if self.base_case_switch:
+            # TODO: this currently retraces the past cut and creates triangles from the same point
+            x = self.cuts[cut_number - 2][0]
+            y = self.cuts[cut_number - 2][1] # on the first occurrence, this will be 0 if we went from bottom to right and cake_len if we went from top to right
+            print ("x, y: ", x, y)
+            if y == 0: 
+                self.working_height = self.cake_len - x
+
+            elif y == self.cake_len:
+                self.working_height= self.cuts[cut_number - 1][1]
+            else: 
+                self.working_height = self.cake_width - self.cuts[cut_number - 1][0]
+# TODO: make this align with everything else
+            print ("y from two turns ago:", self.cuts[cut_number - 2][1])
+            print ("adjustment for next area:", 2 * current_area / self.working_height)
+            if y == self.cake_len:
+                y = round(self.cuts[cut_number - 2][1] - 2 * current_area / self.working_height, 2)
+            elif y == 0:
+                x = round(x + 2 * current_area / self.working_height, 2)
+            else: 
+                y = self.cuts[cut_number - 1][0] 
+            self.cuts.append((x, y))
+            return constants.CUT, [x, y]
+
+        if (cut_number == 1):
+            x = round(2 * current_area / self.cake_len, 2)
+        else:
+            x = round(self.cuts[cut_number - 2][0] + (2 * current_area / self.cake_len), 2)
+
+        y = (0, self.cake_len) [cut_number % 2]
+
+        if x > self.cake_width:
+            area_left = (self.cake_len * self.cake_width) / 1.05 * .05 # finding the extra cake portion
+            self.working_height = self.cake_width - cur_pos[0]
+            if (cut_number < len(self.requests)): # not on our last request
+                area_left += sum(self.requests[cut_number:])
+            print ("area left:", area_left)
+            print ("working height:", self.working_height)
+            x = self.cake_width
+            if (y == 0): 
+                y = round(self.cake_len - 2 * area_left / self.working_height, 2)
+            elif (y == self.cake_len):
+                y = round(2 * area_left / self.working_height, 2)
+            self.base_case_switch = True
+
+        self.cuts.append((x, y))
+        return constants.CUT, [x, y]
     
     def assignPolygons(self, polygons) -> list[int]:
         # parse polygons to polygon_areas: dict(rank: (area, i))
