@@ -83,7 +83,9 @@ class G2_Player:
         self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
     ) -> float:
         penalty = 0
-        assignments: list[int] = assign_func(self.polygons, self.requests, self.tolerance)
+        assignments: list[int] = assign_func(
+            self.polygons, self.requests, self.tolerance
+        )
 
         for request_index, assignment in enumerate(assignments):
             # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
@@ -160,10 +162,14 @@ class G2_Player:
             self.move_object = EvenCuts(self.requests, self.cake_width, self.cake_len)
         elif grid_enough(self.requests, self.cake_width, self.cake_len, self.tolerance):
             self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
+            self.move_object = UnevenCuts(
+                self.requests, self.cake_width, self.cake_len, self.tolerance
+            )
         else:  # Default
             self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
+            self.move_object = UnevenCuts(
+                self.requests, self.cake_width, self.cake_len, self.tolerance
+            )
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
@@ -243,10 +249,10 @@ class G2_Player:
                 return self.assign(assign)
 
             return move
-        
+
         elif self.strategy == Strategy.UNEVEN:
             move = self.move_object.move(self.turn_number, self.cur_pos)
-            
+
             if move == None:
                 return self.assign(hungarian_min_penalty)
 
@@ -254,9 +260,20 @@ class G2_Player:
 
         elif self.strategy == Strategy.CLIMB_HILLS:
             return self.climb_hills()
-        
+
         elif self.strategy == Strategy.BEST_CUTS:
             return self.best_cuts()
 
         # default
         return self.climb_hills()
+
+    def test(self, state: PieceOfCakeState):
+        """Used for testing various things. Not used in the actual player"""
+        self.process_percept(state)
+
+        from players.g2.best_combination import generate_cuts, cuts_to_polygons
+        from tqdm import tqdm
+
+        cuts = generate_cuts(20, self.cake_len, self.cake_width, 10)
+        for _ in tqdm(range(1000)):
+            cuts_to_polygons(cuts, self.cake_len, self.cake_width)

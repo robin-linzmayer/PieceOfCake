@@ -110,9 +110,12 @@ def cuts_to_polygons(cuts: list, cake_len: float, cake_width: float) -> list[Pol
         new_polygons = []
         for polygon in polygons:
             new_polygons.extend(divide_polygon(polygon, from_point, to_point))
-
+        # attempted optimization, actually does 2x worse
+        # line = LineString([tuple(from_point), tuple(to_point)])
+        # polygons = MultiPolygon([pol for pol in split(polygons, line).geoms])
         polygons = new_polygons
 
+    # return [pol for pol in polygons.geoms]
     return polygons
 
 
