@@ -7,6 +7,10 @@ import numpy as np
 import math
 import logging
 
+import miniball
+from shapely import points, centroid
+from shapely.geometry import Polygon, LineString, Point
+
 import constants
 
 
@@ -33,12 +37,16 @@ class Player:
         self.cuts = []
         self.base_case_switch = False
         self.working_height = None
+        self.turn_number = None
+        self.cut_number = None
+        self.cur_pos = None
         self.uniform_mode = False
         self.uniform_cuts = []
         self.used_crumb = [[0.00, 0.00], [0.00, 0.00], [0.00, 0.00], [0.00, 0.00]] #LEFT-TOP, RIGHT-TOP, LEFT-BOTTOM, RIGHT-BOTTOM. The values inside is [x, y]
         ################# Tom (11/6):
         self.acceptable_range = []
         ############################
+        self.angle_cuts = None
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -55,13 +63,13 @@ class Player:
         """
         extra_tol = 40 #Change if we suck
         polygons = current_percept.polygons
-        turn_number = current_percept.turn_number
-        cut_number = current_percept.turn_number - 1
-        cur_pos = current_percept.cur_pos
+        self.turn_number = current_percept.turn_number
+        self.cut_number = current_percept.turn_number - 1
+        self.cur_pos = current_percept.cur_pos
     
-        if turn_number == 1:
+        if self.turn_number == 1:
             # initialize instance variables, sorted requests
-            self.requests = current_percept.requests
+            self.requests = current_percept.requests.sort(reverse=False)
             self.cake_len = current_percept.cake_len
             self.cake_width = current_percept.cake_width
             self.cake_diagonal = self.calcDiagonal()
@@ -69,6 +77,7 @@ class Player:
             print ("cake_width:", self.cake_width)
             print ("cake_diagonal:", self.cake_diagonal)
             self.find_acceptable_range()
+            self.grid_angle_cut()
             if not self.uniform_mode:
                 # print("BEFORE")
                 is_uniform, grid_area = self.if_uniform(current_percept.requests, extra_tol)
@@ -81,37 +90,38 @@ class Player:
         # TODO: adjust for the case when the base the triangle needs surpasses the cake width we have (first occurence, switch to the length, after this switch, make sure we continue working on that edge). CURRENT PROGRAM UNABLE TO MOVE IF WE SWITCH SIDES FROM THE BOTTOM EDGE
         # case if the diagonal of the total cake is <= 25
         if self.cake_diagonal <= 25:
-            if turn_number == 1:
+            if self.turn_number == 1:
+                self.requests.sort(reverse=True)
                 self.cuts.append((0, 0))
                 return constants.INIT, [0,0]
 
             # assign pieces
-            if (cut_number > len(self.requests)):
+            if (self.cut_number > len(self.requests)):
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
             
             return self.smallCake()
     
         elif self.uniform_mode:
-            if (cut_number > len(self.uniform_cuts) - 1):
+            if (self.cut_number > len(self.uniform_cuts) - 1):
                 # print("I AM TRYING TO ASSIGN PIECES")
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
             # print("I AM IN UNIFORM MODE")
             # print("Turn Number: ", turn_number)
             # print("Cut Number: ", cut_number)
-            if turn_number == 1:
+            if self.turn_number == 1:
                 # print(self.uniform_cuts)
                 # print(self.uniform_cuts[cut_number])
-                return constants.INIT, self.uniform_cuts[cut_number]
+                return constants.INIT, self.uniform_cuts[self.cut_number]
 
-            return constants.CUT, self.uniform_cuts[cut_number]
+            return constants.CUT, self.uniform_cuts[self.cut_number]
         else:
             if len(polygons) != len(self.requests):
-                if cur_pos[0] == 0:
-                    return constants.CUT, [self.cake_width, round((cur_pos[1] + 5)%self.cake_len, 2)]
+                if self.cur_pos[0] == 0:
+                    return constants.CUT, [self.cake_width, round((self.cur_pos[1] + 5)%self.cake_len, 2)]
                 else:
-                    return constants.CUT, [0, round((cur_pos[1] + 5)%self.cake_len, 2)]
+                    return constants.CUT, [0, round((self.cur_pos[1] + 5)%self.cake_len, 2)]
 
             assignment = []
             for i in range(len(self.requests)):
@@ -119,52 +129,53 @@ class Player:
 
             return constants.ASSIGN, assignment
     
-    def calcDiagonal(self):
+    def calcDiagonal(self) -> float:
         return (math.sqrt((self.cake_len * self.cake_len) + (self.cake_width * self.cake_width)))
     
-    def smallCake(self):
-        current_area = self.requests[cut_number - 1]
+    def smallCake(self) -> tuple[int, list[float, float]]:
+        current_area = self.requests[self.cut_number - 1]
         
-        x = cur_pos[0]
-        y = cur_pos[1]
+        x = self.cur_pos[0]
+        y = self.cur_pos[1]
 
         
         if self.base_case_switch:
             # TODO: this currently retraces the past cut and creates triangles from the same point
-            x = self.cuts[cut_number - 2][0]
-            y = self.cuts[cut_number - 2][1] # on the first occurrence, this will be 0 if we went from bottom to right and cake_len if we went from top to right
+            x = self.cuts[self.cut_number - 2][0]
+            y = self.cuts[self.cut_number - 2][1] # on the first occurrence, this will be 0 if we went from bottom to right and cake_len if we went from top to right
             print ("x, y: ", x, y)
             if y == 0: 
                 self.working_height = self.cake_len - x
 
             elif y == self.cake_len:
-                self.working_height= self.cuts[cut_number - 1][1]
+                self.working_height= self.cuts[self.cut_number - 1][1]
             else: 
-                self.working_height = self.cake_width - self.cuts[cut_number - 1][0]
-# TODO: make this align with everything else
-            print ("y from two turns ago:", self.cuts[cut_number - 2][1])
+                self.working_height = self.cake_width - self.cuts[self.cut_number - 1][0]
+
+            # TODO: make this align with everything else
+            print ("y from two turns ago:", self.cuts[self.cut_number - 2][1])
             print ("adjustment for next area:", 2 * current_area / self.working_height)
             if y == self.cake_len:
-                y = round(self.cuts[cut_number - 2][1] - 2 * current_area / self.working_height, 2)
+                y = round(self.cuts[self.cut_number - 2][1] - 2 * current_area / self.working_height, 2)
             elif y == 0:
                 x = round(x + 2 * current_area / self.working_height, 2)
             else: 
-                y = self.cuts[cut_number - 1][0] 
+                y = self.cuts[self.cut_number - 1][0] 
             self.cuts.append((x, y))
             return constants.CUT, [x, y]
 
-        if (cut_number == 1):
+        if (self.cut_number == 1):
             x = round(2 * current_area / self.cake_len, 2)
         else:
-            x = round(self.cuts[cut_number - 2][0] + (2 * current_area / self.cake_len), 2)
+            x = round(self.cuts[self.cut_number - 2][0] + (2 * current_area / self.cake_len), 2)
 
-        y = (0, self.cake_len) [cut_number % 2]
+        y = (0, self.cake_len) [self.cut_number % 2]
 
         if x > self.cake_width:
             area_left = (self.cake_len * self.cake_width) / 1.05 * .05 # finding the extra cake portion
-            self.working_height = self.cake_width - cur_pos[0]
-            if (cut_number < len(self.requests)): # not on our last request
-                area_left += sum(self.requests[cut_number:])
+            self.working_height = self.cake_width - self.cur_pos[0]
+            if (self.cut_number < len(self.requests)): # not on our last request
+                area_left += sum(self.requests[self.cut_number:])
             print ("area left:", area_left)
             print ("working height:", self.working_height)
             x = self.cake_width
@@ -248,7 +259,7 @@ class Player:
         length_shave = 0.01
 
         # print("BEFORE FACTORS")
-        s_factor, l_factor = self.find_closest_factors()
+        s_factor, l_factor = self.find_factors(closest=True)
 
         print("MY FACTORS: ", s_factor, l_factor)
         x_cuts = [width_shave] # first cut
@@ -313,21 +324,39 @@ class Player:
                 
            
         print("PATH TO VICTORY: ", self.uniform_cuts)
+
+    def grid_angle_cut(self):
+        factor_pairs = self.find_factors(closest=False)
+        for dim in factor_pairs[::-1]:
+            max_height = self.cake_len / dim[0]
+            max_width = (self.requests[-1] * (1 + (self.tolerance / 100))) / max_height
+            # this is not quite accurate because its not a trapezoid as it is in reality 
+            max_polygon = Polygon([(0, 0), (0, max_height), (max_width, max_height), (max_width, 0)])
+            if not self.fits_on_plate(poly=max_polygon):
+                continue
+
+        if self.angle_cuts is None:
+            # number of requests is prime or pieces of cake are too big to fit on plate even with slices down the middle. 
+            return -1
+
         
     #Finds the closest factor with the number of requests
-    def find_closest_factors(self) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
+    def find_factors(self, closest: bool) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
         num_of_requests = len(self.requests)
         factors = []
         for num in range(int(num_of_requests**0.5),0,-1):
             if num_of_requests % num == 0:
                 factors.append([num, num_of_requests//num])
-            if factors:
+            if factors and closest:
                 return factors[0]
+        return factors
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
+
+
     
 
     def find_acceptable_range(self):
-        s_factor, _ = self.find_closest_factors()
+        s_factor, _ = self.find_factors(closest=True)
         self.requests = sorted(self.requests)
         height_per_row = float(self.cake_len/s_factor)
         # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
@@ -339,3 +368,16 @@ class Player:
             lower_wid = lower_area/height_per_row
             upper_wid = upper_area/height_per_row
             self.acceptable_range.append([lower_wid,upper_wid])
+
+    # from ../piece_of_cake_game.py
+    def fits_on_plate(poly: Polygon):
+        if poly.area < 0.25:
+            return True
+
+        # Step 1: Get the points on the cake piece and store as numpy array
+        cake_points = np.array(list(zip(*poly.exterior.coords.xy)), dtype=np.double)
+
+        # Step 2: Find the minimum bounding circle of the cake piece
+        res = miniball.miniball(cake_points)
+
+        return res["radius"] <= 12.5
