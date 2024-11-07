@@ -47,6 +47,8 @@ class Player:
         self.acceptable_range = []
         ############################
         self.angle_cuts = []
+        self.zigzag_cuts = []
+        self.zigzag_found = False
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -61,7 +63,7 @@ class Player:
                     RIGHT = 2
                     DOWN = 3
         """
-        extra_tol = 40 #Change if we suck
+        extra_tol = 0 #Change if we suck
         polygons = current_percept.polygons
         self.turn_number = current_percept.turn_number
         self.cut_number = current_percept.turn_number - 1
@@ -86,6 +88,12 @@ class Player:
                 if is_uniform:
                     self.grid_cut(current_percept, grid_area)
                     self.uniform_mode = True
+
+        if self.zigzag_found:
+            if (self.cut_number > len(self.zigzag_cuts) - 1):
+                assignment = self.assignPolygons(polygons=polygons)
+                return constants.ASSIGN, assignment
+            return constants.CUT, self.zigzag_cuts[self.cut_number]
 
         # TODO: adjust for the case when the base the triangle needs surpasses the cake width we have (first occurence, switch to the length, after this switch, make sure we continue working on that edge). CURRENT PROGRAM UNABLE TO MOVE IF WE SWITCH SIDES FROM THE BOTTOM EDGE
         # case if the diagonal of the total cake is <= 25
@@ -118,8 +126,6 @@ class Player:
             return constants.CUT, self.uniform_cuts[self.cut_number]
         else:
             # Optimal ZigZag Strategy
-
-            #TODO: 
             list_of_factors = self.find_factors(len(self.requests), False) #From closest to furthest. Element is list.
 
             if not list_of_factors:
@@ -138,10 +144,12 @@ class Player:
                 factor_cuts[factor] = cuts
 
             #TODO: FIGURE OUT HOW TO CUT THE LAST PIECE IF PRIME
-
+            best_factor = min(factor_penalty, key=factor_penalty.get)
+            self.zigzag_cuts = factor_cuts[best_factor]
             #TODO: FIND BEST PENALTY AMONGST ALL DIFFERENT CUTS BASED ON FACTORS, THEN MAKE PLAYER CUT.
 
-            return constants.ASSIGN, assignment
+            self.zigzag_found = True
+            return constants.INIT, self.zigzag_cuts[0]
     
 
     # Returns penalty given 
@@ -154,7 +162,10 @@ class Player:
             penalty = self.angle_sweep(self, tolerances, target_requests)
             total_penalty += penalty
 
-        return total_penalty
+        cut_arr = self.angle_cuts.copy()
+        self.angle_cuts = []
+
+        return total_penalty, cut_arr
     
     def calcDiagonal(self) -> float:
         return (math.sqrt((self.cake_len * self.cake_len) + (self.cake_width * self.cake_width)))
