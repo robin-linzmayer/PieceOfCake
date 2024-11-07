@@ -658,7 +658,7 @@ class Player:
                             # when knife goes over the cake width
                             if next_x > self.cake_width:
                                 next_x = self.cake_width
-                                next_y = round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
+                                next_y = round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-1][0]), 2)
                             next_knife_pos = [next_x, next_y]
 
                         self.knife_pos.append(next_knife_pos)
@@ -671,7 +671,7 @@ class Player:
                         # when knife goes over the cake width
                         if next_x > self.cake_width:
                             next_x = self.cake_width
-                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
+                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-1][0]), 2)
                         next_knife_pos = [next_x, next_y]
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
