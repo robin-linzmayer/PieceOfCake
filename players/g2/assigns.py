@@ -20,6 +20,9 @@ import miniball
 
 
 def can_cake_fit_in_plate(cake_piece, radius=12.5):
+    if cake_piece.area < 0.25:
+        return True
+
     if not isinstance(cake_piece, Polygon):
         raise TypeError("Expected a Polygon object.")
     cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
@@ -125,11 +128,15 @@ def greedy_best_fit_assignment(
     used_polygons = set()
 
     for request_idx, request_size in sorted_requests:
+        print(f"req {request_idx}")
         best_fit_polygon_idx = None
         min_penalty = float("inf")
         closest_area_diff = float("inf")
 
         for poly_idx, polygon in sorted_polygons:
+            print(f"poly: {poly_idx}")
+            if poly_idx == 57:
+                pass
             if poly_idx in used_polygons:
                 continue
 
