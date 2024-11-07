@@ -201,13 +201,16 @@ class G8_Player:
 
         new_pieces = []
         for piece in pieces:
-            if cut.intersects(piece):
-                split_result = split(piece, cut)
-                new_pieces.extend(list(split_result.geoms))
-            else:
+            try:
+                if cut.intersects(piece):
+                    split_result = split(piece, cut)
+                    new_pieces.extend(list(split_result.geoms))
+                else:
+                    new_pieces.append(piece)
+            except Exception:
                 new_pieces.append(piece)
-        pieces = new_pieces
 
+        pieces = new_pieces
         new_beam_uuid = uuid4()
         self.beam_uuid_to_pieces[new_beam_uuid] = pieces
 
