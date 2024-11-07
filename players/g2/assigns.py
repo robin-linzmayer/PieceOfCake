@@ -20,6 +20,9 @@ import miniball
 
 
 def can_cake_fit_in_plate(cake_piece, radius=12.5):
+    if cake_piece.area < 0.25:
+        return True
+
     if not isinstance(cake_piece, Polygon):
         raise TypeError("Expected a Polygon object.")
     cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
@@ -125,6 +128,7 @@ def greedy_best_fit_assignment(
     used_polygons = set()
 
     for request_idx, request_size in sorted_requests:
+        print(f"req {request_idx}")
         best_fit_polygon_idx = None
         min_penalty = float("inf")
         closest_area_diff = float("inf")
@@ -213,13 +217,11 @@ def hungarian_min_penalty(
     if num_polygons > num_requests:
         num_dummy_requests = num_polygons - num_requests
         requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
-        print(f"Added {num_dummy_requests} dummy requests.")
     elif num_requests > num_polygons:
         num_dummy_polygons = num_requests - num_polygons
         polygons_copy += [
             Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])
         ] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
-        print(f"Added {num_dummy_polygons} dummy polygons.")
 
     # Build cost matrix (penalties)
     cost_matrix = []
@@ -261,10 +263,6 @@ def hungarian_min_penalty(
     assert all(
         0 <= x < len(polygons) for x in assignment if x != -1
     ), "Indices in assignment should refer to valid polygons"
-
-    # Print for debugging
-    print("Assignment:", assignment)
-    print("Type of assignment:", type(assignment))
 
     # Return a copy to prevent unexpected modifications
     return assignment[:]
