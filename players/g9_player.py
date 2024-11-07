@@ -49,10 +49,20 @@ class Player:
         )
 
         # First turn initialize knife to start at first vertical cut
-        if turn_number == 1:
+        if len(requests) == 1:
+            # todo return cake, take into account tolerance if tol == 1
+            self.cut_coords = []
+        elif len(requests) == 2:
+            # todo return single cut with tolerance in mind
+            self.cut_coords = []
+        elif cake_area < 23.507:
+            # todo zoro_cut
+            self.cut_coords = []
+        else:
             self.cut_coords = compute_cuts(
                 requests, cake_len, cake_width, cake_area, noise, self.tolerance
             )
+        if turn_number == 1:
             print(f"Cut coordinates {len(self.cut_coords)}: {self.cut_coords}")
             return constants.INIT, self.cut_coords[turn_number - 1]
 
