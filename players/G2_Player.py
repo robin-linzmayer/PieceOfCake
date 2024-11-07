@@ -157,7 +157,9 @@ class G2_Player:
         self.requestlength = len(self.requests)
 
     def decide_strategy(self):
-        if is_uniform(self.requests, self.tolerance):
+        if self.requestlength == 1 or self.cake_area <= 860:
+            self.strategy = Strategy.SAWTOOTH
+        elif is_uniform(self.requests, self.tolerance):
             self.strategy = Strategy.EVEN
             self.move_object = EvenCuts(self.requests, self.cake_width, self.cake_len)
         elif grid_enough(self.requests, self.cake_width, self.cake_len, self.tolerance):
@@ -171,12 +173,7 @@ class G2_Player:
                 self.requests, self.cake_width, self.cake_len, self.tolerance
             )
 
-    def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
-        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
-        self.process_percept(current_percept)
-        if self.turn_number == 1:
-            self.decide_strategy()
-
+    def sawtooth(self):
         # for only 1 request:
         if self.requestlength == 1:
             if self.turn_number == 1:
@@ -241,6 +238,15 @@ class G2_Player:
                         self.requestscut += 1
                         return constants.CUT, next_move
                 return self.assign(assign)
+
+    def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
+        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
+        self.process_percept(current_percept)
+        if self.turn_number == 1:
+            self.decide_strategy()
+
+        if self.strategy == Strategy.SAWTOOTH:
+            return self.sawtooth()
 
         elif self.strategy == Strategy.EVEN:
             move = self.move_object.move(self.turn_number, self.cur_pos)
