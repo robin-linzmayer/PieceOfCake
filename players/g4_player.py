@@ -58,15 +58,18 @@ class Player:
             cake_width = current_percept.cake_width
 
             num_cuts = len(requests)
-            num_restarts = 10
-            num_steps = 100
-
+            num_restarts = 30
+            stagnant_limit = 20
             min_loss = float("inf")
+            # num_steps = 100
 
             for restart in range(num_restarts):
                 cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
                 loss = self.get_loss_from_cuts(cuts, current_percept)
                 print(f"Restart {restart} Loss: {loss}")
+
+                stagnant_steps = 0
+                prev_loss = loss
 
                 if loss < min_loss:
                     best_cuts = copy.deepcopy(cuts)
@@ -78,7 +81,8 @@ class Player:
                 learning_rate = 0.1
 
                 step = 0
-                while loss > 0.01 and step < num_steps:
+                # while step < num_steps:
+                while loss > 0.01 and stagnant_steps < stagnant_limit:
                     gradients = self.get_gradient(loss, cuts, current_percept)
 
                     cur_x, cur_y = cuts[0]
@@ -94,6 +98,14 @@ class Player:
                     if loss < min_loss:
                         best_cuts = copy.deepcopy(cuts)
                         min_loss = loss
+
+                    # Check for stagnation
+                    if prev_loss - loss < 0.01:
+                        stagnant_steps += 1
+                    else:
+                        stagnant_steps = 0
+                    prev_loss = loss
+
                     print(f"Step: {step}, Loss: {loss}")
                     step += 1
 
