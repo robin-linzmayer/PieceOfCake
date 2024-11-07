@@ -62,13 +62,13 @@ class Player:
         if turn_number == 1:
             # initialize instance variables, sorted requests
             self.requests = current_percept.requests
-            print("self.requests is: ", self.requests)
             self.cake_len = current_percept.cake_len
             self.cake_width = current_percept.cake_width
             self.cake_diagonal = self.calcDiagonal()
             print ("cake_len:", self.cake_len)
             print ("cake_width:", self.cake_width)
             print ("cake_diagonal:", self.cake_diagonal)
+            self.find_acceptable_range()
             if not self.uniform_mode:
                 # print("BEFORE")
                 is_uniform, grid_area = self.if_uniform(current_percept.requests, extra_tol)
@@ -302,19 +302,17 @@ class Player:
                 return factors[0]
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
     
-    
-    def find_Acceptable_range(self):
+
+    def find_acceptable_range(self):
         s_factor, _ = self.find_closest_factors()
         self.requests = sorted(self.requests)
         height_per_row = float(self.cake_len/s_factor)
-
         # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
         # divide the upper and lower bounds by the height of that row (fixed for all rows) respectively;
         # get the lower and upper bounds of the widths, name it acceptable_range
-        for req in range(0,3):
-            lower_area = req * (1-self.tolerance)
-            upper_area = req * (1+self.tolerance)
+        for req in range(0,s_factor):
+            lower_area = self.requests[req] * (1-(self.tolerance/100))
+            upper_area = self.requests[req] * (1+(self.tolerance/100))
             lower_wid = lower_area/height_per_row
             upper_wid = upper_area/height_per_row
             self.acceptable_range.append([lower_wid,upper_wid])
-        
