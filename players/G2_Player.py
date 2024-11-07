@@ -89,7 +89,7 @@ class G2_Player:
         self, assign_func: Callable[[list[Polygon], list[float]], list[int]]
     ) -> float:
         penalty = 0
-        assignments: list[int] = assign_func(self.polygons, self.requests)
+        assignments: list[int] = assign_func(self.polygons, self.requests, self.tolerance)
 
         for request_index, assignment in enumerate(assignments):
             # check if the cake piece fit on a plate of diameter 25 and calculate penaly accordingly
@@ -117,7 +117,7 @@ class G2_Player:
             print()
             return constants.INIT, [0, 0]
 
-        if len(self.polygons) < len(self.requests):
+        if self.cur_pos != None and len(self.polygons) < len(self.requests):
             if self.cur_pos[0] == 0:
                 return constants.CUT, [
                     self.cake_width,
@@ -166,10 +166,10 @@ class G2_Player:
             self.move_object = EvenCuts(self.requests, self.cake_width, self.cake_len)
         elif grid_enough(self.requests, self.cake_width, self.cake_len, self.tolerance):
             self.strategy = Strategy.UNEVEN
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len)
+            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
         else:  # Default
-            self.strategy = Strategy.BEST_CUTS
-            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len)
+            self.strategy = Strategy.UNEVEN
+            self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
 
     def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
@@ -250,14 +250,13 @@ class G2_Player:
                     return self.assign(greedy_best_fit_assignment)
                 else:
                     return self.assign(greedy_best_fit_assignment)
-                return self.assign(assign)
 
             return move
-
+        
         elif self.strategy == Strategy.UNEVEN:
             move = self.move_object.move(self.turn_number, self.cur_pos)
             if move == None:
-                return self.assign(assign)
+                return self.assign(hungarian_min_penalty)
 
             return move
 

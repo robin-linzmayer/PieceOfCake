@@ -165,7 +165,7 @@ def is_uniform(requests, tolerance=0) -> bool:
     return (max(requests) - min(requests)) <= (2 * tolerance)
 
 
-def divide_requests(requests):
+def divide_requests_evenly(requests):
     """
     If we were to divide the requests into a nearly-square array,
     we return the total sum of every request in the list, a list of
@@ -198,13 +198,94 @@ def divide_requests(requests):
             h_sums[int(i / s)] += val
     return total_sum, h_sums, v_sums
 
+def penalty_from_split(requests, s, tolerance):
+    """
+    
+    """
+    h_sums = []
+    num_penalty = 0
+    i = 0
+    print()
+    print("SUM CALCULATION:")
+    print("s=",s)
+    while i < len(requests):
+        to_check = requests[i:i+s]
+
+        print(to_check)
+        h_sum = sum(to_check)
+        if len(to_check) < s:
+            h_sum = s * h_sum / len(to_check)
+        h_sums.append(h_sum)
+        if max(to_check) - min(to_check) > 2 * tolerance:
+            num_penalty += 1
+        i += s
+    
+    return num_penalty, h_sums
+
+def calculate_vertical_sums(requests, s):
+    v_sums = []
+    total_sum = 0
+    k = math.ceil(len(requests) / s)
+    for i in range(0,s):
+        li = requests[i::s]
+        v_sum = sum(li)
+        if len(li) < k:
+            v_sum = k * v_sum / len(li)
+        v_sums.append(v_sum)
+        total_sum += v_sum
+    return v_sums, total_sum
+
+
+def get_best_split(requests, tolerance):
+    """
+    """
+    n = len(requests)
+    s = int(math.sqrt(n))
+    best_s = s
+    min_penalty, h_sums = penalty_from_split(requests, s, tolerance)
+    s -= 1
+    while s > 1 and min_penalty > 0:
+        penalty, sums = penalty_from_split(requests, s, tolerance)
+        if penalty < min_penalty:
+            min_penalty = penalty
+            best_s = s
+            h_sums = sums
+        s -= 1
+    s = best_s
+    v_sums, total_sum = calculate_vertical_sums(requests, s)
+
+    return total_sum, h_sums, v_sums
+
+def get_all_uneven_cuts(requests, tolerance, cake_width, cake_len):
+    total_sum, h_sums, v_sums = get_best_split(requests, tolerance)
+    cuts = []
+    # add horizontal cuts
+    depth = 0
+    for sum in h_sums:
+        depth += round(cake_len * sum / total_sum, 2)
+        if depth < cake_len:
+            start = [0, depth]
+            end = [cake_width, depth]
+            cuts.append([start, end])
+
+    # add vertical cuts
+    across = 0
+    adjusted_width = total_sum / cake_len
+    for sum in v_sums:
+        across += round(adjusted_width * sum / total_sum)
+        if across < cake_width:
+            start = [across, 0]
+            end = [across, cake_len]
+            cuts.append([start, end])
+    
+    return cuts
 
 def grid_enough(requests, width, length, tolerance=0):
     """
     Return whether the requests can be distributed well enough that an uneven
     grid approach is worthwhile.
     """
-    total, h_sums, v_sums = divide_requests(requests)
+    total, h_sums, v_sums = divide_requests_evenly(requests)
     h_variance = length * (max(h_sums) - min(h_sums)) / total
     v_variance = width * (max(v_sums) - min(v_sums)) / total
     return min(h_variance, v_variance) <= max(1, tolerance)
@@ -214,7 +295,7 @@ def estimate_uneven_penalty(requests, cake_width, cake_len, tolerance=0):
     """
     prob dump this
     """
-    total, h_sums, v_sums = divide_requests(requests)
+    total, h_sums, v_sums = divide_requests_evenly(requests)
     polygon_sizes = []
     polygons = []
     for h in h_sums:
