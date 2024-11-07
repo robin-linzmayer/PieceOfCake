@@ -95,10 +95,10 @@ class Player:
     
     def move_straight(self,cur_pos, dir='R'):
         switch ={
-            'L': (0,cur_pos[1]),
-            'R': (self.cake_width, cur_pos[1]),
-            'U': (cur_pos[0], 0),
-            'D': (cur_pos[0], self.cake_len)
+            'L': (0,round(cur_pos[1], 2)),
+            'R': (round(self.cake_width, 2), round(cur_pos[1], 2)),
+            'U': (round(cur_pos[0],2), 0),
+            'D': (round(cur_pos[0], 2), round(self.cake_len), 2)
         }
         return switch.get(dir)
     
@@ -163,98 +163,103 @@ class Player:
         return intersection
 
     def make_cuts(self):
-        print(self.cake_len, self.cake_width)
+        # print(self.cake_len, self.cake_width)
+        area = self.cake_len * self.cake_width
         
         # TODO: If less than area do easy zigzag
-        if self.cake_len*self.cake_width < 0:
+        if area < 0:
             pass
 
         #TODO: Find number of horizontal stacks
-        vertical_stack = 4
-        num_stacks = len(self.requests)//vertical_stack
+        # print(f"Area: {area}")
+        if area < 4000:
+            vertical_stack = 2
+        elif area < 6500:
+            vertical_stack = 3
+        else:
+            vertical_stack = 4
+        num_stacks = len(self.requests)//vertical_stack + (1 if len(self.requests)%vertical_stack != 0 else 0)
 
+        # print(f"Vertical Stacks: {vertical_stack} Horizontal Stacks: {num_stacks}")
         areas = sorted(self.requests)
-
         #TODO: Handle extras
         if len(areas)%num_stacks != 0:
-            pass
+            required = num_stacks - len(areas)%num_stacks
+            areas += [min(areas)]*required
 
-        print(areas, len(areas))
-        groups = {i: [] for i in range(num_stacks)}
+        areas = sorted(areas)
+
+        groups = {i: [] for i in range(vertical_stack)}
         
         i=0
         k=0
 
-        while i<len(self.requests):
+        while i<len(areas):
             groups[k].append(areas[i])
             i+=1
-            if i%vertical_stack == 0:
-                k+=1
-        
-        # At this point i must be > j if we properly dealt with extras and all groups should have equal areas
-        # groups = {k: sorted(v) for k, v in groups.items()}
-        print(groups)
+            k=(k+1)%vertical_stack
 
-        widths = [round(sum(groups[group])/self.cake_len,2) for group in groups]
-        cum_widths = [round(s, 2) for s in itertools.accumulate(widths)]
-        print(cum_widths)
+        lengths = [round(sum(groups[group])/self.cake_width,2) for group in groups]
+        cum_lengths = [round(s, 2) for s in itertools.accumulate(lengths)]
 
-        for i,w in enumerate(cum_widths):
+        for i,l in enumerate(cum_lengths):
             # Place knife
             if i==0:
-                self.cutList.append([w,0])
+                self.cutList.append([0, l])
                 continue
             cur = self.cutList[-1]
-            breadcrumb_goto =  0 if w<self.cake_width//2 else self.cake_width
+            breadcrumb_goto =  round(0 if l < self.cake_len//2 else self.cake_len, 2)
 
-            #Up to down
-            if i%2 != 0:
-                self.cutList.append(self.move_straight(cur, 'D'))
-                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
-                self.cutList.append([w,self.cake_len])
-            
-            #Down to up
+            #Right to left
+            if i%2 == 0:
+                self.cutList.append(self.move_straight(cur, 'L'))
+                self.cutList.append([0.02, breadcrumb_goto])
+                self.cutList.append([0, l])
+            #Left to right
             else:
-                self.cutList.append(self.move_straight(cur, 'U'))
-                self.cutList.append([breadcrumb_goto,0.02])
-                self.cutList.append([min(w, self.cake_width),0])
+                self.cutList.append(self.move_straight(cur, 'R'))
+                self.cutList.append([round(self.cake_width-0.02, 2), breadcrumb_goto])
+                self.cutList.append([self.cake_width, l])
 
-        if self.cutList[-1][0]!= self.cake_width:
-            if self.cutList[-1][1] == 0:
-                self.cutList.append(self.move_straight(self.cutList[-1], 'D'))
-                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
-                self.cutList.append([round(self.cake_width-0.02,2),self.cake_len])
-            else:
-                self.cutList.append(self.move_straight(self.cutList[-1], 'U'))
-                self.cutList.append([breadcrumb_goto,0.02])
-                self.cutList.append([round(self.cake_width-0.02,2),0])
-        
-        #Horizontal cuts!
-        l1 = [round(small/widths[i],2) for i,small in enumerate(groups[0])]
-        l2 = [round(big/widths[i],2) for i,big in enumerate(groups[num_stacks-1])]
+        cur = self.cutList[-1]
+        if vertical_stack % 2 == 0:
+            self.cutList.append(self.move_straight(cur, 'L'))
+        else:
+            self.cutList.append(self.move_straight(cur, 'R'))
+        # #Horizontal cuts!
+        l1 = [round(small / lengths[0], 2) for i, small in enumerate(groups[0])]
+        l2 = [round(big / lengths[vertical_stack - 1], 2) for i, big in enumerate(groups[vertical_stack - 1])]
         cum_l1 = [round(s, 2) for s in itertools.accumulate(l1)]
         cum_l2 = [round(s, 2) for s in itertools.accumulate(l2)]
-        print(cum_l1, cum_l2, l1, l2)
+        # print(cum_l1, cum_l2, l1, l2)
 
-        for i,(l1,l2) in enumerate(zip(cum_l1,cum_l2)):                    
-            #Right to left from l2 to l1
-            if i%2==0:
-               self.cutList.append([self.cake_width, l2])
-               self.cutList.append([0, l1]) 
-            # Left to right from l1 to l2
+        if self.cutList[-1][0] == self.cake_width:
+            self.cutList.append([round(self.cake_width - 0.03, 2), self.cake_len])
+            self.cutList.append([self.cake_width, round(self.cake_len - 0.03, 2)])
+        else:
+            self.cutList.append([0.03, self.cake_len])
+            self.cutList.append([0, round(self.cake_len - 0.03, 2)])
+
+        # print("Vertical Cuts")
+        # print(cum_l1, cum_l2)
+
+        for i,(l1,l2) in enumerate(zip(cum_l1,cum_l2)):
+            # Down to up from l2 to l1
+            if i%2 == 0:
+                self.cutList.append([l2, self.cake_len])
+                self.cutList.append([l1, 0])
+            # Up to down from l1 to l2
             else:
-                self.cutList.append([0,l1])
-                self.cutList.append([self.cake_width,l2])
+                self.cutList.append([l1, 0])
+                self.cutList.append([l2, self.cake_len])
 
             if i < len(cum_l1)-1:
                 cur = self.cutList[-1]
-                print(cur)
-                breadcrumb_goto =  0 if cur[1]<self.cake_len//2 else self.cake_len
-                if cur[0] == 0:
-                    self.cutList.append([0.02, breadcrumb_goto])
+                breadcrumb_goto =  0 if cur[0]<self.cake_width//2 else self.cake_width
+                if cur[1] == 0:
+                    self.cutList.append([breadcrumb_goto, 0.03])
                 else:
-                    self.cutList.append([round(self.cake_width-0.02,2), breadcrumb_goto])
-        
+                    self.cutList.append([breadcrumb_goto, round(self.cake_len-0.03,2)])
         
 
     def move(self, current_percept) -> (int, List[int]):
@@ -302,6 +307,13 @@ class Player:
                     
             _, assignment = linear_sum_assignment(c)
             print(assignment.tolist()[:len(requests)])
+            for i in range(len(requests)):
+                print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
+
+            # print("Unassigned")
+            # for i in range(len(polygons)):
+            #     if i not in assignment and areas[i] > 8:
+            #         print(areas[i])
             return constants.ASSIGN, assignment.tolist()[:len(requests)]
         
         except Exception as e:
