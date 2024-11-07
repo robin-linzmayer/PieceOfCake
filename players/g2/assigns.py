@@ -213,13 +213,11 @@ def hungarian_min_penalty(
     if num_polygons > num_requests:
         num_dummy_requests = num_polygons - num_requests
         requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
-        print(f"Added {num_dummy_requests} dummy requests.")
     elif num_requests > num_polygons:
         num_dummy_polygons = num_requests - num_polygons
         polygons_copy += [
             Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])
         ] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
-        print(f"Added {num_dummy_polygons} dummy polygons.")
 
     # Build cost matrix (penalties)
     cost_matrix = []
@@ -261,10 +259,6 @@ def hungarian_min_penalty(
     assert all(
         0 <= x < len(polygons) for x in assignment if x != -1
     ), "Indices in assignment should refer to valid polygons"
-
-    # Print for debugging
-    print("Assignment:", assignment)
-    print("Type of assignment:", type(assignment))
 
     # Return a copy to prevent unexpected modifications
     return assignment[:]
