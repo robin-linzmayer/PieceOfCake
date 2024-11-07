@@ -46,7 +46,7 @@ class Player:
         ################# Tom (11/6):
         self.acceptable_range = []
         ############################
-        self.angle_cuts = None
+        self.angle_cuts = []
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -117,17 +117,44 @@ class Player:
 
             return constants.CUT, self.uniform_cuts[self.cut_number]
         else:
-            if len(polygons) != len(self.requests):
-                if self.cur_pos[0] == 0:
-                    return constants.CUT, [self.cake_width, round((self.cur_pos[1] + 5)%self.cake_len, 2)]
-                else:
-                    return constants.CUT, [0, round((self.cur_pos[1] + 5)%self.cake_len, 2)]
+            # Optimal ZigZag Strategy
 
-            assignment = []
-            for i in range(len(self.requests)):
-                assignment.append(i)
+            #TODO: 
+            list_of_factors = self.find_factors(len(self.requests), False) #From closest to furthest. Element is list.
+
+            if not list_of_factors:
+                #IS PRIME
+                list_of_factors = self.find_factors(len(self.requests) - 1, False)
+
+
+            list_of_factors.pop(-1) #Remoe last element, since it is always (1, something)
+
+            factor_penalty = dict()
+            factor_cuts = dict()
+            
+            for factor in list_of_factors[::-1]:
+                penalty, cuts = self.simulate_cuts(factor)
+                factor_penalty[factor] = penalty
+                factor_cuts[factor] = cuts
+
+            #TODO: FIGURE OUT HOW TO CUT THE LAST PIECE IF PRIME
+
+            #TODO: FIND BEST PENALTY AMONGST ALL DIFFERENT CUTS BASED ON FACTORS, THEN MAKE PLAYER CUT.
 
             return constants.ASSIGN, assignment
+    
+
+    # Returns penalty given 
+    def simulate_cuts(self, factor) -> tuple[float, list]:
+        total_penalty = 0
+
+        for i in range(factor[1]):
+            target_requests = self.requests[i * factor[0] : (i + 1) * factor[0]]
+            tolerances = self.find_acceptable_range(factor[0], i, target_requests) # Returns tolerances of the smaller factors
+            penalty = self.angle_sweep(self, tolerances, target_requests)
+            total_penalty += penalty
+
+        return total_penalty
     
     def calcDiagonal(self) -> float:
         return (math.sqrt((self.cake_len * self.cake_len) + (self.cake_width * self.cake_width)))
@@ -341,33 +368,35 @@ class Player:
 
         
     #Finds the closest factor with the number of requests
-    def find_factors(self, closest: bool) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
-        num_of_requests = len(self.requests)
+    def find_factors(self, num_requests, closest: bool) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
+        num_of_requests = num_requests
         factors = []
         for num in range(int(num_of_requests**0.5),0,-1):
             if num_of_requests % num == 0:
                 factors.append([num, num_of_requests//num])
             if factors and closest:
                 return factors[0]
+        if len(factors) == 1:
+            return False
         return factors
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
 
 
-    
-
-    def find_acceptable_range(self):
-        s_factor, _ = self.find_factors(closest=True)
+    #TODO: 
+    def find_acceptable_range(self, factor):
         self.requests = sorted(self.requests)
         height_per_row = float(self.cake_len/s_factor)
         # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
         # divide the upper and lower bounds by the height of that row (fixed for all rows) respectively;
         # get the lower and upper bounds of the widths, name it acceptable_range
+        temp = []
         for req in range(0,s_factor):
             lower_area = self.requests[req] * (1-(self.tolerance/100))
             upper_area = self.requests[req] * (1+(self.tolerance/100))
             lower_wid = lower_area/height_per_row
             upper_wid = upper_area/height_per_row
-            self.acceptable_range.append([lower_wid,upper_wid])
+            temp.append([lower_wid,upper_wid])
+        return temp
 
     # from ../piece_of_cake_game.py
     def fits_on_plate(poly: Polygon):
