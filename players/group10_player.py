@@ -76,7 +76,7 @@ class Player:
             print ("cake_len:", self.cake_len)
             print ("cake_width:", self.cake_width)
             print ("cake_diagonal:", self.cake_diagonal)
-            self.find_acceptable_range()
+            
             self.grid_angle_cut()
             if not self.uniform_mode:
                 # print("BEFORE")
@@ -383,20 +383,35 @@ class Player:
 
 
     #TODO: 
-    def find_acceptable_range(self, factor):
+    def find_acceptable_range(self, factor, iteration, target_requests): # find_acceptable_range(factor[0], i, target_requests)
         self.requests = sorted(self.requests)
-        height_per_row = float(self.cake_len/s_factor)
+        height_per_row = float(self.cake_len/factor)
         # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
         # divide the upper and lower bounds by the height of that row (fixed for all rows) respectively;
         # get the lower and upper bounds of the widths, name it acceptable_range
         temp = []
-        for req in range(0,s_factor):
-            lower_area = self.requests[req] * (1-(self.tolerance/100))
-            upper_area = self.requests[req] * (1+(self.tolerance/100))
-            lower_wid = lower_area/height_per_row
-            upper_wid = upper_area/height_per_row
-            temp.append([lower_wid,upper_wid])
-        return temp
+        if iteration == 0:
+            for req in range(0,factor):
+                lower_area = self.requests[req + iteration*factor] * (1-(self.tolerance/100))
+                upper_area = self.requests[req + iteration*factor] * (1+(self.tolerance/100))
+                lower_wid = lower_area/height_per_row
+                upper_wid = upper_area/height_per_row
+                temp.append([lower_wid,upper_wid])
+            return temp
+        else:
+            for req in range(0,factor):
+                lower_area = self.requests[req + iteration*factor] * (1-(self.tolerance/100))
+                upper_area = self.requests[req + iteration*factor] * (1+(self.tolerance/100))
+                
+                # Because the diff between the longer and shorter edges is fixed and certain
+                diff_a_b = abs(self.angle_cuts[iteration][0][0]-self.angle_cuts[iteration][1][0])/factor
+
+                # [(x + x + diff_a_b)/2] * h = area
+                lower_wid = ((lower_area/height_per_row)*2 - diff_a_b) / 2
+                upper_wid = ((upper_area/height_per_row)*2 - diff_a_b) / 2
+                temp.append([lower_wid,upper_wid])
+            return temp
+
 
     # from ../piece_of_cake_game.py
     def fits_on_plate(poly: Polygon):
