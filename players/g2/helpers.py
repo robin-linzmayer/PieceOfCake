@@ -119,8 +119,9 @@ def divide_polygon(polygon: Polygon, from_point, to_point):
         # Split the polygon into two pieces
         result = split(polygon, line)
     except Exception as e:
+        # seems to crash when line touches, but doesn't intersec with a polygon
         print(f"Error dividing polygon {polygon} with line {line}")
-        raise e
+        return [polygon]
 
     # Convert the result into individual polygons
 
