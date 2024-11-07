@@ -349,6 +349,8 @@ class Player:
                 factors.append([num, num_of_requests//num])
             if factors and closest:
                 return factors[0]
+        if len(factors) == 1:
+            return False
         return factors
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
 
@@ -381,3 +383,7 @@ class Player:
         res = miniball.miniball(cake_points)
 
         return res["radius"] <= 12.5
+    
+    # angle sweep does a search of all possible lines and adds the one with least penalty to the self.angle_cuts variable, returns the penalty
+    def angle_sweep(self, tolerances, target_requests) -> float:
+
