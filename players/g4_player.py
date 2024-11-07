@@ -61,6 +61,7 @@ class Player:
             num_restarts = 30
             stagnant_limit = 20
             min_loss = float("inf")
+            best_cuts = None
             # num_steps = 100
 
             for restart in range(num_restarts):
