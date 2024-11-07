@@ -36,6 +36,9 @@ class Player:
         self.uniform_mode = False
         self.uniform_cuts = []
         self.used_crumb = [[0.00, 0.00], [0.00, 0.00], [0.00, 0.00], [0.00, 0.00]] #LEFT-TOP, RIGHT-TOP, LEFT-BOTTOM, RIGHT-BOTTOM. The values inside is [x, y]
+        ################# Tom (11/6):
+        self.acceptable_range = []
+        ############################
 
     def move(self, current_percept) -> tuple[int, List[int]]:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement
@@ -51,7 +54,6 @@ class Player:
                     DOWN = 3
         """
         extra_tol = 40 #Change if we suck
-
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
         cut_number = current_percept.turn_number - 1
@@ -60,6 +62,7 @@ class Player:
         if turn_number == 1:
             # initialize instance variables, sorted requests
             self.requests = current_percept.requests
+            print("self.requests is: ", self.requests)
             self.cake_len = current_percept.cake_len
             self.cake_width = current_percept.cake_width
             self.cake_diagonal = self.calcDiagonal()
@@ -298,11 +301,20 @@ class Player:
             if factors:
                 return factors[0]
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
-        
-        
+    
+    
+    def find_Acceptable_range(self):
+        s_factor, _ = self.find_closest_factors()
+        self.requests = sorted(self.requests)
+        height_per_row = float(self.cake_len/s_factor)
 
-
-
-
-        
+        # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
+        # divide the upper and lower bounds by the height of that row (fixed for all rows) respectively;
+        # get the lower and upper bounds of the widths, name it acceptable_range
+        for req in range(0,3):
+            lower_area = req * (1-self.tolerance)
+            upper_area = req * (1+self.tolerance)
+            lower_wid = lower_area/height_per_row
+            upper_wid = upper_area/height_per_row
+            self.acceptable_range.append([lower_wid,upper_wid])
         
