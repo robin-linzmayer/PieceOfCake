@@ -75,9 +75,8 @@ class Player:
                     tri_height = (2 * area_to_chop) / (cake_width - x)
                     y = round(cake_len - tri_height, 2)
                     self.cut_coords = self.cut_coords + [[cake_width, y]]
-
             # Case: small cake zoro cut.
-            elif cake_area < 23.507:
+            elif cake_len < 23.507:
                 self.cut_coords =  zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
             else:
                 self.cut_coords = compute_cuts(
