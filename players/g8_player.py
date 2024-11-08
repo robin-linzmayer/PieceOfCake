@@ -233,7 +233,7 @@ class G8_Player:
     def generate_next_points(self, current_point: tuple[float, float]):
         """Generate possible next points on valid edges"""
         points = []
-        samples = 12
+        samples = 13
 
         current_edge = self.get_edge(current_point)
 
