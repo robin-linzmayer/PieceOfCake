@@ -313,7 +313,13 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
-        num_cuts = len(requests)
+        if len(requests) > 50:
+            num_cuts = len(requests) // 3
+        elif len(requests) > 20:
+            num_cuts = len(requests) // 2
+        else:
+            num_cuts = max(12, len(requests))
+
         num_restarts = 30
         stagnant_limit = 20
         min_loss = float("inf")
