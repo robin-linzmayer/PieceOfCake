@@ -35,7 +35,8 @@ class Player:
         self.cake_diagonal = None
         self.requests = None
         self.cuts = []
-        self.base_case_switch = False
+        self.base_case_switch = False, None
+        self.x_y_switch = True # True: y working height, False: x working height
         self.working_height = None
         self.turn_number = None
         self.cut_number = None
@@ -75,10 +76,6 @@ class Player:
             self.requests = current_percept.requests
             self.cake_len = current_percept.cake_len
             self.cake_width = current_percept.cake_width
-            self.cake_diagonal = self.calcDiagonal()
-            print ("cake_len:", self.cake_len)
-            print ("cake_width:", self.cake_width)
-            print ("cake_diagonal:", self.cake_diagonal)
             self.requests.sort(reverse=False)
             if not self.uniform_mode:
                 # print("BEFORE")
@@ -97,7 +94,7 @@ class Player:
 
         # TODO: adjust for the case when the base the triangle needs surpasses the cake width we have (first occurence, switch to the length, after this switch, make sure we continue working on that edge). CURRENT PROGRAM UNABLE TO MOVE IF WE SWITCH SIDES FROM THE BOTTOM EDGE
         # case if the diagonal of the total cake is <= 25
-        if self.cake_diagonal <= 25:
+        if self.cake_len <= 24.67:
             if self.turn_number == 1:
                 self.requests.sort(reverse=True)
                 self.cuts.append((0, 0))
@@ -180,28 +177,38 @@ class Player:
         y = self.cur_pos[1]
 
         
-        if self.base_case_switch:
+        if self.base_case_switch[0]:
             # TODO: this currently retraces the past cut and creates triangles from the same point
             x = self.cuts[self.cut_number - 2][0]
             y = self.cuts[self.cut_number - 2][1] # on the first occurrence, this will be 0 if we went from bottom to right and cake_len if we went from top to right
             print ("x, y: ", x, y)
-            if y == 0: 
-                self.working_height = self.cake_len - x
-
-            elif y == self.cake_len:
-                self.working_height= self.cuts[self.cut_number - 1][1]
-            else: 
-                self.working_height = self.cake_width - self.cuts[self.cut_number - 1][0]
-
             # TODO: make this align with everything else
             print ("y from two turns ago:", self.cuts[self.cut_number - 2][1])
+            print ("from one turn ago:", self.cuts[self.cut_number - 1][0], self.cuts[self.cut_number - 1][1])
             print ("adjustment for next area:", 2 * current_area / self.working_height)
-            if y == self.cake_len:
-                y = round(self.cuts[self.cut_number - 2][1] - 2 * current_area / self.working_height, 2)
-            elif y == 0:
+            print ("x_y_switch:", self.x_y_switch)
+            print ("base_case_switch:", self.base_case_switch)
+
+            if self.x_y_switch and self.base_case_switch[1]:
+                self.working_height = self.cuts[self.cut_number - 1][1]
+                self.x_y_switch = not self.x_y_switch
                 x = round(x + 2 * current_area / self.working_height, 2)
-            else: 
-                y = self.cuts[self.cut_number - 1][0] 
+                y = 0
+            elif self.x_y_switch and not self.base_case_switch[1]:
+                self.working_height = self.cake_width - self.cuts[self.cut_number - 1][0]
+                self.x_y_switch = not self.x_y_switch
+                x = round(x + 2 * current_area / self.working_height, 2)
+                y = self.cake_len
+            elif not self.x_y_switch and self.base_case_switch[1]:
+                self.working_height = self.cake_width - self.cuts[self.cut_number - 1][0]
+                self.x_y_switch = not self.x_y_switch
+                x = self.cake_width
+                y = round(y - 2 * current_area / self.working_height, 2)
+            elif not self.x_y_switch and not self.base_case_switch[1]:
+                self.working_height = self.cake_width - self.cuts[self.cut_number - 1][0]
+                self.x_y_switch = not self.x_y_switch
+                x = self.cake_width
+                y = round(y + 2 * current_area / self.working_height, 2)
             self.cuts.append((x, y))
             return constants.CUT, [x, y]
 
@@ -222,9 +229,10 @@ class Player:
             x = self.cake_width
             if (y == 0): 
                 y = round(self.cake_len - 2 * area_left / self.working_height, 2)
+                self.base_case_switch = True, False
             elif (y == self.cake_len):
                 y = round(2 * area_left / self.working_height, 2)
-            self.base_case_switch = True
+                self.base_case_switch = True, True
 
         self.cuts.append((x, y))
         return constants.CUT, [x, y]
@@ -279,9 +287,6 @@ class Player:
         print("THIS IS OUR TRUE AVG: ", sum(requests)/len(requests))
         print("THIS IS OUR SKEWED AVG: ", skewed_average)
         for req in requests:
-            # print("WE ARE CHECKING THIS REQ: ", req)
-            # print("WE ARE CHECKING IF: ", abs(req-skewed_average)/req)
-            # print("GREATER THAN: ", tolerance)
             if (abs(req-skewed_average)/req) >= tolerance:
                 return (False, -1)
             
@@ -423,25 +428,41 @@ class Player:
         min_penalty = (math.inf, ((0, 0), (0, 0)), 0) # penalty, cuts, slope 
         for coord1x in np.arange(x_range[0][0], x_range[1][0], 0.01):
             for coord2x in np.arange(x_range[0][1], x_range[1][1], 0.01):
+                cuts = None
                 penalty = 0
                 coord1 = (coord1x, self.margin + (self.working_height / 2))
                 coord2 = (coord2x, self.cake_len - (self.margin + (self.working_height / 2)))
                 slope, intercept = self.equation_of_line(coord1, coord2)
-                cuts = (
-                    self.point_on_line(slope, intercept, 0, False), # coordinate for top of cake
-                    self.point_on_line(slope, intercept, -1 * self.cake_len, False) # coordinate for bottom of cake
-                )
+                if not slope:
+                    cuts = (
+                        (coord1[0], 0), (coord1[0], self.cake_len)
+                    )
+                else:
+                    cuts = (
+                        self.point_on_line(slope, intercept, 0, False), # coordinate for top of cake
+                        self.point_on_line(slope, intercept, -1 * self.cake_len, False) # coordinate for bottom of cake
+                    )
                 # check penalty for all other requests 
                 for i in range(factor):
                     req = target_reqs[i]
-                    penalty += self.calculate_penalty(req, slope, intercept, (horizontals[i], horizontals[i + 1]))
-                if penalty < min_penalty[0] or (penalty == min_penalty[0] and abs(slope) > min_penalty[2]):
+                    if (coord1x == coord2x):
+                        if coord1x < tolerances[i][0]:
+                            penalty += 100 * ((tolerances[i][0] - coord1x) * self.working_height) / req
+                        elif coord1x > tolerances[i][1]:
+                            penalty += 100 * ((coord1x - tolerances[i][1]) * self.working_height) / req
+                    else:
+                        penalty += self.calculate_penalty(req, slope, intercept, (horizontals[i], horizontals[i + 1]))
+                if penalty == min_penalty[0] and not slope:
+                    min_penalty = (penalty, cuts, math.inf)
+                elif penalty < min_penalty[0] or (penalty == min_penalty[0] and abs(slope) > min_penalty[2]):
                     min_penalty = (penalty, cuts, slope)
         self.angle_cuts.append(min_penalty[1])
         return min_penalty[0]
         
-    def equation_of_line(self, coord1: tuple, coord2: tuple) -> tuple[float, float]:
+    def equation_of_line(self, coord1: tuple, coord2: tuple) -> tuple[bool|float, float]:
         # putting cake coordinates on a cartesian plane, all y coordinates are negated
+        if (coord2[0] - coord1[0] == 0):
+            return (False, 0.0)
         slope = (coord1[1] - coord2[1])/(coord2[0] - coord1[0])
         intercept = slope * (-1 * coord1[0]) - coord1[1]
         return (slope, intercept)
@@ -461,9 +482,14 @@ class Player:
         if self.angle_cuts:
             cut = self.angle_cuts[-1]
             slope, intercept = self.equation_of_line(cut[0], cut[1])
-            corner3 = self.point_on_line(slope, intercept, -1 * y_bounds[0], False)
-            corner4 = self.point_on_line(slope, intercept, -1 * y_bounds[1], False)
-        x = Polygon([corner3, corner1, corner2, corner4])
+            if not slope:
+                corner3 = (cut[0][0], y_bounds[0])
+                corner4 = (cut[0][0], y_bounds[1])
+            else:
+                corner3 = self.point_on_line(slope, intercept, -1 * y_bounds[0], False)
+                corner4 = self.point_on_line(slope, intercept, -1 * y_bounds[1], False)
+        print ("corners:", corner3, corner1, corner2, corner4)
+        x = Polygon([corner3, corner1, corner2, corner4, corner3])
         diff = 100 * abs((req - x.area) / req)
         if diff < self.tolerance:
             return 0
