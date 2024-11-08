@@ -319,11 +319,12 @@ class Player:
                 min_loss = loss
 
             # Gradient descent
-            learning_rate = 0.1
+            learning_rate = 1
 
             step = 0
             # while step < num_steps:
             while loss > 0.01 and stagnant_steps < stagnant_limit:
+                learning_rate = max(0.1, learning_rate * 0.995)
                 gradients = self.get_gradient(loss, cuts, current_percept)
 
                 cur_x, cur_y = cuts[0]
