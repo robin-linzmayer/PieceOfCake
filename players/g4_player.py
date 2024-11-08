@@ -199,29 +199,36 @@ class Player:
         if turn_number == 1:
 
             strategies = []
+            zig_zag_loss = float("inf")
 
             try:
                 if cake_len < 23:
                     zig_zag_cuts, zig_zag_loss = self.zig_zag(current_percept, requests)
                     strategies.append((zig_zag_cuts, zig_zag_loss))
+                    print(f"Zig zag loss: {zig_zag_loss}")
             except Exception as e:
                 print(e)
 
-            try:
-                grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
-                best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
-                grid_loss = grid_cut_losses.min()
-                strategies.append(([], grid_loss))
-            except Exception as e:
-                print(e)
+            if zig_zag_loss > 0.05:
+                try:
+                    grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
+                    best_x_cuts, best_y_cuts, grid_cut_losses = (
+                        grid_cut.gradient_descent()
+                    )
+                    grid_loss = grid_cut_losses.min()
+                    strategies.append(([], grid_loss))
+                    print(f"Grid cut loss: {grid_loss}")
+                except Exception as e:
+                    print(e)
 
-            try:
-                gd_cuts, gd_loss = self.gradient_descent(
-                    requests, start_time, current_percept
-                )
-                strategies.append((gd_cuts, gd_loss))
-            except Exception as e:
-                print(e)
+                try:
+                    gd_cuts, gd_loss = self.gradient_descent(
+                        requests, start_time, current_percept
+                    )
+                    strategies.append((gd_cuts, gd_loss))
+                    print(f"Gradient descent loss: {gd_loss}")
+                except Exception as e:
+                    print(e)
 
             best_loss = float("inf")
             best_cuts = []
