@@ -120,7 +120,7 @@ class Player:
 
             # Align SE corner with NW corner
             if corner == "SE" and base > max(boundary_points[0][1], boundary_points[1][1]):
-                if res["radius"] < 12.5:
+                #if res["radius"] < 12.5:
                     if positions[-1][0] == self.cake_width:
                         positions.append((round(self.cake_width-0.01, 2), self.cake_len))
                         positions.append((self.cake_width, 
@@ -129,6 +129,7 @@ class Player:
                                           self.cake_len))
                         
                     elif positions[-1][1] == self.cake_len:
+                        print("hi")
                         positions.append((self.cake_width, round(self.cake_len-0.01, 2)))
                         positions.append((round(self.cake_width - max(boundary_points[0][1], boundary_points[1][1]) ,2),
                                           self.cake_len))
@@ -438,7 +439,14 @@ class Player:
         #print("areas" + str(areas))
         match = 0
         assignment = []
-        for r in requests:
+        final = []
+        for s in requests:
+            final.append(-1)
+
+
+        req = sorted(requests)
+
+        for r in req:
             diff = 100
             for a in areas:
                 #print(a)
@@ -448,10 +456,20 @@ class Player:
                         diff = abs(r-a)
             assignment.append(areas.index(match))
 
-        #assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
-        print("assignment: " + str(assignment))
-        #print("also: " + str(assignment[:len(requests)][::-1]))
-        #print(assignment[:len(requests)])
+        for r in range(len(req)):
+            for s in range(len(requests)):
+                if req[r] == requests[s] and final[s] == -1 and assignment[r] not in final:
+                    final[s] = assignment[r]
+
+
+        '''assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
+        print(assignment)
+        print(assignment[:len(requests)])
+        return constants.ASSIGN, assignment[:len(requests)][::-1]'''
+
+        return constants.ASSIGN, final
+
+        '''assignment = self.return_matches(polygons, requests)
         return constants.ASSIGN, assignment
         
 
@@ -469,52 +487,52 @@ class Player:
         return self.round_position([x, y])
     
 
-    # def return_matches(self, polygons, requests):
-    #     matches = self.hungarian_algorithm(polygons, requests)
-    #     print(matches)
+    def return_matches(self, polygons, requests):
+        matches = self.hungarian_algorithm(polygons, requests)
+        print(matches)
 
-    #     # return the indices of the polygons in order of the requests
-    #     assignment = [match[0] for match in matches]
+        # return the indices of the polygons in order of the requests
+        assignment = [match[1] for match in matches]
 
-    #     return assignment
+        return assignment
     
-    # def hungarian_algorithm(self, polygons, requests):
-    #     """
-    #         Function to implement the Hungarian algorithm for optimal assignment
-    #     """
-    #     cost_matrix = self.create_cost_matrix(polygons, requests)
+    def hungarian_algorithm(self, polygons, requests):
+        """
+            Function to implement the Hungarian algorithm for optimal assignment
+        """
+        cost_matrix = self.create_cost_matrix(polygons, requests)
 
-    #     # Use the Hungarian method to find the optimal assignment
-    #     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # Use the Hungarian method to find the optimal assignment
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-    #     matches = []
+        matches = []
 
-    #     for i, j in zip(row_ind, col_ind):
-    #         if cost_matrix[i][j] < np.inf:
-    #             penalty = cost_matrix[i][j]
+        for i, j in zip(row_ind, col_ind):
+            if cost_matrix[i][j] < np.inf:
+                penalty = cost_matrix[i][j]
 
-    #             # THIS RETURNS AN INDEX!!!! MAY NEED TO BE ADJUSTED
-    #             matches.append((i, j, penalty))
+                # THIS RETURNS AN INDEX!!!! MAY NEED TO BE ADJUSTED
+                matches.append((j, i, penalty))
 
 
-    #     return matches
+        return matches
     
-    # def create_cost_matrix(self, polygons, requests):
-    #         n = len(polygons)
-    #         m = len(requests)
+    def create_cost_matrix(self, polygons, requests):
+            n = len(polygons)
+            m = len(requests)
 
-    #         cost_matrix = np.full((n, m), np.inf)  # Initialize with infinity
+            cost_matrix = np.full((n, m), np.inf)  # Initialize with infinity
 
-    #         for i in range(n):
-    #             for j in range(m):
+            for i in range(n):
+                for j in range(m):
 
-    #                 difference = abs(polygons[i].area - requests[j])
+                    difference = abs(polygons[i].area - requests[j])
 
-    #                 if difference <= self.tolerance:
-    #                     cost_matrix[i][j] = 0		# No penalty
-    #                 else:
-    #                     cost_matrix[i][j] = (difference / requests[j]) * 100 # Penalty
+                    if difference <= self.tolerance:
+                        cost_matrix[i][j] = 0		# No penalty
+                    else:
+                        cost_matrix[i][j] = (difference / requests[j]) * 100 # Penalty
 
 
 
-    #         return cost_matrix
+            return cost_matrix'''
