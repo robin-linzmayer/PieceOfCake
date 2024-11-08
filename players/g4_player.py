@@ -205,16 +205,22 @@ class Player:
             if turn_number == 1:
                 self.knife_pos.append([0, 0])
                 return constants.INIT, [0, 0]
-            
+
             if self.cut_count < num_requests:
                 # Calculate the base length needed for the current polygon area
                 base_length = round(2 * requests[self.cut_count] / cake_len, 2)
-                knife_x = round(self.knife_pos[-2][0] + base_length, 2) if turn_number > 2 else base_length
+                knife_x = (
+                    round(self.knife_pos[-2][0] + base_length, 2)
+                    if turn_number > 2
+                    else base_length
+                )
                 knife_y = cake_len if cur_pos[1] == 0 else 0
-                
+
                 # Adjust if the knife position goes beyond the cake width
                 if knife_x > cake_width:
-                    adjustment = round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                    adjustment = round(
+                        2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2
+                    )
                     knife_x = cake_width
                     knife_y = cake_len - adjustment if cur_pos[1] != 0 else adjustment
 
