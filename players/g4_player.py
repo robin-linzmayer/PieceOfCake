@@ -12,6 +12,7 @@ from shapely.ops import split
 import copy
 from tqdm import tqdm
 import time
+import miniball
 
 
 class grid_cut_strategy:
@@ -479,9 +480,20 @@ def generate_random_cuts(num_cuts, cake_dims):
     return cuts
 
 
-def cost_function(polygons, requests):
+def cost_function(polygons, requests, plate=False):
+    if plate:
+        V = []
+        for polygon in polygons:
+            cake_points = np.array(
+                list(zip(*polygon.exterior.coords.xy)), dtype=np.double
+            )
+            res = miniball.miniball(cake_points)
+            if res["radius"] <= 12.5:
+                V.append(polygon.area)
+    else:
+        V = [polygon.area for polygon in polygons]
+
     R = requests
-    V = [polygon.area for polygon in polygons]
 
     num_requests = len(R)
     num_values = len(V)
