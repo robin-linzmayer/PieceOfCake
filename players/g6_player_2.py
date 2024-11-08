@@ -5,6 +5,9 @@ from typing import List
 import numpy as np
 import logging
 import traceback
+
+from numpy.distutils.system_info import wx_info
+
 import constants
 import math
 import itertools
@@ -166,11 +169,12 @@ class Player:
         # print(self.cake_len, self.cake_width)
         area = self.cake_len * self.cake_width
         areas = sorted(self.requests)
+        excess = 4.76*area/100
 
         # TODO: If less than area do easy zigzag
         if area < 945:
             vertical_stack = 1
-            areas += [4.76*area/100]
+            areas += [4*area/100]
             areas = sorted(areas)
         # print(f"Area: {area}")
         elif area < 4000:
@@ -183,28 +187,26 @@ class Player:
         #TODO: Handle extras
         if len(areas)%vertical_stack != 0:
             required = vertical_stack - len(areas)%vertical_stack
-            areas += [min(areas)]*required
+            areas += [min(min(areas), excess)]*required
             areas = sorted(areas)
-        elif vertical_stack > 1:
-            for i in range(vertical_stack):
-                if vertical_stack == 1:
-                    areas.append(4.76*area/100)
-                elif vertical_stack == 2:
-                    areas.append(2*area/100)
-                elif vertical_stack == 3:
-                    areas.append(1*area/100)
-                elif vertical_stack == 4:
-                    areas.append(0.5*area/100)
 
         groups = {i: [] for i in range(vertical_stack)}
         
         i=0
         k=0
+        isReverse = False
 
         while i<len(areas):
-            groups[k].append(areas[i])
+            if not isReverse:
+                groups[k].append(areas[i])
+            else:
+                groups[vertical_stack - 1 - k].append(areas[i])
             i+=1
-            k=(k+1)%vertical_stack
+            if k+1 == vertical_stack:
+                k=0
+                isReverse = not isReverse
+            else:
+                k+=1
 
         # Increase the size of last piece of each stack to accommodate for crumbs
         if vertical_stack > 1:
