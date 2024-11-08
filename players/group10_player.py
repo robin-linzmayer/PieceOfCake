@@ -78,8 +78,6 @@ class Player:
             print ("cake_width:", self.cake_width)
             print ("cake_diagonal:", self.cake_diagonal)
             self.requests.sort(reverse=False)
-            # TODO: remove when done debugging
-            self.simulate_cuts((3, 10))
             if not self.uniform_mode:
                 # print("BEFORE")
                 is_uniform, grid_area = self.if_uniform(current_percept.requests, extra_tol)
@@ -145,7 +143,6 @@ class Player:
 
             return constants.ASSIGN, assignment
     
-
     # Returns penalty given 
     def simulate_cuts(self, factor) -> tuple[float, list]:
         total_penalty = 0
@@ -358,21 +355,6 @@ class Player:
            
         print("PATH TO VICTORY: ", self.uniform_cuts)
 
-    def grid_angle_cut(self):
-        factor_pairs = self.find_factors(closest=False)
-        for dim in factor_pairs[::-1]:
-            max_height = self.cake_len / dim[0]
-            max_width = (self.requests[-1] * (1 + (self.tolerance / 100))) / max_height
-            # this is not quite accurate because its not a trapezoid as it is in reality 
-            max_polygon = Polygon([(0, 0), (0, max_height), (max_width, max_height), (max_width, 0)])
-            if not self.fits_on_plate(poly=max_polygon):
-                continue
-
-        if self.angle_cuts is None:
-            # number of requests is prime or pieces of cake are too big to fit on plate even with slices down the middle. 
-            return -1
-
-        
     #Finds the closest factor with the number of requests
     def find_factors(self, num_requests, closest: bool) -> list[int, int]: # [smaller_closest_factor, bigger_closest_factor]
         num_of_requests = num_requests
@@ -386,7 +368,6 @@ class Player:
             return False
         return factors
         # TODO: Here we can add a check to see if num_of_requests is prime, by checking if factors[-1][0] == 1
-
 
     def find_acceptable_range(self, factor, iteration): # find_acceptable_range(factor[0], i, target_requests)
         # For the three smallest requests, find the upper bound and lower bound of the acceptable area based on the tolerance;
@@ -415,7 +396,71 @@ class Player:
         print ("tolerances:", temp)
         return temp
 
-    # from ../piece_of_cake_game.py
+    # angle sweep does a search of all possible lines and adds the one with least penalty to the self.angle_cuts variable, returns the penalty
+    """
+    self.angle_sweep(tolerances: list[list[lower_tolerance, upper_tolerance]], target_requests: list[requests])
+    - using knowledge of the previous cut (from self.angle_cuts), find the next cut that minimizes the penalty for the list of target_requests. 
+    - chooses the line with the least penalty, and if there are several, choose the one with the highest slope
+    - adds the coordinates from the top and bottom of cake to self.angle_cuts and returns the penalty
+    """
+    def angle_sweep(self, tolerances, factor, iteration, horizontals) -> float:
+        x_range = (
+            (tolerances[0][0], tolerances[-1][0]), 
+            (tolerances[0][1], tolerances[-1][1])
+        )
+        target_reqs = self.requests[iteration * factor : (iteration + 1) * factor]
+        min_penalty = (math.inf, ((0, 0), (0, 0)), 0) # penalty, cuts, slope 
+        for coord1x in np.arange(x_range[0][0], x_range[1][0], 0.01):
+            for coord2x in np.arange(x_range[0][1], x_range[1][1], 0.01):
+                penalty = 0
+                coord1 = (coord1x, self.margin + (self.working_height / 2))
+                coord2 = (coord2x, self.cake_len - (self.margin + (self.working_height / 2)))
+                slope, intercept = self.equation_of_line(coord1, coord2)
+                cuts = (
+                    self.point_on_line(slope, intercept, 0, False), # coordinate for top of cake
+                    self.point_on_line(slope, intercept, -1 * self.cake_len, False) # coordinate for bottom of cake
+                )
+                # check penalty for all other requests 
+                for i in range(factor):
+                    req = target_reqs[i]
+                    penalty += self.calculate_penalty(req, slope, intercept, (horizontals[i], horizontals[i + 1]))
+                if penalty < min_penalty[0] or (penalty == min_penalty[0] and abs(slope) > min_penalty[2]):
+                    min_penalty = (penalty, cuts, slope)
+        self.angle_cuts.append(min_penalty[1])
+        return min_penalty[0]
+        
+    def equation_of_line(self, coord1: tuple, coord2: tuple) -> tuple[float, float]:
+        # putting cake coordinates on a cartesian plane, all y coordinates are negated
+        slope = (coord1[1] - coord2[1])/(coord2[0] - coord1[0])
+        intercept = slope * (-1 * coord1[0]) - coord1[1]
+        return (slope, intercept)
+        
+    def point_on_line(self, slope: float, intercept: float, given_coord: float, x: bool) -> tuple[float, float]:
+        if x:
+            return (given_coord, round((slope * given_coord) + intercept), 2)
+        elif not x:
+            return (round((given_coord - intercept) / slope, 2), -1 * given_coord)
+        
+    def calculate_penalty(self, req: float, slope: float, intercept: float, y_bounds: tuple[float, float]) -> float:
+        corner1 = self.point_on_line(slope, intercept, -1 * y_bounds[0], False)
+        corner2 = self.point_on_line(slope, intercept, -1 * y_bounds[1], False)
+        corner3 = (0, y_bounds[0])
+        corner4 = (0, y_bounds[1])
+
+        if self.angle_cuts:
+            cut = self.angle_cuts[-1]
+            slope, intercept = self.equation_of_line(cut[0], cut[1])
+            corner3 = self.point_on_line(slope, intercept, -1 * y_bounds[0], False)
+            corner4 = self.point_on_line(slope, intercept, -1 * y_bounds[1], False)
+        x = Polygon([corner3, corner1, corner2, corner4])
+        diff = 100 * abs((req - x.area) / req)
+        if diff < self.tolerance:
+            return 0
+        else:
+            return diff - self.tolerance
+
+        # from ../piece_of_cake_game.py
+    
     def fits_on_plate(poly: Polygon):
         if poly.area < 0.25:
             return True
@@ -428,65 +473,3 @@ class Player:
 
         return res["radius"] <= 12.5
     
-    # angle sweep does a search of all possible lines and adds the one with least penalty to the self.angle_cuts variable, returns the penalty
-    """
-    self.angle_sweep(tolerances: list[list[lower_tolerance, upper_tolerance]], target_requests: list[requests])
-    - using knowledge of the previous cut (from self.angle_cuts), find the next cut that minimizes the penalty for the list of target_requests. 
-    - start the angle sweep from the midpoint of the smallest requests' lower bound and the midpoint of the largest requests' upper bound and SWEEP. 
-    """
-    """
-    angle sweep start: 
-    - y-values: self.margin + (min_x1 / 2) to self.cake_len - (self.margin + (max_x[factor] / 2))
-    - chooses the line with the least penalty, and if there are several, choose the one with the highest slope
-    """
-    def angle_sweep(self, tolerances, factor, iteration, horizontals) -> float:
-        penalties_dict = {} # maps penalties to cut
-        penalties_slopes = [] # sortable list with tuples of (penalty, slope)
-        x_range = (
-            (tolerances[0][0], tolerances[-1][0]), 
-            (tolerances[0][1], tolerances[-1][1])
-        )
-        target_reqs = self.requests[iteration * factor : (iteration + 1) * factor]
-        print ("target_reqs:", target_reqs)
-
-        # iterating through the angles
-        # ASSUMING NEG SLOPE, opposite if POS SLOPE
-        # line must pass through the minimum boundary above the halfway point (y <)
-        # line must pass through the maximum boundary below the halfway point (y >)
-        
-        for coord1x in np.arange(x_range[0][0], x_range[1][0], 0.01):
-            min_penalty = (math.inf, ((0, 0), (0, 0)), 0) # penalty, cuts, slope 
-            for coord2x in np.arange(x_range[0][1], x_range[1][1], 0.01):
-                penalty = 0
-                coord1 = (coord1x, self.margin + (self.working_height / 2))
-                coord2 = (coord2x, self.cake_len - (self.margin + (self.working_height / 2)))
-                slope, intercept = self.equation_of_line(coord1, coord2)
-                cuts = (
-                    self.point_on_line(slope, intercept, 0, False), # coordinate for top of cake
-                    self.point_on_line(slope, intercept, -1 * self.cake_len, False) # coordinate for bottom of cake
-                )
-                # check where this line goes through the other requests 
-                for i in range(factor):
-                    req = target_reqs[i]
-                    tol = tolerances[i]
-                    min_y = self.point_on_line(slope, intercept, tol[0], True)
-                    max_y = self.point_on_line(slope, intercept, tol[1], True)
-                    neg_slope_min_range = ()
-                    neg_slope_max_range = ()
-
-        print ("range_cuts:")
-        return 0
-
-    def equation_of_line(self, coord1: tuple, coord2: tuple) -> tuple[float, float]:
-        # putting cake coordinates on a cartesian plane, all y coordinates are negated
-        slope = (coord1[1] - coord2[1])/(coord2[0] - coord1[0])
-        intercept = slope * (-1 * coord1[0]) - coord1[1]
-        return (slope, intercept)
-        
-    def point_on_line(self, slope: tuple, intercept: tuple, given_coord: float, x: bool) -> tuple[float, float]:
-        if x:
-            return (given_coord, round((slope * given_coord) + intercept), 2)
-        elif not x:
-            return (round((given_coord - intercept) / slope, 2), -1 * given_coord)
-        
-
