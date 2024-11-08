@@ -117,14 +117,23 @@ class Player:
                 return cuts
             
             def go_to_top_right_corner(default=True):
-                return [cake_width, 0.01]
-            
-            def go_to_top_left_corner():
-                return [0, 0.01]
-            def go_to_bottom_right_corner():
-                return [cake_width, round(cake_len - 0.01, 2)]
-            def go_to_bottom_left_corner():
-                return [0, round(cake_len - 0.01, 2)]
+                if default:
+                    return [cake_width, 0.01]
+                return [cake_width-0.01, 0]
+            def go_to_top_left_corner(default=True):
+                if default:
+                    return [0, 0.01]
+
+                return [0.01, 0]
+            def go_to_bottom_right_corner(default=True):
+                if default:
+                    return [cake_width, round(cake_len - 0.01, 2)]
+                
+                return [round(cake_width - 0.01, 2), cake_len]
+            def go_to_bottom_left_corner(default=True):
+                if default:
+                    return [0, round(cake_len - 0.01, 2)]
+                return [0.01, cake_len]
             def go_to_location(x_index):
                 # if current location is on top half of cake, go to (x,0)
                 if x_index < cake_width / 2:
@@ -207,34 +216,34 @@ class Player:
                         # if the next cut is in the top half of the cake
                         if next_cut < cake_len / 2 and is_on_left_half(cuts[-1][0]):
                             print("Next cut is in the top left half of the cake")
-                            cuts.append(go_to_top_left_corner())
+                            cuts.append(go_to_top_left_corner(False))
                             # move to next index and append cut to (cake_width, next_cut)
-                            print(f"Going to next index, appending cut to ({cake_width}, {next_cut})")
-                            cuts.append([cake_width, next_cut])
+                            print(f"Going to next index, appending cut to ({0}, {next_cut})")
+                            cuts.append([0, next_cut])
                             
                         # if the next cut is in the bottom half of the cake
                         elif next_cut >= cake_len / 2 and is_on_left_half(cuts[-1][0]):
                             print("Next cut is in the bottom left half of the cake")
-                            cuts.append(go_to_bottom_left_corner())
+                            cuts.append(go_to_bottom_left_corner(False))
                             # move to next index and append cut to (cake_width, next_cut)
-                            print(f"Going to next index, appending cut to ({cake_width}, {next_cut})")
-                            cuts.append([cake_width, next_cut])
+                            print(f"Going to next index, appending cut to ({0}, {next_cut})")
+                            cuts.append([0, next_cut])
 
                         # if the next cut is in the top half of the cake
                         elif next_cut < cake_len / 2 and is_on_right_half(cuts[-1][0]):
                             print("Next cut is in the top right half of the cake")
-                            cuts.append(go_to_top_right_corner())
+                            cuts.append(go_to_top_right_corner(False))
                             # move to next index and append cut to (0, next_cut)
                             print(f"Going to next index, appending cut to (0, {next_cut})")
-                            cuts.append([0, next_cut])
+                            cuts.append([cake_width, next_cut])
 
                         # if the next cut is in the bottom half of the cake
                         elif next_cut >= cake_len / 2 and is_on_right_half(cuts[-1][0]):
                             print("Next cut is in the bottom right half of the cake")
-                            cuts.append(go_to_bottom_right_corner())
+                            cuts.append(go_to_bottom_right_corner(False))
                             # move to next index and append cut to (0, next_cut)
                             print(f"Going to next index, appending cut to (0, {next_cut})")
-                            cuts.append([0, next_cut])
+                            cuts.append([cake_width, next_cut])
 
                 return cuts
 
@@ -242,8 +251,8 @@ class Player:
 
 
             
-            self.cuts = vertical_cut([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
-            # self.cuts = horizontal_cut([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+            # self.cuts = vertical_cut([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+            self.cuts = horizontal_cut([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
             return constants.INIT, self.cuts[0]
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
