@@ -147,7 +147,7 @@ class G8_Player:
                         )
                         score = penalty + cut_length * 1e-6
 
-                        if penalty > best_score + 50:
+                        if penalty > best_score + 250:
                             continue
 
                         if penalty <= best_score:
