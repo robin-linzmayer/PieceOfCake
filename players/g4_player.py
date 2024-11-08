@@ -227,10 +227,24 @@ class Player:
                         grid_cut_strat.gradient_descent()
                     )
 
-                    # grid_cuts = []  @Yoni store the cuts here, make sure that the initial coordinates is the first item in the array
                     grid_cuts = []
-                    grid_cuts += self.vertical_cut(best_x_cuts, current_percept)
-                    grid_cuts += self.horizontal_cut(best_y_cuts, current_percept)
+                    grid_cuts.extend(
+                        self.vertical_cut(
+                            list(best_x_cuts),
+                            cake_len,
+                            cake_width,
+                        )
+                    )
+                    print(grid_cuts)
+                    # grid_cuts.extend(
+                    #     self.horizontal_cut(
+                    #         list(best_y_cuts),
+                    #         cake_len,
+                    #         cake_width,
+                    #         grid_cuts[-1],
+                    #     )
+                    # )
+                    # print(grid_cuts)
 
                     # Uncomment below after cuts are generated
                     grid_loss = self.get_loss_from_cuts(
@@ -239,12 +253,10 @@ class Player:
                         plate=True,
                         tolerance=self.tolerance,
                     )
-                    strategies.append(([], grid_loss))
+                    strategies.append((grid_cuts, grid_loss))
                     print(f"Grid cut loss: {grid_loss}")
                 except Exception as e:
                     print(e)
-
-                # Frank's tester code
 
                 # try:
                 #     gd_cuts = self.gradient_descent(
@@ -261,9 +273,9 @@ class Player:
                 # except Exception as e:
                 #     print(e)
 
-            # ----------------------------
-
-
+            # if grid_loss == gd_loss:
+            #     self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in gd_cuts]
+            # else:
             best_loss = float("inf")
             best_cuts = []
             for cuts, loss in strategies:
@@ -454,6 +466,203 @@ class Player:
 
         current_percept.cur_pos = cut
         return newPieces, current_percept
+
+    def is_on_top_half(self, cur_y):
+        return cur_y == 0
+
+    def is_on_bottom_half(self, cur_y, cake_len):
+        return cur_y == cake_len
+
+    def is_on_left_half(self, cur_x):
+        return cur_x == 0
+
+    def is_on_right_half(self, cur_x, cake_width):
+        return cur_x == cake_width
+
+    def go_to_top_right_corner(self, cake_width, default=True):
+        if default:
+            return [cake_width, 0.01]
+        return [cake_width - 0.01, 0]
+
+    def go_to_top_left_corner(self, default=True):
+        if default:
+            return [0, 0.01]
+        return [0.01, 0]
+
+    def go_to_bottom_right_corner(self, cake_width, cake_len, default=True):
+        if default:
+            return [cake_width, round(cake_len - 0.01, 2)]
+        return [round(cake_width - 0.01, 2), cake_len]
+
+    def go_to_bottom_left_corner(self, cake_len, default=True):
+        if default:
+            return [0, round(cake_len - 0.01, 2)]
+        return [0.01, cake_len]
+
+    def vertical_cut(self, x_cuts_indices, cake_len, cake_width):
+        cuts = []
+
+        # add cut to (index, 0)
+        cuts.append([x_cuts_indices[0], 0])
+        # print("Init at to (", x_cuts_indices[0], ", 0)")
+
+        for cut in x_cuts_indices:
+
+            # if location is on bottom edge, add cut to the top edge
+            if self.is_on_bottom_half(cuts[-1][1], cake_len):
+                # print("Location is on bottom edge")
+                # print("Appending cut to traverse to top edge")
+                cuts.append([cut, 0])
+
+            # if location is on top edge, add cut to the bottom edge
+            elif self.is_on_top_half(cuts[-1][1]):
+                # print("Location is on top edge")
+                # print("Appending cut to traverse to bottom edge")
+                cuts.append([cut, cake_len])
+
+            # if there is a next cut after current cut
+            if cut != x_cuts_indices[-1]:
+                next_cut = x_cuts_indices[x_cuts_indices.index(cut) + 1]
+                # print("There is a next cut after current cut")
+                # if next cut is on left half of the cake
+                if next_cut < cake_width / 2 and self.is_on_bottom_half(
+                    cuts[-1][1], cake_len
+                ):
+                    # print("Next cut is on bottom left half of the cake")
+                    # print("Appending cut to bottom left corner")
+                    cuts.append(self.go_to_bottom_left_corner(cake_len))
+                    # Go to next index
+                    # print(
+                    #     "Going to next index, appending cut to (",
+                    #     x_cuts_indices[x_cuts_indices.index(cut) + 1],
+                    #     ",",
+                    #     cake_len,
+                    #     ")",
+                    # )
+                    cuts.append(
+                        [x_cuts_indices[x_cuts_indices.index(cut) + 1], cake_len]
+                    )
+                # if next cut is on right half of the cake
+                elif next_cut >= cake_width / 2 and self.is_on_bottom_half(
+                    cuts[-1][1], cake_len
+                ):
+                    # print("Next cut is on bottom right half of the cake")
+                    cuts.append(self.go_to_bottom_right_corner(cake_width, cake_len))
+                    # Go to next index
+                    # print(
+                    #     "Going to next index, appending cut to (",
+                    #     x_cuts_indices[x_cuts_indices.index(cut) + 1],
+                    #     ",",
+                    #     cake_len,
+                    #     ")",
+                    # )
+                    cuts.append(
+                        [x_cuts_indices[x_cuts_indices.index(cut) + 1], cake_len]
+                    )
+                # if next cut is on left half of the cake
+                elif next_cut < cake_width / 2 and self.is_on_top_half(cuts[-1][1]):
+                    # print("Next cut is to the top left half of the cake")
+                    cuts.append(self.go_to_top_left_corner())
+                    # Go to next index
+                    # print(
+                    #     "Going to next index, appending cut to (",
+                    #     x_cuts_indices[x_cuts_indices.index(cut) + 1],
+                    #     ", 0)",
+                    # )
+                    cuts.append([x_cuts_indices[x_cuts_indices.index(cut) + 1], 0])
+                    # if next cut is on right half of the cake
+                elif next_cut >= cake_width / 2 and self.is_on_top_half(cuts[-1][1]):
+                    # print("Next cut is to the top right half of the cake")
+                    cuts.append(self.go_to_top_right_corner(cake_width))
+                    # Go to next index
+                    # print(
+                    #     "Going to next index, appending cut to (",
+                    #     x_cuts_indices[x_cuts_indices.index(cut) + 1],
+                    #     ", 0)",
+                    # )
+                    cuts.append([x_cuts_indices[x_cuts_indices.index(cut) + 1], 0])
+
+        return cuts
+
+    def horizontal_cut(self, y_cuts_indices, cake_len, cake_width, curr_pos):
+
+        cuts = [curr_pos]
+
+        print(cuts[-1][1])
+
+        if self.is_on_top_half(cuts[-1][1]):
+            cuts.append(self.go_to_top_right_corner(cake_width))
+            cuts.append(self.go_to_top_right_corner(cake_width, False))
+            cuts.append([cake_width, y_cuts_indices[0]])
+
+        # if on bottom half of cake, go to bottom right corner
+        if self.is_on_bottom_half(cuts[-1][1], cake_len):
+            cuts.append(self.go_to_bottom_right_corner(cake_width))
+            cuts.append(self.go_to_bottom_right_corner(cake_width, False))
+            cuts.append([cake_width, y_cuts_indices[0]])
+
+        # Start the first cut at (0, y_cuts_indices[0])
+        cuts.append([0, y_cuts_indices[0]])
+        # print(f"Init at (0, {y_cuts_indices[0]})")
+
+        for cut in y_cuts_indices:
+
+            # if the current location is on the left half of the cake, add cut to the right edge
+            if self.is_on_left_half(cuts[-1][0]):
+                # print("Location is on the left edge")
+                # print("Appending cut to traverse to right edge")
+                cuts.append([cake_width, cut])
+
+            # if the location is on the right half of the cake, add cut to the left edge
+            elif self.is_on_right_half(cuts[-1][0], cake_width):
+                # print("Location is on the right edge")
+                # print("Appending cut to traverse to left edge")
+                cuts.append([0, cut])
+
+            # if there is a next cut after the current cut
+            if cut != y_cuts_indices[-1]:
+                next_cut = y_cuts_indices[y_cuts_indices.index(cut) + 1]
+                # print("There is a next cut after the current cut")
+
+                # if the next cut is in the top half of the cake
+                if next_cut < cake_len / 2 and self.is_on_left_half(cuts[-1][0]):
+                    # print("Next cut is in the top left half of the cake")
+                    cuts.append(self.go_to_top_left_corner(False))
+                    # move to next index and append cut to (cake_width, next_cut)
+                    # print(f"Going to next index, appending cut to ({0}, {next_cut})")
+                    cuts.append([0, next_cut])
+
+                # if the next cut is in the bottom half of the cake
+                elif next_cut >= cake_len / 2 and self.is_on_left_half(cuts[-1][0]):
+                    # print("Next cut is in the bottom left half of the cake")
+                    cuts.append(self.go_to_bottom_left_corner(cake_len, False))
+                    # move to next index and append cut to (cake_width, next_cut)
+                    # print(f"Going to next index, appending cut to ({0}, {next_cut})")
+                    cuts.append([0, next_cut])
+
+                # if the next cut is in the top half of the cake
+                elif next_cut < cake_len / 2 and self.is_on_right_half(
+                    cuts[-1][0], cake_width
+                ):
+                    # print("Next cut is in the top right half of the cake")
+                    cuts.append(self.go_to_top_right_corner(cake_width, False))
+                    # move to next index and append cut to (0, next_cut)
+                    # print(f"Going to next index, appending cut to (0, {next_cut})")
+                    cuts.append([cake_width, next_cut])
+
+                # if the next cut is in the bottom half of the cake
+                elif next_cut >= cake_len / 2 and self.is_on_right_half(
+                    cuts[-1][0], cake_width
+                ):
+                    # print("Next cut is in the bottom right half of the cake")
+                    cuts.append(
+                        self.go_to_bottom_right_corner(cake_width, cake_len, False)
+                    )
+                    # move to next index and append cut to (0, next_cut)
+                    # print(f"Going to next index, appending cut to (0, {next_cut})")
+                    cuts.append([cake_width, next_cut])
+
+        return cuts
 
 
 def invalid_knife_position(pos, current_percept):
