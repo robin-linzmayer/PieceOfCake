@@ -1,6 +1,7 @@
 from typing import List, Tuple, Callable
 from sklearn.mixture import GaussianMixture
 import numpy as np
+import math
 
 import logging
 import constants
@@ -14,15 +15,6 @@ def get_polygon_areas(polygons):
     sorted_polygons = sorted(polygons_with_area, key=lambda x: x[1])
     return sorted_polygons  # Each tuple is (index, area)
 
-def create_ratio_groups(sorted_requests, group_size):
-    """Creates groups from sorted_requests where each group maintains a consistent ratio progression."""
-    groups = [[] for _ in range(group_size)]
-    for i, element in enumerate(sorted_requests):
-        group_index = i % group_size
-        groups[group_index].append(element)
-    transposed_groups = [list(group) for group in zip(*groups)]
-    return transposed_groups
-
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
                  precomp_dir: str, tolerance: int) -> None:
@@ -31,6 +23,9 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cake_width = None
+        self.cut_coords = None
+        self.splits = 0
+        self.best_ratio = [float('inf'), -1]
 
     def can_cake_fit_in_plate(self, cake_piece, radius=12.5):
         cake_points = np.array(
@@ -62,76 +57,6 @@ class Player:
                     penalty += penalty_percentage
         return penalty
 
-    def determine_optimal_horizontal_cuts(self, groups, max_cuts=3) -> int:
-        """Determine the optimal number of horizontal cuts based on group ratios."""
-        best_num_cuts = 0
-        best_ratio_variance = float('inf')
-
-        # Calculate group sum ratios to compare against horizontal cuts
-        group_sums = [sum(group) for group in groups]
-        total_sum = sum(group_sums)
-        normalized_ratios = [group_sum / total_sum for group_sum in group_sums]
-
-        # Test each possible number of horizontal cuts
-        for num_cuts in range(1, max_cuts + 1):
-            # Calculate the expected segment ratios for `num_cuts` horizontal cuts
-            segment_ratios = [(i + 1) / (num_cuts + 1) for i in range(num_cuts)]
-            
-            # Measure the variance in ratio alignment with group sums
-            ratio_variance = np.var([abs(seg - norm) for seg, norm in zip(segment_ratios, normalized_ratios[:num_cuts])])
-            
-            # Update if this number of cuts has the lowest variance
-            if ratio_variance < best_ratio_variance:
-                best_ratio_variance = ratio_variance
-                best_num_cuts = num_cuts
-
-        return best_num_cuts
-    
-    def get_ratios(self, groups):
-        group_sums = [sum(group) for group in groups]
-        total_sum = sum(group_sums)
-        normalized_ratios = [group_sum / total_sum for group_sum in group_sums]
-        return normalized_ratios
-    
-    def simulate_subgame(self, requests: List[float]) -> Tuple[int, List[List[float]], float]:
-        """Simulate the entire subgame, pre-determining the best path of cuts based on penalty."""
-        best_cut_config = None
-        best_penalty = float('inf')
-        best_cut_coords = []
-
-        # Iterate over possible numbers of cuts (0 to 3 for this example)
-        for i in range(4):
-            # Generate vertical cuts and group requests for ratio consistency
-            vertical_cuts, groups = self.generate_vertical_cuts(requests, num_cuts=i)
-            ratios = self.get_ratios(groups)
-
-            # Inject crumbs and horizontal cuts
-            cut_coords = inject_crumb_coords(vertical_cuts, self.cake_len, self.cake_width)
-            cut_coords = inject_horizontal_cuts(ratios, cut_coords, self.cake_len, self.cake_width, i)
-
-            # Compute assignment and penalty for this configuration
-            penalty = self._calculate_penalty(lambda polys, reqs: self.assign_pieces(reqs, polys))
-
-            print(f"Configuration {i}: Cut Coords: {cut_coords}, Penalty: {penalty}")
-
-            # Update best configuration if this one has a lower penalty
-            # if penalty < best_penalty:
-            #     best_penalty = penalty
-            #     best_cut_config = (i, cut_coords)
-
-            if i == 3:
-                best_penalty = penalty
-                best_cut_config = (i, cut_coords)
-
-
-        # Store the best configuration's cuts and penalty for retrieval in `move`
-        best_num_hor_cuts, best_cut_coords = best_cut_config
-        self.best_cut_coords = best_cut_coords
-        self.best_penalty = best_penalty
-        print(f"Optimal configuration selected: Cuts: {best_cut_coords}, Penalty: {best_penalty}")
-
-        return best_num_hor_cuts, best_cut_coords, best_penalty
-
     def move(self, current_percept) -> Tuple[int, List[int]]:
         polygons = current_percept.polygons
         turn_number = current_percept.turn_number
@@ -142,26 +67,48 @@ class Player:
 
         self.polygons = polygons
         self.requests = requests
-
-        print('Turn', turn_number, '\n')
-
-        # Run the subgame simulation only on the first turn
-        if turn_number == 1:
-            _, self.best_cut_coords, self.best_penalty = self.simulate_subgame(requests)
-
-        # Use the pre-determined best path of cuts on each turn
-        if turn_number == 1:
-            return constants.INIT, self.best_cut_coords[0]
-
-        if turn_number < len(self.best_cut_coords) + 1:
-            return constants.CUT, self.best_cut_coords[turn_number - 1]
+                
+        # Compute assignment and penalty for this configuration
+        # penalty = self._calculate_penalty(lambda polys, reqs: self.assign_pieces(reqs, polys))
+        # print("penalty",num_hor_cuts, penalty)
+        # # Update best configuration if this one has a lower penalty
+        # if penalty < best_penalty:
+        #     best_penalty = penalty
+        #    best_cut_config = (num_hor_cuts, cut_coords)
         
-        # Assign pieces after all cuts are completed
+        # Use the best configuration’s cuts
+        # best_num_hor_cuts, best_cut_coords = best_cut_config
+
+        if turn_number == 1:
+                    # num_hor_cuts = 2
+            self.splits = calc_num_splits(requests, self.cake_len)
+
+            if self.splits >= 1:
+                # Generate vertical cuts based on requests and grouping ratio
+                vertical_cuts = self.generate_vertical_cuts(requests, num_cuts=self.splits) # Preserving vertical grouping ratios
+            else:
+                vertical_cuts = self.generate_vertical_cuts(requests, num_cuts=0, final=True) # Preserving vertical grouping ratios
+            
+            # Inject the specified number of horizontal cuts
+            self.cut_coords = inject_crumb_coords(vertical_cuts, self.cake_len, self.cake_width)
+            self.cut_coords = inject_horizontal_cuts(self.cut_coords, self.cake_len, self.cake_width, self.splits)
+
+            return constants.INIT, self.cut_coords[0]
+        
+        if turn_number < len(self.cut_coords) + 1:
+            return constants.CUT, self.cut_coords[turn_number - 1]
+        
+        # areas =[i.area for i in polygons]
+        # assignment = sorted(range(len(areas)), key=lambda x: areas[x], reverse=True)
+        # print(assignment[:len(requests)])
+        # return constants.ASSIGN, assignment[:len(requests)][::-1]
+
         assignment = self.assign_pieces(requests, polygons)
         return constants.ASSIGN, assignment
     
     def assign_pieces(self, requests: List[float], polygons: List[float]) -> List[int]:
         """Assign each request to the polygon with the closest area, minimizing the sum of differences."""
+        
         assignment = [-1] * len(requests)
         
         requests_sorted = sorted(enumerate(requests), key=lambda x: x[1])
@@ -192,12 +139,13 @@ class Player:
 
         return assignment
 
-    def generate_vertical_cuts(self, requests, num_cuts=0):
+    def generate_vertical_cuts(self, requests, num_cuts, final=False):
         """Generates vertical cuts with consistent ratio grouping for requests."""
         
+        # Copy requests to avoid modifying the original list
         requests_copy = requests[:]
         group_size = num_cuts + 1
-        fakes = []
+        #group_size = num_cuts + 1 if isinstance(num_cuts, int) else len(requests_copy) // 3
 
         # Ensure the number of requests is a multiple of the group size
         if len(requests_copy) % group_size != 0:
@@ -209,20 +157,47 @@ class Player:
             smallest_cluster_mean = gmm.means_.flatten()[np.argmin(np.unique(gmm.predict(np.array(requests_copy).reshape(-1, 1)), return_counts=True)[1])]
             requests_copy.extend([smallest_cluster_mean] * required_requests)
 
-        # Sort requests and create groups to maintain consistent ratios
+        # Sort requests and divide into groups based on the specified group size
         sorted_requests = sorted(requests_copy)
-        groups = create_ratio_groups(sorted_requests, group_size)
+        groups = [sorted_requests[i:i + group_size] for i in range(0, len(sorted_requests), group_size) if len(sorted_requests[i:i + group_size]) == group_size]
+  
+        # Calculate average ratios for consistent group scaling
+        avg_ratios = [sum(group[j + 1] / group[j] for group in groups if group[j] != 0) / len(groups) for j in range(group_size - 1)]
+
+        # bail on this split if it sucks
+        if not final:
+            ratio = max(avg_ratios) ** self.splits
+            if ratio > 1 + self.tolerance * 0.01:
+                if ratio < self.best_ratio[0]:
+                    self.best_ratio = [ratio, self.splits]
+
+                if self.splits < len(requests):
+                    self.splits += 1
+                    return self.generate_vertical_cuts(requests, self.splits)
+                else:
+                    self.splits = self.best_ratio[1]
+                    return self.generate_vertical_cuts(requests, self.splits, final=True)
+        
+        # Adjust groups to align with average ratios for consistency
+        for group in groups:
+            for j in range(group_size - 1):
+                group[j + 1] = group[j] * avg_ratios[j]
 
         # Generate x-widths for vertical cuts based on adjusted groups
         x_widths = [sum(group) / self.cake_len for group in groups]
-        x_coords = [round(sum(x_widths[:i+1]), 2) for i in range(len(x_widths))]
-
-        # Format x and y coordinates for vertical cuts
-        x_coords = [x for coord in x_coords for x in [coord, coord]]
+        x_widths.append(self.cake_width - sum(x_widths))
+        x_coords = [x_widths[0]]
+        for i in range(1, len(x_widths)):
+            x_coords.append(x_coords[i - 1] + x_widths[i])
+        # x_coords = [round(sum(x_widths[:i+1]), 2) for i in range(len(x_widths))]
+        x_coords = [round(x, 2) for x in x_coords for _ in range(2)]
         y_coords = [0, self.cake_len, self.cake_len, 0]
+        # Format x and y coordinates for vertical cuts
+        # x_coords = [x for coord in x_coords for x in [coord, coord]]
+        # y_coords = [0, self.cake_len, self.cake_len, 0]
         vertical_cuts = [[x, y] for x, y in zip(x_coords, y_coords * (len(x_coords) // 4))]
 
-        return vertical_cuts, groups
+        return vertical_cuts
 
 def inject_crumb_coords(vertical_cuts, cake_len, cake_width):
     final_cuts = []
@@ -241,42 +216,31 @@ def get_crumb_coord(cut, cake_len, cake_width):
     y = round(cake_len - knife_error, 2) if cut[1] == cake_len else knife_error
     return [x, y]
 
-def inject_horizontal_cuts(ratios, vertical_cuts, cake_len, cake_width, num_hor_cuts):
+def inject_horizontal_cuts(vertical_cuts, cake_len, cake_width, num_hor_cuts):
     """Injects a specified number of horizontal cuts into the cake."""
+
     horizontal_cuts = []
+    cake_width = round(cake_width, 2)
     total_y = 0
     for i in range(num_hor_cuts):
-        y = round(total_y + cake_len * ratios[i], 2)
-        total_y += cake_len * ratios[i]
-        print(total_y)
-        
-        if i % 2 == 0:
-            horizontal_cuts.extend([[0, y], [cake_width, y]])
-            if i + 1 < num_hor_cuts:
-                horizontal_cuts.extend([[cake_width, y], [cake_width, round(total_y + cake_len * ratios[i+1], 2)]])
-        else:
-            horizontal_cuts.extend([[cake_width, y], [0, y]])
-            if i + 1 < num_hor_cuts:
-                horizontal_cuts.extend([[0, y], [0, round(total_y + cake_len * ratios[i+1], 2)]])
+        total_y = round((cake_len / (num_hor_cuts + 1)) * (i + 1), 2)
+        horizontal_cuts.extend([ [0, total_y], [cake_width, total_y], [0, round(total_y+0.01, 2)], [0.01*(i+1), 0]])
 
-    horizontal_cuts = inject_hor_crumb_coords(horizontal_cuts, cake_len, cake_width)
+    horizontal_cuts.append([0, 0.01])
 
     return horizontal_cuts + vertical_cuts
 
-def inject_hor_crumb_coords(horizontal_cuts, cake_len, cake_width):
-    final_cuts = []
+def calc_num_splits(requests, cake_len):
+    """Calculates the number of horizontal cuts based on the number of requests and the number of vertical cuts."""
+    largest_req = max(requests)
 
-    for i, cut in enumerate(horizontal_cuts):
-        final_cuts.append(cut)
+    for i in range(50):
+        length = cake_len / (i + 1)
+        width = largest_req / length
 
-        if (i + 1) % 2 == 0:
-            final_cuts.append(get_hor_crumb_coord(cut, cake_len, cake_width))
+        diagonal = (length ** 2 + width ** 2) ** 0.5
 
-    return final_cuts
-
-def get_hor_crumb_coord(cut, cake_len, cake_width):
-    y = cake_len if cut[1] > (cake_len / 2) else 0
-    knife_error = 0.01
-    x = round(cake_width - knife_error, 2) if cut[0] == cake_width else knife_error
-
-    return [x, y]
+        if diagonal <= 25:
+            return i
+        
+    return 51
