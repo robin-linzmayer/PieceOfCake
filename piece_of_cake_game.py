@@ -283,6 +283,10 @@ class PieceOfCakeGame:
         # polygon = Polygon(polygon_points)
         # line = LineString(line_points)
 
+        # make polygon input geometry valid
+        if self.player_name == "Group 2":
+            polygon = polygon.convex_hull
+
         # Check if the line intersects with the polygon
         if not line.intersects(polygon):
             return [polygon]
@@ -301,7 +305,7 @@ class PieceOfCakeGame:
         self.turns += 1
 
         # Create the state object for the player
-        before_state = PieceOfCakeState(self.polygon_list, self.cur_pos, self.turns, self.requests, self.cake_len, self.cake_width)
+        before_state = PieceOfCakeState(self.polygon_list, self.cur_pos, self.turns, self.requests, self.cake_len, self.cake_width, self.player_time)
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
@@ -369,6 +373,7 @@ class PieceOfCakeGame:
 
     # Verify the action returned by the player
     def check_action(self, action):
+        print(action)
         print("Checking action: ", action)
         if action is None:
             print("No action returned")
@@ -433,7 +438,7 @@ class PieceOfCakeGame:
             # Check if the next position is on the boundary of the cake
             if self.invalid_knife_position(action[1]):
                 return False
-
+            
             # If the next position is same then the cut is invalid
             if self.cur_pos[0] == cur_x and self.cur_pos[1] == cur_y:
                 return False
@@ -520,7 +525,6 @@ class PieceOfCakeGame:
             return True
 
         # Step 1: Get the points on the cake piece and store as numpy array
-
         cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
 
         # Step 2: Find the minimum bounding circle of the cake piece

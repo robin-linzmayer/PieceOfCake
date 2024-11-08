@@ -59,6 +59,7 @@ class Player:
         requests = current_percept.requests
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
+        time_remaining = current_percept.time_remaining
 
         if turn_number == 1:
             print()
