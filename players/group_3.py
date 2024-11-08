@@ -1,71 +1,26 @@
+import bisect
 import logging
+import math
 import os
 import pickle
 from collections import deque
-from typing import List, Tuple
 from enum import Enum
+from itertools import accumulate
+from typing import List, Tuple
 
-import miniball
 import numpy as np
+import pulp
 from scipy.optimize import linear_sum_assignment
 from shapely.geometry import LineString, Polygon
 from shapely.ops import split
+from sympy import divisors
+import miniball
 import matplotlib.pyplot as plt
-from hyperopt import fmin, tpe, hp, rand, anneal
 import optuna
 
 import constants
 
-class SearchMethod(Enum):
-    UNIFORM = 'uniform'
-    NORMAL = 'normal'
-    LOCAL = 'local'
-
-def assign_polygons_to_requests(polygons, requests, tolerance):
-    num_requests = len(requests)
-    num_polygons = len(polygons)
-
-    cost_matrix = np.full((num_requests, num_polygons), fill_value=1e6)
-
-    for i, request_area in enumerate(requests):
-        for j, polygon in enumerate(polygons):
-            piece_area = polygon.area
-
-            size_difference = abs(piece_area - request_area)
-            percentage_difference = (size_difference / request_area) * 100
-            
-            if percentage_difference <= tolerance:
-                area_penalty = 0
-            else:
-                area_penalty = percentage_difference
-                
-            fits_on_plate = can_cake_fit_in_plate(polygon)
-            plate_penalty = 0 if fits_on_plate else 1000
-
-            total_penalty = area_penalty + plate_penalty
-
-            cost_matrix[i, j] = total_penalty
-
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    total_penalty = cost_matrix[row_ind, col_ind].sum()
-
-    assignment = [-1] * num_requests
-    assigned_polygons = set()
-
-    for req_idx, poly_idx in zip(row_ind, col_ind):
-        penalty = cost_matrix[req_idx, poly_idx]
-        if penalty < 1e5:
-            assignment[req_idx] = int(poly_idx)
-            assigned_polygons.add(poly_idx)
-        else:
-            pass
-
-    return total_penalty, assignment
-    
-def can_cake_fit_in_plate(cake_piece, radius=12.5):
-    cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
-    res = miniball.miniball(cake_points)
-    return res["radius"] <= radius
+optuna.logging.set_verbosity(optuna.logging.ERROR)
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -85,10 +40,7 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
         
-        self.num_splits = 1
-        self.horizontal_split_gap = 24.6
         self.triangle_viable = 23.507
-        self.vertical_split_gap = 4
         self.preplanned_moves = deque()
         self.request_served = 0
         
@@ -99,36 +51,6 @@ class Player:
         if current_percept.cake_len <= self.triangle_viable:
             return self.triangle()
         return self.quadrangle()
-
-    def init_cuts(self, current_percept) -> Tuple[List[List[int]]]:
-        cake_len, cake_width = current_percept.cake_len, current_percept.cake_width
-
-        working_pairs = []
-        extra_pieces = 0
-        extra_area = cake_len * cake_width * 0.05
-        while not working_pairs:
-            mod_requests = current_percept.requests
-            mod_requests += [extra_area / extra_pieces for _ in range(extra_pieces)]
-            factor_pairs = self.find_factor_pairs(len(mod_requests))
-
-            for factor_pair in factor_pairs:
-                num_rows, num_cols = factor_pair
-                row_height, col_width = cake_len / num_rows, cake_width / num_cols
-                fits_plate = np.sqrt(row_height**2 + col_width**2) <= 25
-                if fits_plate:
-                    working_pairs.append(factor_pair)
-
-            extra_pieces += 1
-
-        cuts = {}
-        for working_pair in working_pairs:
-            num_rows, num_cols = working_pair
-            row_height, col_width = cake_len / num_rows, cake_width / num_cols
-            horizontal_cuts = [[i * row_height, i * row_height] for i in range(1, num_rows)]
-            vertical_cuts = [[i * col_width, i * col_width] for i in range(1, num_cols)]
-            cuts[working_pair] = (horizontal_cuts, vertical_cuts)
-
-        return cuts
 
     def quadrangle(self):
         polygons = self.current_percept.polygons
@@ -142,14 +64,10 @@ class Player:
             self.grid_optimizer = GridOptimizer(
                 cake_width=cake_width,
                 cake_len=cake_len,
-                num_row_divisions=4,
-                num_col_divisions=5,
                 requests=requests,
                 tolerance=self.tolerance,
-                learning_rate=0.01,
-                convergence_threshold=1e-4
             )
-            self.grid_optimizer.run_optimization(max_evals=1000, method=SearchMethod.UNIFORM)
+            self.grid_optimizer.run_optimization(max_evals=2000)
             
             return constants.INIT, [0, 0.01]
         
@@ -260,54 +178,18 @@ class Player:
         return constants.ASSIGN, assignment
 
 class GridOptimizer:
-    def __init__(self, cake_width, cake_len, num_row_divisions, num_col_divisions, requests, tolerance=5,
-                 learning_rate=0.01, max_iterations=100, convergence_threshold=1e-4):
-        """
-        Initialize the GridOptimizer with cake dimensions, grid parameters, and optimization settings.
-
-        Parameters:
-        - cake_width: float, width of the cake.
-        - cake_len: float, length of the cake.
-        - num_row_divisions: int, number of desired rows (vertical divisions).
-        - num_col_divisions: int, number of desired columns (horizontal divisions).
-        - requests: List[float], list of requested areas.
-        - tolerance: float, tolerance percentage for area differences.
-        - learning_rate: float, step size for gradient descent updates.
-        - max_iterations: int, maximum number of iterations for gradient descent.
-        - convergence_threshold: float, threshold for convergence based on gradient norm.
-        """
+    def __init__(self, cake_width, cake_len, requests, tolerance=5):
         self.cake_width = cake_width
         self.cake_len = cake_len
-        self.num_row_divisions = num_row_divisions  # Desired number of rows
-        self.num_col_divisions = num_col_divisions  # Desired number of columns
-        self.num_horizontal_cuts = self.num_row_divisions - 1  # Number of horizontal cuts
-        self.num_vertical_cuts = self.num_col_divisions - 1   # Number of vertical cuts
-
         self.requests = requests
         self.tolerance = tolerance
-        self.learning_rate = learning_rate
-        self.convergence_threshold = convergence_threshold
 
-        self.horizontal_cuts = []  # Each cut is [(x1, y1), (x2, y2)]
+        self.horizontal_cuts = []
         self.vertical_cuts = []
 
-        y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
-        for y in y_positions:
-            self.horizontal_cuts.append([(0, y), (self.cake_width, y)])
-
-        x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
-        for x in x_positions:
-            self.vertical_cuts.append([(x, 0), (x, self.cake_len)])
-        
         self.polygons = []
 
     def generate_polygons(self):
-        """
-        Generate polygons formed by the cuts defined by lines with endpoints on opposite edges.
-
-        Returns:
-        - polygons: List[Polygon], list of Shapely Polygon objects representing the cake pieces.
-        """
         cake_polygon = Polygon([
             (0, 0),
             (self.cake_width, 0),
@@ -337,16 +219,6 @@ class GridOptimizer:
         return polygons
 
     def divide_polygon(self, polygon, line):
-        """
-        Divide a polygon by a line into two or more polygons.
-
-        Parameters:
-        - polygon: A Shapely Polygon object.
-        - line: A LineString object representing the cutting line.
-
-        Returns:
-        - List of Shapely Polygon objects resulting from the division.
-        """
         if not line.intersects(polygon):
             return [polygon]
 
@@ -354,12 +226,6 @@ class GridOptimizer:
         return list(result.geoms)
 
     def cost_function(self):
-        """
-        Compute the total penalty using the assignment function.
-
-        Returns:
-        - total_penalty: float, the total penalty calculated from the assignment.
-        """
         polygons = self.generate_polygons()
         total_penalty, _ = assign_polygons_to_requests(
             polygons=polygons,
@@ -369,17 +235,56 @@ class GridOptimizer:
         if len(polygons) > self.num_col_divisions * self.num_row_divisions:
             total_penalty += 100000
         return total_penalty
+    
+    def get_best_grid_cuts(self):
+        num_requests = len(self.requests)
+        min_penalty = float("inf")
+        best_horizontal_cuts = []
+        best_vertical_cuts = []
+        
+        for rows in range(1, 11):
+            cols = (num_requests + rows - 1) // rows
+            
+            self.num_row_divisions = rows
+            self.num_col_divisions = cols
+
+            row_height = self.cake_len / rows
+            col_width = self.cake_width / cols
+
+            horizontal_cuts = [row_height * i for i in range(1, rows)]
+            vertical_cuts = [col_width * i for i in range(1, cols)]
+
+            self.horizontal_cuts = [
+                [(0, y), (self.cake_width, y)] for y in horizontal_cuts
+            ]
+            self.vertical_cuts = [
+                [(x, 0), (x, self.cake_len)] for x in vertical_cuts
+            ]
+
+            penalty = self.cost_function()
+
+            if penalty < min_penalty:
+                min_penalty = penalty
+                best_horizontal_cuts = horizontal_cuts
+                best_vertical_cuts = vertical_cuts
+                best_rows = rows
+                best_cols = cols
+
+        self.num_row_divisions = best_rows
+        self.num_horizontal_cuts = best_rows - 1
+        self.num_col_divisions = best_cols
+        self.num_vertical_cuts = best_cols - 1
+        
+        self.horizontal_cuts = [
+            [(0, y), (self.cake_width, y)] for y in best_horizontal_cuts
+        ]
+        self.vertical_cuts = [
+            [(x, 0), (x, self.cake_len)] for x in best_vertical_cuts
+        ]
+        
+        return best_vertical_cuts, best_horizontal_cuts, min_penalty
 
     def objective(self, params):
-        """
-        Objective function for optimization. Updates the cut positions based on sampled parameters.
-
-        Parameters:
-        - params: dict, parameters sampled by Hyperopt.
-
-        Returns:
-        - total_penalty: float, the total penalty calculated from the assignment.
-        """
         for key in params:
             if 'h_y' in key:
                 params[key] = max(0, min(self.cake_len, params[key]))
@@ -398,45 +303,66 @@ class GridOptimizer:
 
         return self.cost_function()
     
-    def run_optimization(self, max_evals=1000, range_x=0.1, range_y=0.1, method=SearchMethod.UNIFORM):
-        if method == SearchMethod.UNIFORM:
-            self.run_optimization_uniform(max_evals, range_x, range_y)
-        elif method == SearchMethod.NORMAL:
-            self.run_optimization_normal(max_evals, range_x, range_y)
-        elif method == SearchMethod.LOCAL:
-            self.run_local_search(max_evals)
-        else:
-            raise ValueError(f"Unknown optimization method: {method}")
-
-    def run_optimization_uniform(self, max_evals=1000, range_x=0.1, range_y=0.1):
+    def run_optimization(self, max_evals=1000):
         """
-        Run the optimization using Optuna.
+        Run the optimization using Optuna with an initial trial based on precomputed cuts.
 
         Updates the cut positions to minimize the total penalty.
         """
-        h_y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
-        v_x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
+        v_x_positions, h_y_positions, _ = self.get_best_grid_cuts()
 
-        delta_y = self.cake_len * range_y
-        delta_x = self.cake_width * range_x
+        temp_x = [0] + v_x_positions.copy() + [self.cake_width]
+        temp_y = [0] + h_y_positions.copy() + [self.cake_len]
+        
+        x_ranges = []
+        y_ranges = []
+        
+        for i in range(1, len(temp_x) - 1):
+            x_ranges.append([(temp_x[i] - temp_x[i - 1]) / 2, (temp_x[i + 1] - temp_x[i]) / 2])
+
+        for i in range(1, len(temp_y) - 1):
+            y_ranges.append([(temp_y[i] - temp_y[i - 1]) / 2, (temp_y[i + 1] - temp_y[i]) / 2])
 
         def objective(trial):
             params = {
-                **{f'h_y1_{i}': trial.suggest_uniform(f'h_y1_{i}', max(0, y - delta_y), min(self.cake_len, y + delta_y))
-                for i, y in enumerate(h_y_positions)},
-                **{f'h_y2_{i}': trial.suggest_uniform(f'h_y2_{i}', max(0, y - delta_y), min(self.cake_len, y + delta_y))
-                for i, y in enumerate(h_y_positions)},
-                **{f'v_x1_{i}': trial.suggest_uniform(f'v_x1_{i}', max(0, x - delta_x), min(self.cake_width, x + delta_x))
-                for i, x in enumerate(v_x_positions)},
-                **{f'v_x2_{i}': trial.suggest_uniform(f'v_x2_{i}', max(0, x - delta_x), min(self.cake_width, x + delta_x))
-                for i, x in enumerate(v_x_positions)}
+                **{f'h_y1_{i}': trial.suggest_float(
+                    f'h_y1_{i}', 
+                    max(0, y - y_ranges[i][0]), 
+                    min(self.cake_len, y + y_ranges[i][1])
+                ) for i, y in enumerate(h_y_positions)},
+                
+                **{f'h_y2_{i}': trial.suggest_float(
+                    f'h_y2_{i}', 
+                    max(0, y - y_ranges[i][0]), 
+                    min(self.cake_len, y + y_ranges[i][1])
+                ) for i, y in enumerate(h_y_positions)},
+                
+                **{f'v_x1_{i}': trial.suggest_float(
+                    f'v_x1_{i}', 
+                    max(0, x - x_ranges[i][0]), 
+                    min(self.cake_width, x + x_ranges[i][1])
+                ) for i, x in enumerate(v_x_positions)},
+                
+                **{f'v_x2_{i}': trial.suggest_float(
+                    f'v_x2_{i}', 
+                    max(0, x - x_ranges[i][0]), 
+                    min(self.cake_width, x + x_ranges[i][1])
+                ) for i, x in enumerate(v_x_positions)}
             }
 
             return self.objective(params)
 
         study = optuna.create_study(direction="minimize")
-        study.optimize(objective, n_trials=max_evals)
-
+        
+        initial_trial = {
+            **{f'h_y1_{i}': y for i, y in enumerate(h_y_positions)},
+            **{f'h_y2_{i}': y for i, y in enumerate(h_y_positions)},
+            **{f'v_x1_{i}': x for i, x in enumerate(v_x_positions)},
+            **{f'v_x2_{i}': x for i, x in enumerate(v_x_positions)}
+        }
+        
+        study.enqueue_trial(initial_trial)
+        study.optimize(objective, n_trials=max_evals, timeout=1800)
         best_params = study.best_params
 
         self.horizontal_cuts = [
@@ -448,215 +374,7 @@ class GridOptimizer:
             [(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)]
             for i in range(self.num_vertical_cuts)
         ]
-
-        self.generate_polygons()
-        self.display_polygons(self.polygons)
-
-        print("Best horizontal lines:")
-        for i in range(self.num_horizontal_cuts):
-            print([(0, best_params[f'h_y1_{i}']), (self.cake_width, best_params[f'h_y2_{i}'])])
-
-        print("Best vertical lines:")
-        for i in range(self.num_vertical_cuts):
-            print([(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)])
-    
-    # def run_optimization_uniform(self, max_evals=1000, range_x=0.1, range_y=0.1):
-    #     """
-    #     Run the optimization using Hyperopt's Tree-structured Parzen Estimator (TPE).
-
-    #     Updates the cut positions to minimize the total penalty.
-    #     """
-    #     h_y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
-    #     v_x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
-
-    #     delta_y = self.cake_len * range_x 
-    #     delta_x = self.cake_width * range_y
-
-    #     space = {
-    #         **{f'h_y1_{i}': hp.uniform(f'h_y1_{i}',
-    #                                     max(0, y - delta_y),
-    #                                     min(self.cake_len, y + delta_y))
-    #         for i, y in enumerate(h_y_positions)},
-    #         **{f'h_y2_{i}': hp.uniform(f'h_y2_{i}',
-    #                                     max(0, y - delta_y),
-    #                                     min(self.cake_len, y + delta_y))
-    #         for i, y in enumerate(h_y_positions)},
-    #         **{f'v_x1_{i}': hp.uniform(f'v_x1_{i}',
-    #                                     max(0, x - delta_x),
-    #                                     min(self.cake_width, x + delta_x))
-    #         for i, x in enumerate(v_x_positions)},
-    #         **{f'v_x2_{i}': hp.uniform(f'v_x2_{i}',
-    #                                     max(0, x - delta_x),
-    #                                     min(self.cake_width, x + delta_x))
-    #         for i, x in enumerate(v_x_positions)},
-    #     }
-
-    #     best_params = fmin(
-    #         fn=self.objective,
-    #         space=space,
-    #         algo=tpe.suggest,
-    #         max_evals=max_evals
-    #     )
-
-    #     self.horizontal_cuts = [
-    #         [(0, best_params[f'h_y1_{i}']), (self.cake_width, best_params[f'h_y2_{i}'])]
-    #         for i in range(self.num_horizontal_cuts)
-    #     ]
-
-    #     self.vertical_cuts = [
-    #         [(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)]
-    #         for i in range(self.num_vertical_cuts)
-    #     ]
-
-    #     self.generate_polygons()
-    #     self.display_polygons(self.polygons)
-
-    #     print("Best horizontal lines:")
-    #     for i in range(self.num_horizontal_cuts):
-    #         print([
-    #             (0, best_params[f'h_y1_{i}']), 
-    #             (self.cake_width, best_params[f'h_y2_{i}'])
-    #         ])
-
-    #     print("Best vertical lines:")
-    #     for i in range(self.num_vertical_cuts):
-    #         print([
-    #             (best_params[f'v_x1_{i}'], 0), 
-    #             (best_params[f'v_x2_{i}'], self.cake_len)
-    #         ])
-    
-    def run_optimization_normal(self, max_evals=1000, range_x=0.005, range_y=0.005):
-        """
-        Run the optimization using Hyperopt's Tree-structured Parzen Estimator (TPE).
-
-        Updates the cut positions to minimize the total penalty.
-        """
-        h_y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
-        v_x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
-
-        delta_y = self.cake_len * range_y
-        delta_x = self.cake_width * range_x
-
-        space = {
-            **{f'h_y1_{i}': hp.normal(f'h_y1_{i}', y, delta_y)
-            for i, y in enumerate(h_y_positions)},
-            **{f'h_y2_{i}': hp.normal(f'h_y2_{i}', y, delta_y)
-            for i, y in enumerate(h_y_positions)},
-            **{f'v_x1_{i}': hp.normal(f'v_x1_{i}', x, delta_x)
-            for i, x in enumerate(v_x_positions)},
-            **{f'v_x2_{i}': hp.normal(f'v_x2_{i}', x, delta_x)
-            for i, x in enumerate(v_x_positions)},
-        }
-
-        best_params = fmin(
-            fn=self.objective,
-            space=space,
-            algo=tpe.suggest,
-            max_evals=max_evals
-        )
-
-        self.horizontal_cuts = [
-            [(0, best_params[f'h_y1_{i}']), (self.cake_width, best_params[f'h_y2_{i}'])]
-            for i in range(self.num_horizontal_cuts)
-        ]
-
-        self.vertical_cuts = [
-            [(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)]
-            for i in range(self.num_vertical_cuts)
-        ]
-
-        self.generate_polygons()
-        self.display_polygons(self.polygons)
-
-        print("Best horizontal lines:")
-        for i in range(self.num_horizontal_cuts):
-            print([
-                (0, best_params[f'h_y1_{i}']),
-                (self.cake_width, best_params[f'h_y2_{i}'])
-            ])
-
-        print("Best vertical lines:")
-        for i in range(self.num_vertical_cuts):
-            print([
-                (best_params[f'v_x1_{i}'], 0),
-                (best_params[f'v_x2_{i}'], self.cake_len)
-            ])
-    
-    def run_local_search(self, max_evals=1000):
-        delta = 0.1
-        # Initial parameters
-        h_y_positions = np.linspace(0, self.cake_len, self.num_row_divisions + 1)[1:-1]
-        v_x_positions = np.linspace(0, self.cake_width, self.num_col_divisions + 1)[1:-1]
-
-        # Initialize parameters and track best configuration
-        params = {}
-        for i, y in enumerate(h_y_positions):
-            params[f'h_y1_{i}'] = y
-            params[f'h_y2_{i}'] = y
-
-        for i, x in enumerate(v_x_positions):
-            params[f'v_x1_{i}'] = x
-            params[f'v_x2_{i}'] = x
-
-        # Set initial best loss and parameters
-        best_loss = self.objective(params)
-        best_params = params.copy()
-
-        for iter_num in range(max_evals):
-            print(f"Iteration {iter_num + 1}/{max_evals}, Current best loss: {best_loss}")
-            improved = False  # Track if any improvement happened in this iteration
-
-            # Test each parameter by increasing or decreasing it
-            for key in params:
-                original_value = params[key]
-
-                # Try increasing the parameter by delta
-                params[key] = min(original_value + delta, self.cake_len if 'h_y' in key else self.cake_width)
-                loss = self.objective(params)
-                if loss < best_loss:
-                    best_loss = loss
-                    best_params = params.copy()
-                    improved = True
-                else:
-                    # Try decreasing the parameter by delta if no improvement was found
-                    params[key] = max(original_value - delta, 0)
-                    loss = self.objective(params)
-                    if loss < best_loss:
-                        best_loss = loss
-                        best_params = params.copy()
-                        improved = True
-                    else:
-                        # Revert to original value if neither adjustment improved
-                        params[key] = original_value
-
-            # # Stop if no improvement was found during this iteration
-            if not improved:
-                print("No improvement found in this iteration. Stopping search.")
-                break
-
-        # Set cuts to the best parameters found
-        self.horizontal_cuts = [
-            [(0, best_params[f'h_y1_{i}']), (self.cake_width, best_params[f'h_y2_{i}'])]
-            for i in range(self.num_horizontal_cuts)
-        ]
-        self.vertical_cuts = [
-            [(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)]
-            for i in range(self.num_vertical_cuts)
-        ]
-
-        # Generate polygons and display
-        self.generate_polygons()
-        self.display_polygons(self.polygons)
-
-        # Output the best cut configuration
-        print("Best horizontal lines:")
-        for i in range(self.num_horizontal_cuts):
-            print([(0, best_params[f'h_y1_{i}']), (self.cake_width, best_params[f'h_y2_{i}'])])
-
-        print("Best vertical lines:")
-        for i in range(self.num_vertical_cuts):
-            print([(best_params[f'v_x1_{i}'], 0), (best_params[f'v_x2_{i}'], self.cake_len)])
-
+            
     def display_polygons(self, polygons):
         fig, ax = plt.subplots()
         ax.set_aspect('equal', 'box')
@@ -675,3 +393,49 @@ class GridOptimizer:
         plt.xlabel("Width")
         plt.ylabel("Length")
         plt.show()
+
+def assign_polygons_to_requests(polygons, requests, tolerance):
+    num_requests = len(requests)
+    num_polygons = len(polygons)
+
+    cost_matrix = np.full((num_requests, num_polygons), fill_value=1e6)
+
+    for i, request_area in enumerate(requests):
+        for j, polygon in enumerate(polygons):
+            piece_area = polygon.area
+
+            size_difference = abs(piece_area - request_area)
+            percentage_difference = (size_difference / request_area) * 100
+            
+            if percentage_difference <= tolerance:
+                area_penalty = 0
+            else:
+                area_penalty = percentage_difference
+                
+            fits_on_plate = can_cake_fit_in_plate(polygon)
+            plate_penalty = 0 if fits_on_plate else 1000
+
+            total_penalty = area_penalty + plate_penalty
+
+            cost_matrix[i, j] = total_penalty
+
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    total_penalty = cost_matrix[row_ind, col_ind].sum()
+
+    assignment = [-1] * num_requests
+    assigned_polygons = set()
+
+    for req_idx, poly_idx in zip(row_ind, col_ind):
+        penalty = cost_matrix[req_idx, poly_idx]
+        if penalty < 1e5:
+            assignment[req_idx] = int(poly_idx)
+            assigned_polygons.add(poly_idx)
+        else:
+            pass
+
+    return total_penalty, assignment
+    
+def can_cake_fit_in_plate(cake_piece, radius=12.5):
+    cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
+    res = miniball.miniball(cake_points)
+    return res["radius"] <= radius
