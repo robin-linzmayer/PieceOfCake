@@ -20,6 +20,9 @@ import miniball
 
 
 def can_cake_fit_in_plate(cake_piece, radius=12.5):
+    if cake_piece.area < 0.25:
+        return True
+
     if not isinstance(cake_piece, Polygon):
         raise TypeError("Expected a Polygon object.")
     cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
@@ -87,8 +90,9 @@ def assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int
 
     # Find the assignment with the lowest penalty
     min_penalty_index = penalties.index(min(penalties))
-    print(f"The best method is: {assignment_functions[min_penalty_index]}")
-    print(f"Here is the total penalty: {min(penalties)}")
+    # print(f"Best assignment: {assignment_functions[min_penalty_index]}")
+    # print(f"Penalty of hungarian_min_penalty: {penalties[0]}")
+    # print(f"Penalty of greedy_best_fit_assignment: {penalties[1]}")
     return assignments[min_penalty_index]
 
 
@@ -130,7 +134,7 @@ def greedy_best_fit_assignment(
         closest_area_diff = float("inf")
 
         for poly_idx, polygon in sorted_polygons:
-            if poly_idx in used_polygons:
+            if poly_idx in used_polygons or polygon.area < (10 - d):
                 continue
 
             # Check if the polygon fits on the plate
@@ -151,12 +155,59 @@ def greedy_best_fit_assignment(
                 min_penalty = penalty
                 closest_area_diff = abs(polygon.area - request_size)
 
+                # Early exit if penalty is zero
+                if penalty == 0:
+                    break
+
         if best_fit_polygon_idx is not None:
             assignment[request_idx] = best_fit_polygon_idx
             used_polygons.add(best_fit_polygon_idx)
 
     return assignment
 
+'''
+def greedy_best_fit_assignment(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+    # Filter polygons by area threshold at the start
+    min_area_threshold = 10 - 10 * (d / 100)
+    polygons = [polygon for polygon in polygons if polygon.area >= min_area_threshold]
+    
+    assignment = [-1] * len(requests)
+
+    for request_idx, request_size in enumerate(requests):
+        best_fit_polygon_idx = None
+        min_penalty = float("inf")
+        closest_area_diff = float("inf")
+
+        # Track index of the best polygon for this request
+        for poly_idx, polygon in enumerate(polygons):
+            # Check if the polygon fits on the plate
+            if not can_cake_fit_in_plate(polygon):
+                penalty = 100  # Full penalty for polygons that do not fit
+            else:
+                # Calculate area difference percentage for penalty
+                area_diff_percentage = abs(polygon.area - request_size) / request_size * 100
+                penalty = area_diff_percentage if area_diff_percentage > d else 0
+
+            # Update best fit if current polygon has a lower penalty or a closer area
+            if (penalty < min_penalty) or (
+                penalty == min_penalty and abs(polygon.area - request_size) < closest_area_diff
+            ):
+                best_fit_polygon_idx = poly_idx
+                min_penalty = penalty
+                closest_area_diff = abs(polygon.area - request_size)
+
+                # Early exit if penalty is zero
+                if penalty == 0:
+                    break
+
+        # Assign the best-fitting polygon to the request, if found
+        if best_fit_polygon_idx is not None:
+            assignment[request_idx] = best_fit_polygon_idx
+            # Remove the used polygon from the list
+            polygons.pop(best_fit_polygon_idx)
+
+    return assignment
+'''
 
 def dp_min_penalty(
     polygons: list[Polygon], requests: list[float], d: float
@@ -195,6 +246,7 @@ def dp_min_penalty(
     return assignment
 
 
+'''
 def hungarian_min_penalty(
     polygons: list[Polygon], requests: list[float], d: float
 ) -> list[int]:
@@ -209,17 +261,18 @@ def hungarian_min_penalty(
     num_polygons = len(polygons_copy)
     num_requests = len(requests_copy)
 
+    print(f"num_polygons: {num_polygons}")
+    print(f"num_requests: {num_requests}")
+
     # Add dummy requests or dummy polygons as needed
     if num_polygons > num_requests:
         num_dummy_requests = num_polygons - num_requests
         requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
-        print(f"Added {num_dummy_requests} dummy requests.")
     elif num_requests > num_polygons:
         num_dummy_polygons = num_requests - num_polygons
         polygons_copy += [
             Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])
         ] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
-        print(f"Added {num_dummy_polygons} dummy polygons.")
 
     # Build cost matrix (penalties)
     cost_matrix = []
@@ -227,7 +280,7 @@ def hungarian_min_penalty(
         row = []
         for polygon in polygons_copy:
             # Check if the polygon fits on the plate
-            if not can_cake_fit_in_plate(polygon):
+            if not can_cake_fit_in_plate(polygon) or polygon.area < 10 - d:
                 penalty = 100  # Full penalty if polygon doesn't fit
             else:
                 polygon_area = (
@@ -262,9 +315,126 @@ def hungarian_min_penalty(
         0 <= x < len(polygons) for x in assignment if x != -1
     ), "Indices in assignment should refer to valid polygons"
 
-    # Print for debugging
-    print("Assignment:", assignment)
-    print("Type of assignment:", type(assignment))
-
     # Return a copy to prevent unexpected modifications
     return assignment[:]
+'''
+
+
+
+# def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+#     # Define a zero area polygon as one with all coordinates (0, 0)
+#     def is_zero_area_polygon(polygon: Polygon) -> bool:
+#         return all(coord == (0, 0) for coord in polygon.exterior.coords)
+
+#     polygons_copy = polygons[:]
+#     requests_copy = requests[:]
+
+#     num_polygons = len(polygons_copy)
+#     num_requests = len(requests_copy)
+
+#     # Add dummy requests or dummy polygons as needed
+#     if num_polygons > num_requests:
+#         num_dummy_requests = num_polygons - num_requests
+#         requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
+#         print(f"Added {num_dummy_requests} dummy requests.")
+#     elif num_requests > num_polygons:
+#         num_dummy_polygons = num_requests - num_polygons
+#         polygons_copy += [Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
+#         print(f"Added {num_dummy_polygons} dummy polygons.")
+
+#     # Build cost matrix (penalties)
+#     cost_matrix = []
+#     for request_size in requests_copy:
+#         row = []
+#         for polygon in polygons_copy:
+#             polygon_area = polygon.area if not is_zero_area_polygon(polygon) else 0  # Handle zero area polygons
+#             if request_size == 0:  # No penalty for dummy requests
+#                 penalty = 0
+#             else:
+#                 area_diff = abs(polygon_area - request_size) / request_size * 100
+#                 penalty = area_diff if area_diff > d else 0
+#             row.append(penalty)
+#         cost_matrix.append(row)
+
+#     # Solve the assignment problem using the Hungarian algorithm
+#     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+#     # Prepare the final assignment, filtering out dummy requests and polygons
+#     assignment = [-1] * num_requests
+#     for i in range(len(row_ind)):
+#         if row_ind[i] < num_requests and col_ind[i] < num_polygons:
+#             assignment[int(row_ind[i])] = int(col_ind[i])
+
+#     """
+#     # Verify data type and format
+#     assert isinstance(assignment, list), "Assignment should be a list"
+#     assert all(isinstance(x, int) for x in assignment), "All elements in assignment should be integers"
+#     assert len(assignment) == len(requests), "Assignment length should match the number of requests"
+#     assert all(0 <= x < len(polygons) for x in assignment if x != -1), "Indices in assignment should refer to valid polygons"
+#     """
+
+#     # Print for debugging
+#     print("Assignment:", assignment)
+#     print("Type of assignment:", type(assignment))
+
+#     # Return a copy to prevent unexpected modifications
+#     return assignment[:]
+
+def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: float) -> list[int]:
+    # Define a zero area polygon as one with all coordinates (0, 0)
+    def is_zero_area_polygon(polygon: Polygon) -> bool:
+        return all(coord == (0, 0) for coord in polygon.exterior.coords)
+
+    # Calculate the area threshold
+    area_threshold = 10 - 10 * (d / 100)
+
+    # Filter out polygons with area below the threshold and keep their original indices
+    valid_polygons_with_indices = [(i, polygon) for i, polygon in enumerate(polygons) if polygon.area >= area_threshold]
+    valid_indices = [index for index, _ in valid_polygons_with_indices]
+    polygons_copy = [polygon for _, polygon in valid_polygons_with_indices]
+    requests_copy = requests[:]
+
+    num_polygons = len(polygons_copy)
+    num_requests = len(requests_copy)
+
+    # Add dummy requests or dummy polygons as needed
+    if num_polygons > num_requests:
+        num_dummy_requests = num_polygons - num_requests
+        requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
+        # print(f"Added {num_dummy_requests} dummy requests.")
+    elif num_requests > num_polygons:
+        num_dummy_polygons = num_requests - num_polygons
+        polygons_copy += [Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
+        # print(f"Added {num_dummy_polygons} dummy polygons.")
+
+    # Build cost matrix (penalties)
+    cost_matrix = []
+    for request_size in requests_copy:
+        row = []
+        for polygon in polygons_copy:
+            if not can_cake_fit_in_plate(polygon):
+                penalty = 100  # Full penalty if polygon doesn't fit on the plate
+            else:
+                polygon_area = polygon.area if not is_zero_area_polygon(polygon) else 0
+                if request_size == 0:  # No penalty for dummy requests
+                    penalty = 0
+                else:
+                    area_diff = abs(polygon_area - request_size) / request_size * 100
+                    penalty = area_diff if area_diff > d else 0
+            row.append(penalty)
+        cost_matrix.append(row)
+
+    # Solve the assignment problem using the Hungarian algorithm
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    # Prepare the final assignment, using the original indices for valid polygons
+    assignment = [-1] * num_requests
+    for i in range(len(row_ind)):
+        if row_ind[i] < num_requests and col_ind[i] < num_polygons:
+            assignment[row_ind[i]] = valid_indices[col_ind[i]]  # Map to original index
+
+    # print("Assignment:", assignment)
+    # print("Type of assignment:", type(assignment))
+
+    return assignment[:]
+
