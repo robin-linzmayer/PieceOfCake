@@ -236,92 +236,104 @@ class Player:
         else:
             if turn_number == 1:
 
+                strategies = []
+
                 try:
                     grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
                     best_x_cuts, best_y_cuts, grid_cut_losses = (
                         grid_cut.gradient_descent()
                     )
-                    print(f"Best loss: {grid_cut_losses.min()}")
+                    grid_loss = grid_cut_losses.min()
+                    strategies.append(([], grid_loss))
                 except Exception as e:
-                    print(f"Error: {e}")
+                    print(e)
 
-                cake_len = current_percept.cake_len
-                cake_width = current_percept.cake_width
+                try:
+                    gd_cuts, gd_loss = self.gradient_descent(
+                        requests, start_time, current_percept
+                    )
+                    strategies.append((gd_cuts, gd_loss))
+                except Exception as e:
+                    print(e)
 
-                num_cuts = len(requests)
-                num_restarts = 30
-                stagnant_limit = 20
-                min_loss = float("inf")
-                best_cuts = None
-                # num_steps = 100
-
-                for restart in range(num_restarts):
-
-                    # Time check
-                    if current_percept.time_remaining - time.time() + start_time < 60:
-                        break
-
-                    cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-                    loss = self.get_loss_from_cuts(cuts, current_percept)
-                    print(f"Restart {restart} Loss: {loss}")
-
-                    stagnant_steps = 0
-                    prev_loss = loss
-
-                    if loss < min_loss:
-                        best_cuts = copy.deepcopy(cuts)
-                        min_loss = loss
-
-                    # Gradient descent
-                    learning_rate = 0.1
-
-                    step = 0
-                    # while step < num_steps:
-                    while loss > 0.01 and stagnant_steps < stagnant_limit:
-                        gradients = self.get_gradient(loss, cuts, current_percept)
-
-                        cur_x, cur_y = cuts[0]
-                        for j in range(len(cuts)):
-                            cuts[j] = get_shifted_cut(
-                                cuts[j],
-                                -learning_rate * gradients[j],
-                                (cake_width, cake_len),
-                                (cur_x, cur_y),
-                            )
-                            cur_x, cur_y = cuts[j]
-                        loss = self.get_loss_from_cuts(cuts, current_percept)
-                        if loss < min_loss:
-                            best_cuts = copy.deepcopy(cuts)
-                            min_loss = loss
-
-                        # Check for stagnation
-                        if prev_loss - loss < 0.01:
-                            stagnant_steps += 1
-                        else:
-                            stagnant_steps = 0
-                        prev_loss = loss
-
-                        # print(f"Step: {step}, Loss: {loss}")
-
-                        # Time check
-                        if (
-                            current_percept.time_remaining - time.time() + start_time
-                            < 60
-                        ):
-                            break
-
-                        step += 1
-
-                print(f"Best penalty: {min_loss * 100}")
+                best_loss = float("inf")
+                best_cuts = []
+                for cuts, loss in strategies:
+                    if loss < best_loss and len(cuts) > 0:
+                        best_loss = loss
+                        best_cuts = cuts
 
                 self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
                 return constants.INIT, self.cuts[0]
+
             elif turn_number <= len(self.cuts):
                 return constants.CUT, self.cuts[turn_number - 1]
 
             return constants.ASSIGN, optimal_assignment(
                 requests, [polygon.area for polygon in polygons]
             )
+
+    def gradient_descent(self, requests, start_time, current_percept):
+        cake_len = current_percept.cake_len
+        cake_width = current_percept.cake_width
+
+        num_cuts = len(requests)
+        num_restarts = 30
+        stagnant_limit = 20
+        min_loss = float("inf")
+        best_cuts = None
+
+        for restart in range(num_restarts):
+
+            # Time check
+            if current_percept.time_remaining - time.time() + start_time < 60:
+                break
+
+            cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
+            loss = self.get_loss_from_cuts(cuts, current_percept)
+
+            stagnant_steps = 0
+            prev_loss = loss
+
+            if loss < min_loss:
+                best_cuts = copy.deepcopy(cuts)
+                min_loss = loss
+
+            # Gradient descent
+            learning_rate = 0.1
+
+            step = 0
+            # while step < num_steps:
+            while loss > 0.01 and stagnant_steps < stagnant_limit:
+                gradients = self.get_gradient(loss, cuts, current_percept)
+
+                cur_x, cur_y = cuts[0]
+                for j in range(len(cuts)):
+                    cuts[j] = get_shifted_cut(
+                        cuts[j],
+                        -learning_rate * gradients[j],
+                        (cake_width, cake_len),
+                        (cur_x, cur_y),
+                    )
+                    cur_x, cur_y = cuts[j]
+                loss = self.get_loss_from_cuts(cuts, current_percept)
+                if loss < min_loss:
+                    best_cuts = copy.deepcopy(cuts)
+                    min_loss = loss
+
+                # Check for stagnation
+                if prev_loss - loss < 0.01:
+                    stagnant_steps += 1
+                else:
+                    stagnant_steps = 0
+                prev_loss = loss
+
+                # Time check
+                if current_percept.time_remaining - time.time() + start_time < 60:
+                    break
+
+                step += 1
+        return best_cuts, min_loss
 
     def get_loss_from_cuts(self, cuts, current_percept):
         new_percept = copy.deepcopy(current_percept)
