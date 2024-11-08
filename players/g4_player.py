@@ -149,9 +149,6 @@ class grid_cut_strategy:
         return best_x_cuts, best_y_cuts, all_losses
 
 
-EASY_LENGTH = 23.5
-
-
 class Player:
     def __init__(
         self,
@@ -175,8 +172,6 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cuts = None
-        self.knife_pos = []
-        self.cut_count = 0
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the cake
@@ -201,77 +196,76 @@ class Player:
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
 
-        if cake_len <= EASY_LENGTH:
-            if turn_number == 1:
-                self.knife_pos.append([0, 0])
-                return constants.INIT, [0, 0]
+        if turn_number == 1:
 
-            if self.cut_count < num_requests:
-                # Calculate the base length needed for the current polygon area
-                base_length = round(2 * requests[self.cut_count] / cake_len, 2)
-                knife_x = (
-                    round(self.knife_pos[-2][0] + base_length, 2)
-                    if turn_number > 2
-                    else base_length
+            strategies = []
+
+            try:
+                if cake_len < 23:
+                    zig_zag_cuts = self.zig_zag(current_percept, requests)
+                    zig_zag_loss = self.get_loss_from_cuts(
+                        zig_zag_cuts, current_percept
+                    )
+                    strategies.append((zig_zag_cuts, zig_zag_loss))
+            except Exception as e:
+                print(e)
+
+            try:
+                grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
+                best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
+                grid_loss = grid_cut_losses.min()
+                strategies.append(([], grid_loss))
+            except Exception as e:
+                print(e)
+
+            try:
+                gd_cuts, gd_loss = self.gradient_descent(
+                    requests, start_time, current_percept
                 )
-                knife_y = cake_len if cur_pos[1] == 0 else 0
+                strategies.append((gd_cuts, gd_loss))
+            except Exception as e:
+                print(e)
 
-                # Adjust if the knife position goes beyond the cake width
-                if knife_x > cake_width:
-                    adjustment = round(
-                        2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2
-                    )
-                    knife_x = cake_width
-                    knife_y = cake_len - adjustment if cur_pos[1] != 0 else adjustment
+            best_loss = float("inf")
+            best_cuts = []
+            for cuts, loss in strategies:
+                if loss < best_loss and len(cuts) > 0:
+                    best_loss = loss
+                    best_cuts = cuts
 
-                next_knife_pos = [knife_x, knife_y]
-                self.knife_pos.append(next_knife_pos)
-                self.cut_count += 1
-                return constants.CUT, next_knife_pos
+            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
+            return constants.INIT, self.cuts[0]
 
-            return constants.ASSIGN, optimal_assignment(
-                requests, [polygon.area for polygon in polygons]
+        elif turn_number <= len(self.cuts):
+            return constants.CUT, self.cuts[turn_number - 1]
+
+        return constants.ASSIGN, optimal_assignment(
+            requests, [polygon.area for polygon in polygons]
+        )
+
+    def zig_zag(self, current_percept, requests):
+        cake_len = current_percept.cake_len
+        cake_width = current_percept.cake_width
+        cake_area = cake_len * cake_width
+
+        cuts = [[0, 0]]
+
+        for request in requests:
+            # Calculate the base length needed for the current polygon area
+            base_length = round(2 * request / cake_len, 2)
+            knife_x = (
+                round(cuts[-2][0] + base_length, 2) if len(cuts) > 2 else base_length
             )
+            knife_y = cake_len if cuts[-1][1] == 0 else 0
 
-        else:
-            if turn_number == 1:
+            # Adjust if the knife position goes beyond the cake width
+            if knife_x > cake_width:
+                adjustment = round(2 * cake_area * 0.05 / (cake_width - cuts[-2][0]), 2)
+                knife_x = cake_width
+                knife_y = cake_len - adjustment if cuts[-1][1] != 0 else adjustment
+            cuts.append([knife_x, knife_y])
 
-                strategies = []
-
-                try:
-                    grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
-                    best_x_cuts, best_y_cuts, grid_cut_losses = (
-                        grid_cut.gradient_descent()
-                    )
-                    grid_loss = grid_cut_losses.min()
-                    strategies.append(([], grid_loss))
-                except Exception as e:
-                    print(e)
-
-                try:
-                    gd_cuts, gd_loss = self.gradient_descent(
-                        requests, start_time, current_percept
-                    )
-                    strategies.append((gd_cuts, gd_loss))
-                except Exception as e:
-                    print(e)
-
-                best_loss = float("inf")
-                best_cuts = []
-                for cuts, loss in strategies:
-                    if loss < best_loss and len(cuts) > 0:
-                        best_loss = loss
-                        best_cuts = cuts
-
-                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
-                return constants.INIT, self.cuts[0]
-
-            elif turn_number <= len(self.cuts):
-                return constants.CUT, self.cuts[turn_number - 1]
-
-            return constants.ASSIGN, optimal_assignment(
-                requests, [polygon.area for polygon in polygons]
-            )
+        return cuts
 
     def gradient_descent(self, requests, start_time, current_percept):
         cake_len = current_percept.cake_len
