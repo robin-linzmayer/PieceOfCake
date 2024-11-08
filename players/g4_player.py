@@ -203,7 +203,7 @@ class Player:
             zig_zag_loss = float("inf")
 
             try:
-                if cake_len < 23:
+                if cake_len < 24:
                     zig_zag_cuts, zig_zag_loss = self.zig_zag(current_percept, requests)
                     strategies.append((zig_zag_cuts, zig_zag_loss))
                     print(f"Zig zag loss: {zig_zag_loss}")
@@ -282,7 +282,7 @@ class Player:
                             cake_len - adjustment if cuts[-1][1] != 0 else adjustment
                         )
                     cuts.append([knife_x, knife_y])
-                loss = self.get_loss_from_cuts(cuts, current_percept)
+                loss = self.get_loss_from_cuts(cuts, current_percept, plate=True)
 
                 if loss < min_loss:
                     min_loss = loss
@@ -354,7 +354,7 @@ class Player:
                 step += 1
         return best_cuts, min_loss
 
-    def get_loss_from_cuts(self, cuts, current_percept):
+    def get_loss_from_cuts(self, cuts, current_percept, plate=False):
         new_percept = copy.deepcopy(current_percept)
         new_polygons = new_percept.polygons
 
@@ -366,7 +366,7 @@ class Player:
                 new_polygons,
                 new_percept,
             )
-        loss = cost_function(new_polygons, current_percept.requests)
+        loss = cost_function(new_polygons, current_percept.requests, plate)
 
         return loss
 
