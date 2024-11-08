@@ -15,7 +15,7 @@ import time
 import miniball
 
 
-SAVE_DATA = True
+SAVE_DATA = False
 
 
 class grid_cut_strategy:
