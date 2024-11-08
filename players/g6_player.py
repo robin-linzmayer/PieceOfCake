@@ -5,10 +5,15 @@ from typing import List
 import numpy as np
 import logging
 import traceback
+
+#from numpy.distutils.system_info import wx_info
+
 import constants
 import math
 import itertools
-from scipy.optimize import linear_sum_assignment
+from scipy.optimize import linear_sum_assignment, fsolve
+from shapely.geometry import Polygon, LineString
+from shapely.ops import split
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -95,10 +100,10 @@ class Player:
     
     def move_straight(self,cur_pos, dir='R'):
         switch ={
-            'L': (0,cur_pos[1]),
-            'R': (self.cake_width, cur_pos[1]),
-            'U': (cur_pos[0], 0),
-            'D': (cur_pos[0], self.cake_len)
+            'L': (0,round(cur_pos[1], 2)),
+            'R': (round(self.cake_width, 2), round(cur_pos[1], 2)),
+            'U': (round(cur_pos[0],2), 0),
+            'D': (round(cur_pos[0], 2), round(self.cake_len), 2)
         }
         return switch.get(dir)
     
@@ -162,107 +167,284 @@ class Player:
 
         return intersection
 
+    def get_max_diff_average(self, areas, excess = 100):
+        # Find the average of the two pieces with the maximum difference
+        max_diff = 0
+        max_diff_index = 1
+        for i in range(1, len(areas)):
+            diff = areas[i] - areas[i - 1]
+            if (areas[i-1] + areas[i])/2 > excess:
+                return (areas[max_diff_index] + areas[max_diff_index - 1]) / 2
+            if diff > max_diff:
+                max_diff = diff
+                max_diff_index = i
+
+        return (areas[max_diff_index] + areas[max_diff_index - 1]) / 2
+
+    def get_greater_than(self, areas, val):
+        # Find the average of the two pieces with the maximum difference
+        for i in range(1, len(areas)):
+            diff = areas[i] - areas[i - 1]
+            if diff >= val:
+                return areas[i-1] + val/2
+
+        return -1
+
     def make_cuts(self):
-        print(self.cake_len, self.cake_width)
-        
-        # TODO: If less than area do easy zigzag
-        if self.cake_len*self.cake_width < 0:
-            pass
-
-        #TODO: Find number of horizontal stacks
-        num_stacks = len(self.requests)//4
-
+        # print(self.cake_len, self.cake_width)
+        area = self.cake_len * self.cake_width
         areas = sorted(self.requests)
+        excess = 4.76*area/100
+        allcuts = []
 
-        #TODO: Handle extras
-        if len(areas)%num_stacks != 0:
-            pass
+        if area < 945:
+            vertical_stack = 1
+            areas += [4*area/100]
+            areas = sorted(areas)
+        # print(f"Area: {area}")
+        elif area < 4000:
+            vertical_stack = 2
+        elif area < 6500:
+            vertical_stack = 3
+        else:
+            vertical_stack = 4
 
-        print(areas, len(areas))
-        groups = {i: [] for i in range(num_stacks)}
+        if len(areas)%vertical_stack != 0:
+            required = vertical_stack - len(areas)%vertical_stack
+            while required > 0:
+                new_slice = min(self.get_max_diff_average(areas, excess), excess)
+                # print("added slice", new_slice)
+                areas += [new_slice]
+                areas = sorted(areas)
+                excess -= new_slice
+                required -= 1
+
+        # print("vertical_stack", vertical_stack)
+        # print("excess", excess)
+        if vertical_stack > 1:
+            # Add slices to reduce gap between consecutive slices by finding max diff average
+            while excess > 0:
+                new_areas = areas.copy()
+                sum_new_slices = 0
+                for i in range(vertical_stack):
+                    new_slice = self.get_max_diff_average(new_areas, excess)
+                    new_areas += [new_slice]
+                    new_areas = sorted(new_areas)
+                    sum_new_slices += new_slice
+                if sum_new_slices < excess:
+                    # print("Old areas", areas)
+                    # print("New areas", new_areas)
+                    areas = new_areas
+                    excess -= sum_new_slices
+                else:
+                    break
+
+            # Add slices to reduce gap between consecutive slices by finding smallest gap of over 10
+            diff = 60
+            while excess > 0 :
+                new_areas = areas.copy()
+                sum_new_slices = 0
+                for i in range(vertical_stack):
+                    new_slice = self.get_greater_than(new_areas, diff)
+                    if new_slice == -1:
+                        sum_new_slices = excess
+                        break
+                    new_areas += [new_slice]
+                    new_areas = sorted(new_areas)
+                    sum_new_slices += new_slice
+                    if excess < 0:
+                        break
+                if sum_new_slices < excess:
+                    # print("Old areas", areas)
+                    # print("New areas", new_areas)
+                    areas = new_areas
+                    excess -= sum_new_slices
+                elif diff > 4:
+                    diff -= 4
+                else:
+                    break
+
+        groups = {i: [] for i in range(vertical_stack)}
         
         i=0
-        j=len(self.requests)-1
         k=0
 
-        while i<=j:
-            # Small elements round robin
-            for _ in range(min(num_stacks,j-i+1)):
-                groups[k].append(areas[i])
-                i+=1
-                k=(k+1)%num_stacks
-            
-            # Large elements round robin
-            for _ in range(min(num_stacks, j-i+1)):
-                groups[k].append(areas[j])
-                j-=1
-                k=(k+1)%num_stacks
-        
-        # At this point i must be > j if we properly dealt with extras and all groups should have equal areas
-        groups = {k: sorted(v) for k, v in groups.items()}
-        print(groups)
+        while i<len(areas):
+            groups[k].append(areas[i])
+            i+=1
+            if k+1 == vertical_stack:
+                k=0
+            else:
+                k+=1
 
-        widths = [round(sum(groups[group])/self.cake_len,2) for group in groups]
-        cum_widths = [round(s, 2) for s in itertools.accumulate(widths)]
-        print(cum_widths)
+        # print("Groups", groups)
 
-        for i,w in enumerate(cum_widths):
-            # Place knife
-            if i==0:
-                self.cutList.append([w,0])
-                continue
+        # Increase the size of last piece of each stack to accommodate for crumbs
+        if vertical_stack > 1:
+            for i in range(vertical_stack):
+                groups[i][-1] = 1.01*groups[i][-1]
+
+        lengths = [round(sum(groups[group]) / self.cake_width, 2) for group in groups]
+        cum_lengths = [round(s, 2) for s in itertools.accumulate(lengths)]
+        if vertical_stack > 1:
+            for i,l in enumerate(cum_lengths):
+                # Place knife
+                if i==0:
+                    self.cutList.append([0, l])
+                    continue
+                cur = self.cutList[-1]
+                breadcrumb_goto =  round(0 if l < self.cake_len//2 else self.cake_len, 2)
+
+                #Right to left
+                if i%2 == 0:
+                    self.cutList.append(self.move_straight(cur, 'L'))
+                    self.cutList.append([0.02, breadcrumb_goto])
+                    self.cutList.append([0, l])
+                #Left to right
+                else:
+                    self.cutList.append(self.move_straight(cur, 'R'))
+                    self.cutList.append([round(self.cake_width-0.02, 2), breadcrumb_goto])
+                    self.cutList.append([self.cake_width, l])
+
             cur = self.cutList[-1]
-            breadcrumb_goto =  0 if w<self.cake_width//2 else self.cake_width
-
-            #Up to down
-            if i%2 != 0:
-                self.cutList.append(self.move_straight(cur, 'D'))
-                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
-                self.cutList.append([w,self.cake_len])
-            
-            #Down to up
+            if vertical_stack % 2 == 0:
+                self.cutList.append(self.move_straight(cur, 'L'))
             else:
-                self.cutList.append(self.move_straight(cur, 'U'))
-                self.cutList.append([breadcrumb_goto,0.02])
-                self.cutList.append([min(w, self.cake_width),0])
-
-        if self.cutList[-1][0]!= self.cake_width:
-            if self.cutList[-1][1] == 0:
-                self.cutList.append(self.move_straight(self.cutList[-1], 'D'))
-                self.cutList.append([breadcrumb_goto,round(self.cake_len-0.02,2)])
-                self.cutList.append([round(self.cake_width-0.02,2),self.cake_len])
-            else:
-                self.cutList.append(self.move_straight(self.cutList[-1], 'U'))
-                self.cutList.append([breadcrumb_goto,0.02])
-                self.cutList.append([round(self.cake_width-0.02,2),0])
-        
-        #Horizontal cuts!
-        l1 = [round(small/widths[i],2) for i,small in enumerate(groups[0])]
-        l2 = [round(big/widths[i],2) for i,big in enumerate(groups[num_stacks-1])]
+                self.cutList.append(self.move_straight(cur, 'R'))
+        else:
+            self.cutList.append([0, round(self.cake_len - 0.01, 2)])
+        # For vertical cuts
+        l1 = [round(small / lengths[0], 2) for i, small in enumerate(groups[0])]
+        l2 = [round(big / lengths[vertical_stack - 1], 2) for i, big in enumerate(groups[vertical_stack - 1])]
         cum_l1 = [round(s, 2) for s in itertools.accumulate(l1)]
         cum_l2 = [round(s, 2) for s in itertools.accumulate(l2)]
-        print(cum_l1, cum_l2, l1, l2)
+        # print(cum_l1, cum_l2, l1, l2)
 
-        for i,(l1,l2) in enumerate(zip(cum_l1,cum_l2)):                    
-            #Right to left from l2 to l1
-            if i%2==0:
-               self.cutList.append([self.cake_width, l2])
-               self.cutList.append([0, l1]) 
-            # Left to right from l1 to l2
+        if self.cutList[-1][0] == self.cake_width:
+            self.cutList.append([round(self.cake_width - 0.03, 2), self.cake_len])
+            self.cutList.append([self.cake_width, round(self.cake_len - 0.03, 2)])
+        else:
+            self.cutList.append([0.03, self.cake_len])
+            self.cutList.append([0, round(self.cake_len - 0.03, 2)])
+
+        # print("Vertical Cuts")
+        # print(cum_l1, cum_l2)
+
+        for i,(l1,l2) in enumerate(zip(cum_l1,cum_l2)):
+            # Down to up from l2 to l1
+            if i%2 == 0:
+                self.cutList.append([l2, self.cake_len])
+                self.cutList.append([l1, 0])
+            # Up to down from l1 to l2
             else:
-                self.cutList.append([0,l1])
-                self.cutList.append([self.cake_width,l2])
+                self.cutList.append([l1, 0])
+                self.cutList.append([l2, self.cake_len])
 
             if i < len(cum_l1)-1:
                 cur = self.cutList[-1]
-                print(cur)
-                breadcrumb_goto =  0 if cur[1]<self.cake_len//2 else self.cake_len
-                if cur[0] == 0:
-                    self.cutList.append([0.02, breadcrumb_goto])
+                breadcrumb_goto =  0 if cur[0]<self.cake_width//2 else self.cake_width
+                if cur[1] == 0:
+                    self.cutList.append([breadcrumb_goto, 0.03])
                 else:
-                    self.cutList.append([round(self.cake_width-0.02,2), breadcrumb_goto])
+                    self.cutList.append([breadcrumb_goto, round(self.cake_len-0.03,2)])
         
+        allcuts.append(self.cutList.copy())
         
+        if self.cake_len< 23.5:
+            self.cutList =[[0,0]]
+            areas = sorted(self.requests)
+            h = self.cake_len
+            top_w =-1
+            bottom_w =-1
+            for i,area in enumerate(areas):
+                edge = 0 if i%2 else round(self.cake_len,2)
+                w = round((area*2)/h,2)
+                if i%2 == 0:
+                    if top_w==-1:
+                        top_w = w
+                    else:
+                        top_w+=w
+                    if top_w > self.cake_width:
+                        b2 = self.cake_width - bottom_w
+                        b1 = self.cake_width - (top_w-w)
+                        area_trapizium = 0.5*(b1+b2)*h
+                        y = round((2*(area_trapizium-area)/b2),2)
+                        self.cutList.append([round(self.cake_width,2), y])
+                    else:
+                        self.cutList.append([round(top_w,2),edge])
+                else:
+                    if bottom_w ==-1:
+                        bottom_w = w
+                    else:
+                        bottom_w+=w
+                    if bottom_w > self.cake_width:
+                        b1 = self.cake_width - top_w
+                        b2 = self.cake_width - (bottom_w-w)
+                        area_trapizium = 0.5*(b1+b2)*h
+                        y = round(self.cake_len-(2*(area_trapizium-area)/b1),2)
+                        self.cutList.append([round(self.cake_width,2), y])
+                    else:
+                        self.cutList.append([round(bottom_w,2),edge])
+            
+            allcuts.append(self.cutList.copy())
+            self.find_best_cuts(allcuts)
+
+
+    def get_polygons(self, cutlist):
+        polygons = [Polygon([(0, 0), (0, self.cake_len), (self.cake_width, self.cake_len), (self.cake_width, 0)])]
+        for i in range(len(cutlist) - 1):
+            x1, y1 = cutlist[i]
+            x2, y2 = cutlist[i + 1]
+            line = LineString([(x1, y1), (x2, y2)])
+            newPieces = []
+            for polygon in polygons:
+                if not line.intersects(polygon):
+                    slices = [polygon]
+                else:
+                    result = split(polygon, line)
+                    slices = []
+                    for i in range(len(result.geoms)):
+                        slices.append(result.geoms[i])
+                for slice in slices:
+                    newPieces.append(slice)
+            polygons = newPieces.copy()
+        return polygons
+            
+
+    def find_best_cuts(self,cutlists):
+        if len(cutlists)==1:
+            self.cutList = cutlists[0]
+        penalties =[]
+        lengths =[]
+        for cutList in cutlists:
+            total_length =sum(math.sqrt((x2 - x1)**2 + (y2 - y1)**2) for (x1, y1), (x2, y2) in zip(cutList, cutList[1:]))
+            lengths.append(total_length)
+            polygons = self.get_polygons(cutList)
+
+            areas =[round(i.area,2) for i in polygons]          
+            c = np.array([
+                    [abs(request - area) / request * 100 if abs(request - area) / request * 100 > self.tolerance else 0
+                    for area in areas] for request in self.requests
+                ])
+                        
+            _, assignment = linear_sum_assignment(c)
+            penalty = 0
+            for i in range(len(self.requests)):
+                penalty += abs(self.requests[i] - areas[assignment[i]]) / self.requests[i] * 100 if abs(self.requests[i] - areas[assignment[i]]) / self.requests[i] * 100 > self.tolerance else 0
+            penalties.append(penalty)
+        
+        # print(penalties)
+        # print(lengths)
+
+        min_penalty = min(penalties)
+        min_length = float('inf')
+        best_cuts  = -1
+        for i in range(len(penalties)):
+            if penalties[i] == min_penalty:
+                if lengths[i]< min_length:
+                    min_length = lengths[i]
+                    best_cuts = i
+        self.cutList = cutlists[best_cuts]
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the cake
@@ -308,7 +490,14 @@ class Player:
             ])
                     
             _, assignment = linear_sum_assignment(c)
-            print(assignment.tolist()[:len(requests)])
+            # print(assignment.tolist()[:len(requests)])
+            # for i in range(len(requests)):
+            #     print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
+
+            # print("Unassigned")
+            # for i in range(len(polygons)):
+            #     if i not in assignment and areas[i] > 8:
+            #         print(areas[i])
             return constants.ASSIGN, assignment.tolist()[:len(requests)]
         
         except Exception as e:

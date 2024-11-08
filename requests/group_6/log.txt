@@ -1,0 +1,339 @@
+Execution Log
+--------------
+
+File: requests\default\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 5.489282131195068
+
+
+File: requests\group_1\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 5.0515875816345215
+
+
+File: requests\group_1\hard.json
+
+ Total Penalty: 0
+
+
+Time taken: 16.65978741645813
+
+
+File: requests\group_1\hardtest.json
+
+ Total Penalty: 5.008179998683343
+
+
+Time taken: 25.00035572052002
+
+
+File: requests\group_1\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 4.351590156555176
+
+
+File: requests\group_1\smalltest.json
+
+ Total Penalty: 37.1552572229791
+
+
+Time taken: 3.6450183391571045
+
+
+File: requests\group_1\test.json
+
+ Total Penalty: 50.45730321397387
+
+
+Time taken: 25.40382409095764
+
+
+File: requests\group_1\uni87.json
+
+ Total Penalty: 5.08734545454546
+
+
+Time taken: 16.60486388206482
+
+
+File: requests\group_10\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.61734938621521
+
+
+File: requests\group_10\hard.json
+
+ Total Penalty: 34.04608591982799
+
+
+Time taken: 44.663389444351196
+
+
+File: requests\group_10\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 4.221309661865234
+
+
+File: requests\group_2\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.5847983360290527
+
+
+File: requests\group_2\hard.json
+
+ Total Penalty: 0
+
+
+Time taken: 6.090707540512085
+
+
+File: requests\group_2\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.8147201538085938
+
+
+File: requests\group_3\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.105403423309326
+
+
+File: requests\group_3\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.0938611030578613
+
+
+File: requests\group_3\optimize.json
+
+ Total Penalty: 28.315363113602572
+
+
+Time taken: 4.548367738723755
+
+
+File: requests\group_4\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.8673388957977295
+
+
+File: requests\group_4\hard.json
+
+ Total Penalty: 0
+
+
+Time taken: 21.32099461555481
+
+
+File: requests\group_4\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 13.41808533668518
+
+
+File: requests\group_5\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 4.641787528991699
+
+
+File: requests\group_5\hard.json
+
+ Total Penalty: 33.297776527021966
+
+
+Time taken: 6.313701152801514
+
+
+File: requests\group_5\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 5.067819833755493
+
+
+File: requests\group_6\constant.json
+
+ Total Penalty: 0
+
+
+Time taken: 7.862730026245117
+
+
+File: requests\group_6\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.927579164505005
+
+
+File: requests\group_6\hard.json
+
+ Total Penalty: 43.261539217872155
+
+
+Time taken: 14.256443500518799
+
+
+File: requests\group_6\large.json
+
+ Total Penalty: 0
+
+
+Time taken: 13.733882904052734
+
+
+File: requests\group_6\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.4502084255218506
+
+
+File: requests\group_6\random.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.05381178855896
+
+
+File: requests\group_6\small.json
+
+ Total Penalty: 0
+
+
+Time taken: 4.150627136230469
+
+
+File: requests\group_6\tournament.json
+
+ Total Penalty: 61.18611077838216
+
+
+Time taken: 13.992546558380127
+
+
+File: requests\group_6\uniform.json
+
+ Total Penalty: 6.68142696154389
+
+
+Time taken: 18.308218002319336
+
+
+File: requests\group_7\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 4.839786529541016
+
+
+File: requests\group_7\hard.json
+
+ Total Penalty: 0
+
+
+Time taken: 13.671283483505249
+
+
+File: requests\group_7\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 5.617419719696045
+
+
+File: requests\group_8\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.630082607269287
+
+
+File: requests\group_8\hard.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.4803683757781982
+
+
+File: requests\group_8\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 3.4765913486480713
+
+
+File: requests\group_9\easy.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.854628324508667
+
+
+File: requests\group_9\hard.json
+
+ Total Penalty: 5.001361217401203
+
+
+Time taken: 15.386643648147583
+
+
+File: requests\group_9\medium.json
+
+ Total Penalty: 0
+
+
+Time taken: 8.355408668518066
+
+
+File: requests\group_9\testing_vertical_cuts.json
+
+ Total Penalty: 0
+
+
+Time taken: 2.7304601669311523
+
+
