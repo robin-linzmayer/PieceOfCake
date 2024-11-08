@@ -15,6 +15,7 @@ Constants
 MIN_CUT_INCREMENT = 0.01
 EASY_LEN_BOUND = 23.507
 MIN_TOLERANCE = 5
+ALT_TOLERANCE = 10
 
 """
 GLOBAL FUNCTIONS
@@ -446,6 +447,49 @@ class Player:
                 i += 1
 
 
+    def partial_rectangles(self, unassigned_requests, min_tolerance):
+        """
+        Determine whether to fulfill remaining requests with partial rectangles or triangles.
+        """
+        m = self.num_horizontal
+        adj_tolerance = max(self.tolerance, min_tolerance)
+        total_area = sum(unassigned_requests)
+        remaining_area = (self.cake_width - self.knife_pos[-1][0]) * self.cake_len
+
+        i = 0
+        while i < len(unassigned_requests):
+            group = [unassigned_requests[i]]
+            end_idx = min(i + m, len(unassigned_requests))
+            tol_ranges = [(unassigned_requests[j] * (1 - adj_tolerance / 100),
+                           unassigned_requests[j] * (1 + adj_tolerance / 100)) for j in range(i, end_idx)]
+            lower_bounds = [tr[0] for tr in tol_ranges]
+            upper_bounds = [tr[1] for tr in tol_ranges]
+            min_val = tol_ranges[0][0]
+
+            for k in range(1, len(lower_bounds)):
+                if lower_bounds[k] <= upper_bounds[0]:
+                    group.append(unassigned_requests[i+k])
+                    min_val = max(min_val, lower_bounds[k])
+                else:
+                    break
+            
+            if group:
+                cur_pos = self.knife_pos[-1]
+                width = round(m * min_val / self.cake_len, 2)
+                y_dest = 0 if cur_pos[1] == 0 else self.cake_len
+                interim_pos = self.traverse_borders(cur_pos, [cur_pos[0]+width, y_dest])
+                vert_cut = (interim_pos[0], interim_pos[1], interim_pos[0], self.cake_len-y_dest)
+                self.pending_cuts.append(vert_cut)
+                self.knife_pos.append([vert_cut[2], vert_cut[3]])
+                i += len(group)
+            else:
+                i += 1
+        
+        # remove assigned requests
+        for req in unassigned_requests:
+            unassigned_requests.remove(req)
+
+
     def make_triangles(self, unassigned_requests, min_tolerance):
         """
         Optimally allocate remaining pieces by making diagonal cuts and serving
@@ -458,6 +502,8 @@ class Player:
         if triangle_groups:
             grouping = triangle_groups[0]['grouping']
             ungrouped = triangle_groups[0]['ungrouped']
+            # fulfill ungrouped requests with partial rectangles
+            self.partial_rectangles(ungrouped, min_tolerance)
             widths = [group[1] for group in grouping]
             # make diagonal cuts to serve triangular pieces
             for width in widths:
@@ -470,6 +516,9 @@ class Player:
             for group in grouping:
                 for req in group[0]:
                     unassigned_requests.remove(req)
+        else:
+            # fulfill unassigned requests with partial rectangles
+            self.partial_rectangles(unassigned_requests, min_tolerance)
 
 
     def optimize_remaining_requests(self, unassigned_requests):
@@ -658,7 +707,7 @@ class Player:
                             # when knife goes over the cake width
                             if next_x > self.cake_width:
                                 next_x = self.cake_width
-                                next_y = round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
+                                next_y = round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-1][0]), 2)
                             next_knife_pos = [next_x, next_y]
 
                         self.knife_pos.append(next_knife_pos)
@@ -671,7 +720,7 @@ class Player:
                         # when knife goes over the cake width
                         if next_x > self.cake_width:
                             next_x = self.cake_width
-                            next_y = self.cake_len - round(2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-2][0]), 2)
+                            next_y = round(self.cake_len - 2 * cake_area * 0.05 / (self.cake_width - self.knife_pos[-1][0]), 2)
                         next_knife_pos = [next_x, next_y]
                         self.knife_pos.append(next_knife_pos)
                         self.num_requests_cut += 1
@@ -707,8 +756,8 @@ class Player:
                         unassigned_requests = requests.copy()
 
                         self.divide_horizontally()
-                        self.make_rectangles(unassigned_requests, 10)
-                        self.make_triangles(unassigned_requests, 10)
+                        self.make_rectangles(unassigned_requests, ALT_TOLERANCE)
+                        self.make_triangles(unassigned_requests, ALT_TOLERANCE)
                         
                         # add fake requests, if needed
                         if len(unassigned_requests) % self.num_horizontal != 0:
