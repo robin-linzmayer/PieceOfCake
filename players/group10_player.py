@@ -398,7 +398,7 @@ class Player:
                 upper_area = self.requests[req + iteration*factor] * (1+(self.tolerance/100))
                 
                 # Because the diff between the longer and shorter edges is fixed and certain
-                diff_a_b = abs(self.angle_cuts[iteration][0][0]-self.angle_cuts[iteration][1][0])/factor
+                diff_a_b = abs(self.angle_cuts[iteration-1][0][0]-self.angle_cuts[iteration-1][1][0])/factor
 
                 # [(x + x + diff_a_b)/2] * h = area
                 lower_wid = ((lower_area/self.working_height)*2 - diff_a_b) / 2
