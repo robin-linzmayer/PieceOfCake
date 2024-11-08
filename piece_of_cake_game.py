@@ -305,7 +305,7 @@ class PieceOfCakeGame:
         self.turns += 1
 
         # Create the state object for the player
-        before_state = PieceOfCakeState(self.polygon_list, self.cur_pos, self.turns, self.requests, self.cake_len, self.cake_width)
+        before_state = PieceOfCakeState(self.polygon_list, self.cur_pos, self.turns, self.requests, self.cake_len, self.cake_width, self.player_time)
         returned_action = None
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()

@@ -11,3 +11,4 @@ class PieceOfCakeState:
     requests: list[float]
     cake_len: float
     cake_width: float
+    time_remaining: float
