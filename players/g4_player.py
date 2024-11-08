@@ -205,6 +205,8 @@ class Player:
 
             strategies = []
             zig_zag_loss = float("inf")
+            grid_loss = float("inf")
+            gd_loss = float("inf")
 
             try:
                 if cake_len < 24:
@@ -279,7 +281,7 @@ class Player:
                 except Exception as e:
                     print(e)
 
-            if grid_loss == gd_loss:
+            if grid_loss == gd_loss and grid_loss != float("inf"):
                 self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in gd_cuts]
             else:
                 best_loss = float("inf")
