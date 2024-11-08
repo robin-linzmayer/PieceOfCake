@@ -187,7 +187,8 @@ class Player:
             self.zigzag_cuts = zigzag
 
             self.zigzag_found = True
-            print("THIS MAH ZIGZAG: ", self.zigzag_cuts)
+            # print("self.angle_cuts is: ", self.angle_cuts)
+            # print("best cuts is: ", best_cut)
             return constants.INIT, list(self.zigzag_cuts[0])
     
     # Add crumbs to existing cuts
@@ -477,14 +478,22 @@ class Player:
                 upper_area = self.requests[req + iteration*factor] * (1+(self.tolerance/100))
                 
                 # Because the diff between the longer and shorter edges is fixed and certain
-                print(self.angle_cuts)
+                #print(self.angle_cuts)
                 diff_a_b = abs(self.angle_cuts[iteration - 1][0][0]-self.angle_cuts[iteration - 1][1][0])/factor
 
                 # [(x + x + diff_a_b)/2] * h = area
                 lower_wid = ((lower_area/self.working_height)*2 - diff_a_b) / 2
                 upper_wid = ((upper_area/self.working_height)*2 - diff_a_b) / 2
+
+                # Add previous x values
+                if self.angle_cuts[iteration - 1][0][0]-self.angle_cuts[iteration - 1][1][0] < 0: 
+                    lower_wid = lower_wid + diff_a_b*(req+1) + self.angle_cuts[iteration - 1][0][0]
+                    upper_wid = upper_wid + diff_a_b*(req+1) + self.angle_cuts[iteration - 1][0][0]
+                else:
+                    lower_wid = lower_wid - diff_a_b*(req) + self.angle_cuts[iteration - 1][0][0]
+                    upper_wid = upper_wid - diff_a_b*(req) + self.angle_cuts[iteration - 1][0][0]
                 temp.append([lower_wid,upper_wid])
-        print ("tolerances:", temp)
+        #print ("tolerances:", temp)
         return temp
 
     # angle sweep does a search of all possible lines and adds the one with least penalty to the self.angle_cuts variable, returns the penalty
@@ -563,7 +572,7 @@ class Player:
             else:
                 corner3 = self.point_on_line(slope, intercept, -1 * y_bounds[0], False)
                 corner4 = self.point_on_line(slope, intercept, -1 * y_bounds[1], False)
-        print ("corners:", corner3, corner1, corner2, corner4)
+        #print ("corners:", corner3, corner1, corner2, corner4)
         x = Polygon([corner3, corner1, corner2, corner4, corner3])
         diff = 100 * abs((req - x.area) / req)
         if diff < self.tolerance:
