@@ -165,13 +165,35 @@ class Player:
 
         return intersection
 
+    def get_max_diff_average(self, areas, excess = 100):
+        # Find the average of the two pieces with the maximum difference
+        max_diff = 0
+        max_diff_index = 1
+        for i in range(1, len(areas)):
+            diff = areas[i] - areas[i - 1]
+            if (areas[i-1] + areas[i])/2 > excess:
+                return (areas[max_diff_index] + areas[max_diff_index - 1]) / 2
+            if diff > max_diff:
+                max_diff = diff
+                max_diff_index = i
+
+        return (areas[max_diff_index] + areas[max_diff_index - 1]) / 2
+
+    def get_greater_than(self, areas, val):
+        # Find the average of the two pieces with the maximum difference
+        for i in range(1, len(areas)):
+            diff = areas[i] - areas[i - 1]
+            if diff >= val:
+                return areas[i-1] + val/2
+
+        return -1
+
     def make_cuts(self):
         # print(self.cake_len, self.cake_width)
         area = self.cake_len * self.cake_width
         areas = sorted(self.requests)
         excess = 4.76*area/100
 
-        # TODO: If less than area do easy zigzag
         if area < 945:
             vertical_stack = 1
             areas += [4*area/100]
@@ -184,34 +206,80 @@ class Player:
         else:
             vertical_stack = 4
 
-        #TODO: Handle extras
         if len(areas)%vertical_stack != 0:
             required = vertical_stack - len(areas)%vertical_stack
-            areas += [min(min(areas), excess)]*required
-            areas = sorted(areas)
+            while required > 0:
+                new_slice = self.get_max_diff_average(areas, excess)
+                print("added slice", new_slice)
+                areas += [new_slice]
+                areas = sorted(areas)
+                excess -= new_slice
+                required -= 1
+
+        # print("vertical_stack", vertical_stack)
+        # print("excess", excess)
+        if vertical_stack > 1:
+            # Add slices to reduce gap between consecutive slices by finding max diff average
+            while excess > 0:
+                new_areas = areas.copy()
+                sum_new_slices = 0
+                for i in range(vertical_stack):
+                    new_slice = self.get_max_diff_average(new_areas, excess)
+                    new_areas += [new_slice]
+                    new_areas = sorted(new_areas)
+                    sum_new_slices += new_slice
+                if sum_new_slices < excess:
+                    # print("Old areas", areas)
+                    # print("New areas", new_areas)
+                    areas = new_areas
+                    excess -= sum_new_slices
+                else:
+                    break
+
+            # Add slices to reduce gap between consecutive slices by finding smallest gap of over 10
+            diff = 60
+            while excess > 0 :
+                new_areas = areas.copy()
+                sum_new_slices = 0
+                for i in range(vertical_stack):
+                    new_slice = self.get_greater_than(new_areas, diff)
+                    if new_slice == -1:
+                        sum_new_slices = excess
+                        break
+                    new_areas += [new_slice]
+                    new_areas = sorted(new_areas)
+                    sum_new_slices += new_slice
+                    if excess < 0:
+                        break
+                if sum_new_slices < excess:
+                    print("Old areas", areas)
+                    print("New areas", new_areas)
+                    areas = new_areas
+                    excess -= sum_new_slices
+                elif diff > 4:
+                    diff -= 4
+                else:
+                    break
 
         groups = {i: [] for i in range(vertical_stack)}
         
         i=0
         k=0
-        isReverse = False
 
         while i<len(areas):
-            if not isReverse:
-                groups[k].append(areas[i])
-            else:
-                groups[vertical_stack - 1 - k].append(areas[i])
+            groups[k].append(areas[i])
             i+=1
             if k+1 == vertical_stack:
                 k=0
-                isReverse = not isReverse
             else:
                 k+=1
+
+        print("Groups", groups)
 
         # Increase the size of last piece of each stack to accommodate for crumbs
         if vertical_stack > 1:
             for i in range(vertical_stack):
-                groups[i][-1] = 1.005*groups[i][-1]
+                groups[i][-1] = 1.01*groups[i][-1]
 
         lengths = [round(sum(groups[group]) / self.cake_width, 2) for group in groups]
         cum_lengths = [round(s, 2) for s in itertools.accumulate(lengths)]
