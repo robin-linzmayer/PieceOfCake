@@ -90,7 +90,7 @@ class Player:
             if (self.cut_number > len(self.zigzag_cuts) - 1):
                 assignment = self.assignPolygons(polygons=polygons)
                 return constants.ASSIGN, assignment
-            return constants.CUT, self.zigzag_cuts[self.cut_number]
+            return constants.CUT, list(self.zigzag_cuts[self.cut_number])
 
         # TODO: adjust for the case when the base the triangle needs surpasses the cake width we have (first occurence, switch to the length, after this switch, make sure we continue working on that edge). CURRENT PROGRAM UNABLE TO MOVE IF WE SWITCH SIDES FROM THE BOTTOM EDGE
         # case if the diagonal of the total cake is <= 25
@@ -136,17 +136,86 @@ class Player:
             
             for factor in list_of_factors[::-1]:
                 penalty, cuts = self.simulate_cuts(factor)
-                factor_penalty[factor] = penalty
-                factor_cuts[factor] = cuts
+                factor_penalty[tuple(factor)] = penalty
+                factor_cuts[tuple(factor)] = cuts
 
-            #TODO: FIGURE OUT HOW TO CUT THE LAST PIECE IF PRIME
             best_factor = min(factor_penalty, key=factor_penalty.get)
-            self.zigzag_cuts = factor_cuts[best_factor]
-            #TODO: FIND BEST PENALTY AMONGST ALL DIFFERENT CUTS BASED ON FACTORS, THEN MAKE PLAYER CUT.
+            best_cut = factor_cuts[best_factor]
+            zigzag = []
+
+            working_length = self.cake_len - (2 * self.margin)
+            row_height = round(working_length/best_factor[0], 2)
+
+            # Horizontal Cuts
+            for i in range(best_factor[0], 0, -1):
+                # If even, go from left to right
+                if i % 2 == 0:
+                    if (i != best_factor[0]):
+                        temp = (0, round(0.01 + (i * row_height), 2))
+                        zigzag.append(tuple(self.add_crumbs(temp, True)))
+                    zigzag.append((0, round(0.01 + (i * row_height), 2))) #Left-Coord
+                    zigzag.append((self.cake_width, round(0.01 + (i * row_height), 2))) #Right-Coord
+                # If odd, right to left
+                else:
+                    if (i != best_factor[0]):
+                        temp = (self.cake_width, round(0.01 + (i * row_height), 2))
+                        zigzag.append(tuple(self.add_crumbs(temp, True)))
+                    zigzag.append((self.cake_width, round(0.01 + (i * row_height), 2))) #Right-Coord
+                    zigzag.append((0, round(0.01 + (i * row_height), 2))) #Left-Coord
+                    
+            # If small factor is even, then we know we end on the right. Hence, we will perform a breadcrumb in the right corner
+            if best_factor[0] % 2 == 0:
+                zigzag.append((0.01, 0))
+            else:
+                zigzag.append((round(self.cake_width - 0.01, 2), 0))
+            
+            # Vertical Cuts
+            for i in range(len(best_cut)):
+                # If even, cut from top to bot
+                if i % 2 == 0:
+                    temp = (float(best_cut[i][0][0])), float(best_cut[i][0][1])
+                    zigzag.append(tuple(self.add_crumbs(temp, False)))
+                    zigzag.append((round(float(best_cut[i][0][0]), 2), round(float(best_cut[i][0][1]), 2))) #Top-Coord
+                    zigzag.append((round(float(best_cut[i][1][0]), 2), round(float(best_cut[i][1][1]), 2))) #Bot-Coord
+                # If odd, bot to top.
+                else:
+                    temp = (float(best_cut[i][1][0])), float(best_cut[i][1][1])
+                    zigzag.append(tuple(self.add_crumbs(temp, False)))
+                    zigzag.append((round(float(best_cut[i][1][0]), 2), round(float(best_cut[i][1][1]), 2))) #Bot-Coord
+                    zigzag.append((round(float(best_cut[i][0][0]), 2), round(float(best_cut[i][0][1]), 2))) #Top-Coord
+
+            self.zigzag_cuts = zigzag
 
             self.zigzag_found = True
-            return constants.INIT, self.zigzag_cuts[0]
+            print("THIS MAH ZIGZAG: ", self.zigzag_cuts)
+            return constants.INIT, list(self.zigzag_cuts[0])
     
+    # Add crumbs to existing cuts
+    def add_crumbs(self, target, is_horizontal) -> tuple[float, float]:
+        crumb_coord = [-1, -1]
+        if not is_horizontal:
+            if target[0] <= self.cake_width/2:
+                crumb_coord[0] = 0
+            else:
+                crumb_coord[0] = self.cake_width
+
+            if target[1] == 0: #We are at Top
+                crumb_coord[1] = 0.01
+            else:
+                crumb_coord[1] = round(self.cake_len - 0.01, 2)
+        else:
+            if target[1] <= self.cake_len/2:
+                crumb_coord[1] = 0
+            else:
+                crumb_coord[1] = self.cake_len
+            print("CHECK IF TARGET [0] = 0,", target[0], type(target[0]))
+            if target[0] == 0: #We are at left
+                crumb_coord[0] = 0.01
+            else:
+                crumb_coord[0] = round(self.cake_width - 0.01, 2)
+        
+        return crumb_coord
+                
 
     # Returns penalty given 
     def simulate_cuts(self, factor) -> tuple[float, list]:
@@ -281,6 +350,11 @@ class Player:
                 
     #Returns whether if it is uniform, and the area of the uniform. If not, area is -1
     def if_uniform(self, requests, extra_tol=0.0) -> tuple[bool, float]:
+
+        # If prime return false and use zig zag.
+        if self.find_factors(len(requests), True) == False:
+            return (False, -1)
+
         tolerance = (self.tolerance + extra_tol) / 100
         skewed_average = (1 - tolerance**2)*(sum(requests) / len(requests)) if tolerance < 1 else (tolerance**2)**(sum(requests) / len(requests))
         print("THIS IS OUR TOLERANCE: ", tolerance)
@@ -403,7 +477,8 @@ class Player:
                 upper_area = self.requests[req + iteration*factor] * (1+(self.tolerance/100))
                 
                 # Because the diff between the longer and shorter edges is fixed and certain
-                diff_a_b = abs(self.angle_cuts[iteration-1][0][0]-self.angle_cuts[iteration-1][1][0])/factor
+                print(self.angle_cuts)
+                diff_a_b = abs(self.angle_cuts[iteration - 1][0][0]-self.angle_cuts[iteration - 1][1][0])/factor
 
                 # [(x + x + diff_a_b)/2] * h = area
                 lower_wid = ((lower_area/self.working_height)*2 - diff_a_b) / 2
