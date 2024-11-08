@@ -12,7 +12,7 @@ from shapely.ops import split
 import copy
 from tqdm import tqdm
 
-
+EASY_LENGTH = 23.5
 class Player:
     def __init__(
         self,
@@ -36,6 +36,8 @@ class Player:
         self.tolerance = tolerance
         self.cake_len = None
         self.cuts = None
+        self.knife_pos = []
+        self.cut_count = 0
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the cake
@@ -52,74 +54,106 @@ class Player:
         turn_number = current_percept.turn_number
         requests = current_percept.requests
         polygons = current_percept.polygons
+        cur_pos = current_percept.cur_pos
+        num_requests = len(requests)
+        cake_len = current_percept.cake_len
+        cake_width = current_percept.cake_width
+        cake_area = cake_len * cake_width
 
-        if turn_number == 1:
-            cake_len = current_percept.cake_len
-            cake_width = current_percept.cake_width
+        if cake_len <= EASY_LENGTH:
+            if turn_number == 1:
+                self.knife_pos.append([0, 0])
+                return constants.INIT, [0, 0]
+            
+            if self.cut_count < num_requests:
+                # Calculate the base length needed for the current polygon area
+                base_length = round(2 * requests[self.cut_count] / cake_len, 2)
+                knife_x = round(self.knife_pos[-2][0] + base_length, 2) if turn_number > 2 else base_length
+                knife_y = cake_len if cur_pos[1] == 0 else 0
+                
+                # Adjust if the knife position goes beyond the cake width
+                if knife_x > cake_width:
+                    adjustment = round(2 * cake_area * 0.05 / (cake_width - self.knife_pos[-2][0]), 2)
+                    knife_x = cake_width
+                    knife_y = cake_len - adjustment if cur_pos[1] != 0 else adjustment
 
-            num_cuts = len(requests)
-            num_restarts = 30
-            stagnant_limit = 20
-            min_loss = float("inf")
-            best_cuts = None
-            # num_steps = 100
+                next_knife_pos = [knife_x, knife_y]
+                self.knife_pos.append(next_knife_pos)
+                self.cut_count += 1
+                return constants.CUT, next_knife_pos
 
-            for restart in range(num_restarts):
-                cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-                loss = self.get_loss_from_cuts(cuts, current_percept)
-                print(f"Restart {restart} Loss: {loss}")
+            return constants.ASSIGN, optimal_assignment(
+                requests, [polygon.area for polygon in polygons]
+            )
 
-                stagnant_steps = 0
-                prev_loss = loss
+        else:
+            if turn_number == 1:
+                cake_len = current_percept.cake_len
+                cake_width = current_percept.cake_width
 
-                if loss < min_loss:
-                    best_cuts = copy.deepcopy(cuts)
-                    min_loss = loss
+                num_cuts = len(requests)
+                num_restarts = 30
+                stagnant_limit = 20
+                min_loss = float("inf")
+                best_cuts = None
+                # num_steps = 100
 
-                cuts = best_cuts
-
-                # Gradient descent
-                learning_rate = 0.1
-
-                step = 0
-                # while step < num_steps:
-                while loss > 0.01 and stagnant_steps < stagnant_limit:
-                    gradients = self.get_gradient(loss, cuts, current_percept)
-
-                    cur_x, cur_y = cuts[0]
-                    for j in range(len(cuts)):
-                        cuts[j] = get_shifted_cut(
-                            cuts[j],
-                            -learning_rate * gradients[j],
-                            (cake_width, cake_len),
-                            (cur_x, cur_y),
-                        )
-                        cur_x, cur_y = cuts[j]
+                for restart in range(num_restarts):
+                    cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
                     loss = self.get_loss_from_cuts(cuts, current_percept)
+                    print(f"Restart {restart} Loss: {loss}")
+
+                    stagnant_steps = 0
+                    prev_loss = loss
+
                     if loss < min_loss:
                         best_cuts = copy.deepcopy(cuts)
                         min_loss = loss
 
-                    # Check for stagnation
-                    if prev_loss - loss < 0.01:
-                        stagnant_steps += 1
-                    else:
-                        stagnant_steps = 0
-                    prev_loss = loss
+                    cuts = best_cuts
 
-                    print(f"Step: {step}, Loss: {loss}")
-                    step += 1
+                    # Gradient descent
+                    learning_rate = 0.1
 
-            print(f"Best penalty: {min_loss * 100}")
+                    step = 0
+                    # while step < num_steps:
+                    while loss > 0.01 and stagnant_steps < stagnant_limit:
+                        gradients = self.get_gradient(loss, cuts, current_percept)
 
-            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
-            return constants.INIT, self.cuts[0]
-        elif turn_number <= len(self.cuts):
-            return constants.CUT, self.cuts[turn_number - 1]
+                        cur_x, cur_y = cuts[0]
+                        for j in range(len(cuts)):
+                            cuts[j] = get_shifted_cut(
+                                cuts[j],
+                                -learning_rate * gradients[j],
+                                (cake_width, cake_len),
+                                (cur_x, cur_y),
+                            )
+                            cur_x, cur_y = cuts[j]
+                        loss = self.get_loss_from_cuts(cuts, current_percept)
+                        if loss < min_loss:
+                            best_cuts = copy.deepcopy(cuts)
+                            min_loss = loss
 
-        return constants.ASSIGN, optimal_assignment(
-            requests, [polygon.area for polygon in polygons]
-        )
+                        # Check for stagnation
+                        if prev_loss - loss < 0.01:
+                            stagnant_steps += 1
+                        else:
+                            stagnant_steps = 0
+                        prev_loss = loss
+
+                        print(f"Step: {step}, Loss: {loss}")
+                        step += 1
+
+                print(f"Best penalty: {min_loss * 100}")
+
+                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
+                return constants.INIT, self.cuts[0]
+            elif turn_number <= len(self.cuts):
+                return constants.CUT, self.cuts[turn_number - 1]
+
+            return constants.ASSIGN, optimal_assignment(
+                requests, [polygon.area for polygon in polygons]
+            )
 
     def get_loss_from_cuts(self, cuts, current_percept):
         new_percept = copy.deepcopy(current_percept)
