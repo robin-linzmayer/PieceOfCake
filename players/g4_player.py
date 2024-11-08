@@ -370,7 +370,7 @@ class Player:
 
         return best_cuts, min_loss
 
-    def get_loss_from_cuts(self, cuts, current_percept, plate=False):
+    def get_loss_from_cuts(self, cuts, current_percept, plate=True):
         new_percept = copy.deepcopy(current_percept)
         new_polygons = new_percept.polygons
 
@@ -496,7 +496,7 @@ def generate_random_cuts(num_cuts, cake_dims):
     return cuts
 
 
-def cost_function(polygons, requests, plate=False):
+def cost_function(polygons, requests, plate=True):
     if plate:
         V = []
         for polygon in polygons:
