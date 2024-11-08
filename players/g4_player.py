@@ -223,9 +223,17 @@ class Player:
             if zig_zag_loss > 0:
                 try:
                     grid_cut_strat = grid_cut_strategy(cake_width, cake_len, requests)
-                    best_x_cuts, best_y_cuts, grid_cut_losses = (
-                        grid_cut_strat.gradient_descent()
-                    )
+
+                    if num_requests < 50:
+                        best_x_cuts, best_y_cuts, grid_cut_losses = (
+                            grid_cut_strat.gradient_descent(num_iterations=1000)
+                        )
+                    else:
+                        best_x_cuts, best_y_cuts, grid_cut_losses = (
+                            grid_cut_strat.gradient_descent()
+                        )
+
+                    print(grid_cut_losses.min())
 
                     grid_cuts = []
                     grid_cuts.extend(
@@ -235,16 +243,14 @@ class Player:
                             cake_width,
                         )
                     )
-                    print(grid_cuts)
-                    # grid_cuts.extend(
-                    #     self.horizontal_cut(
-                    #         list(best_y_cuts),
-                    #         cake_len,
-                    #         cake_width,
-                    #         grid_cuts[-1],
-                    #     )
-                    # )
-                    # print(grid_cuts)
+                    grid_cuts.extend(
+                        self.horizontal_cut(
+                            list(best_y_cuts),
+                            cake_len,
+                            cake_width,
+                            grid_cuts[-1],
+                        )
+                    )
 
                     # Uncomment below after cuts are generated
                     grid_loss = self.get_loss_from_cuts(
@@ -585,24 +591,21 @@ class Player:
         return cuts
 
     def horizontal_cut(self, y_cuts_indices, cake_len, cake_width, curr_pos):
+        cuts = []
 
-        cuts = [curr_pos]
-
-        print(cuts[-1][1])
-
-        if self.is_on_top_half(cuts[-1][1]):
+        if self.is_on_top_half(curr_pos[1]):
             cuts.append(self.go_to_top_right_corner(cake_width))
             cuts.append(self.go_to_top_right_corner(cake_width, False))
             cuts.append([cake_width, y_cuts_indices[0]])
 
         # if on bottom half of cake, go to bottom right corner
-        if self.is_on_bottom_half(cuts[-1][1], cake_len):
+        if self.is_on_bottom_half(curr_pos[1], cake_len):
             cuts.append(self.go_to_bottom_right_corner(cake_width))
             cuts.append(self.go_to_bottom_right_corner(cake_width, False))
             cuts.append([cake_width, y_cuts_indices[0]])
 
         # Start the first cut at (0, y_cuts_indices[0])
-        cuts.append([0, y_cuts_indices[0]])
+        # cuts.append([0, y_cuts_indices[0]])
         # print(f"Init at (0, {y_cuts_indices[0]})")
 
         for cut in y_cuts_indices:
