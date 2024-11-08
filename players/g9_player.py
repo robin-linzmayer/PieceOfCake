@@ -41,47 +41,48 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
+        tol = self.tolerance/ 100
         noise = 0
 
         print(" ")
         print(
             f"----------------------------------- Turn {turn_number} -----------------------------------"
         )
-
-        # Case: single piece. Cut smallest length to return valid size.
-        if len(requests) == 1:
-            valid_area = requests[0] + (requests[0]*tol)
-            if cake_area > valid_area:
-                area_to_chop = cake_area - valid_area
-                side = round(math.sqrt(2 * area_to_chop), 2)
-                self.cut_coords = [[0, side], [side, 0]]
-            else:
-                return constants.ASSIGN, [0]
-        # Case: two pieces
-        elif len(requests) == 2:
-            requests.sort(reverse=True)
-            p1, p2 = requests[0], requests[1]
-            # If tolerance is <=5. If tolerance is high and we adjust to the largest piece we negate the benefit of minimizing cut length and, instead, we remove too much cake to cut the second piece.
-            if tol <= 0.05:
-                adj_p1, adj_p2 = p1 + (p1*tol), p2 + (p2*tol)
-            else:
-                adj_p1, adj_p2 = p1, p2
-            x = math.floor((adj_p1 / cake_len)*100)/100
-            area_to_chop = round(cake_area - (cake_len*x) - adj_p2, 2)
-            self.cut_coords = [[x, 0], [x, cake_len]]
-            if area_to_chop > 0:
-                tri_height = (2*area_to_chop)/(cake_width-x)
-                y = round(cake_len - tri_height, 2)
-                self.cut_coords = self.cut_coords + [[cake_width, y]]
-        # Case: small cake zoro cut.
-        elif cake_area < 23.507:
-            # todo zoro_cut
-            self.cut_coords = zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
-        else:
-            self.cut_coords = compute_cuts(
-                requests, cake_len, cake_width, cake_area, noise, self.tolerance
-            )
         if turn_number == 1:
+
+            # Case: single piece. Cut smallest length to return valid size.
+            if len(requests) == 1:
+                valid_area = requests[0] + (requests[0] * tol)
+                if cake_area > valid_area:
+                    area_to_chop = cake_area - valid_area
+                    side = round(math.sqrt(2 * area_to_chop), 2)
+                    self.cut_coords = [[0, side], [side, 0]]
+                else:
+                    return constants.ASSIGN, [0]
+            # Case: two pieces
+            elif len(requests) == 2:
+                requests.sort(reverse=True)
+                p1, p2 = requests[0], requests[1]
+                # If tolerance is <=5. If tolerance is high and we adjust to the largest piece we negate the benefit of minimizing cut length and, instead, we remove too much cake to cut the second piece.
+                if tol <= 0.05:
+                    adj_p1, adj_p2 = p1 + (p1 * tol), p2 + (p2 * tol)
+                else:
+                    adj_p1, adj_p2 = p1, p2
+                x = math.floor((adj_p1 / cake_len) * 100) / 100
+                area_to_chop = round(cake_area - (cake_len * x) - adj_p2, 2)
+                self.cut_coords = [[x, 0], [x, cake_len]]
+                if area_to_chop > 0:
+                    tri_height = (2 * area_to_chop) / (cake_width - x)
+                    y = round(cake_len - tri_height, 2)
+                    self.cut_coords = self.cut_coords + [[cake_width, y]]
+            # Case: small cake zoro cut.
+            elif cake_area < 23.507:
+                self.cut_coords =  [] # zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
+            else:
+                self.cut_coords = compute_cuts(
+                    requests, cake_len, cake_width, cake_area, noise, self.tolerance
+                )
+
             print(f"Cut coordinates {len(self.cut_coords)}: {self.cut_coords}")
             return constants.INIT, self.cut_coords[turn_number - 1]
 
