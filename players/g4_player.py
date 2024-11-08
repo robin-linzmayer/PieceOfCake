@@ -11,6 +11,7 @@ from shapely.geometry import Polygon, LineString
 from shapely.ops import split
 import copy
 from tqdm import tqdm
+import time
 
 
 class grid_cut_strategy:
@@ -189,6 +190,8 @@ class Player:
                 constants.CUT - If wants to cut the cake
                 constants.ASSIGN - If wants to assign the pieces
         """
+        start_time = time.time()
+
         turn_number = current_percept.turn_number
         requests = current_percept.requests
         polygons = current_percept.polygons
@@ -226,10 +229,12 @@ class Player:
 
         else:
             if turn_number == 1:
-                
+
                 try:
                     grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
-                    best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
+                    best_x_cuts, best_y_cuts, grid_cut_losses = (
+                        grid_cut.gradient_descent()
+                    )
                     print(f"Best loss: {grid_cut_losses.min()}")
                 except Exception as e:
                     print(f"Error: {e}")
@@ -245,6 +250,11 @@ class Player:
                 # num_steps = 100
 
                 for restart in range(num_restarts):
+
+                    # Time check
+                    if current_percept.time_remaining - time.time() + start_time < 60:
+                        break
+
                     cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
                     loss = self.get_loss_from_cuts(cuts, current_percept)
                     print(f"Restart {restart} Loss: {loss}")
@@ -285,7 +295,15 @@ class Player:
                             stagnant_steps = 0
                         prev_loss = loss
 
-                        print(f"Step: {step}, Loss: {loss}")
+                        # print(f"Step: {step}, Loss: {loss}")
+
+                        # Time check
+                        if (
+                            current_percept.time_remaining - time.time() + start_time
+                            < 60
+                        ):
+                            break
+
                         step += 1
 
                 print(f"Best penalty: {min_loss * 100}")
