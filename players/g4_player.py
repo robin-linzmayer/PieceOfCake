@@ -20,7 +20,7 @@ class grid_cut_strategy:
         self.requests = requests
         self.factors = self.factor_pairs(len(requests))
 
-    def factor_pairs(x):
+    def factor_pairs(self, x):
         min_pairs = 5
 
         def get_factor_pairs(n):
