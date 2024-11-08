@@ -202,10 +202,7 @@ class Player:
 
             try:
                 if cake_len < 23:
-                    zig_zag_cuts = self.zig_zag(current_percept, requests)
-                    zig_zag_loss = self.get_loss_from_cuts(
-                        zig_zag_cuts, current_percept
-                    )
+                    zig_zag_cuts, zig_zag_loss = self.zig_zag(current_percept, requests)
                     strategies.append((zig_zag_cuts, zig_zag_loss))
             except Exception as e:
                 print(e)
@@ -248,24 +245,44 @@ class Player:
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
 
-        cuts = [[0, 0]]
+        num_restarts = 30
 
-        for request in requests:
-            # Calculate the base length needed for the current polygon area
-            base_length = round(2 * request / cake_len, 2)
-            knife_x = (
-                round(cuts[-2][0] + base_length, 2) if len(cuts) > 2 else base_length
-            )
-            knife_y = cake_len if cuts[-1][1] == 0 else 0
+        min_loss = float("inf")
+        best_cuts = []
 
-            # Adjust if the knife position goes beyond the cake width
-            if knife_x > cake_width:
-                adjustment = round(2 * cake_area * 0.05 / (cake_width - cuts[-2][0]), 2)
-                knife_x = cake_width
-                knife_y = cake_len - adjustment if cuts[-1][1] != 0 else adjustment
-            cuts.append([knife_x, knife_y])
+        for restart in range(num_restarts):
+            try:
+                cuts = [[0, 0]]
+                scrambled_requests = np.random.permutation(requests)
+                for request in scrambled_requests:
+                    # Calculate the base length needed for the current polygon area
+                    base_length = round(2 * request / cake_len, 2)
+                    knife_x = (
+                        round(cuts[-2][0] + base_length, 2)
+                        if len(cuts) > 2
+                        else base_length
+                    )
+                    knife_y = cake_len if cuts[-1][1] == 0 else 0
 
-        return cuts
+                    # Adjust if the knife position goes beyond the cake width
+                    if knife_x > cake_width:
+                        adjustment = round(
+                            2 * cake_area * 0.05 / (cake_width - cuts[-2][0]), 2
+                        )
+                        knife_x = cake_width
+                        knife_y = (
+                            cake_len - adjustment if cuts[-1][1] != 0 else adjustment
+                        )
+                    cuts.append([knife_x, knife_y])
+                loss = self.get_loss_from_cuts(cuts, current_percept)
+
+                if loss < min_loss:
+                    min_loss = loss
+                    best_cuts = copy.deepcopy(cuts)
+            except:
+                pass
+
+        return best_cuts, min_loss
 
     def gradient_descent(self, requests, start_time, current_percept):
         cake_len = current_percept.cake_len
