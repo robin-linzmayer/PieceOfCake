@@ -226,10 +226,13 @@ class Player:
 
         else:
             if turn_number == 1:
-
-                grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
-                best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
-                print(f"Best loss: {grid_cut_losses.min()}")
+                
+                try:
+                    grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
+                    best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
+                    print(f"Best loss: {grid_cut_losses.min()}")
+                except Exception as e:
+                    print(f"Error: {e}")
 
                 cake_len = current_percept.cake_len
                 cake_width = current_percept.cake_width
