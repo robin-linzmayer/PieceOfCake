@@ -142,62 +142,8 @@ class Player:
                     return [[x_index, cake_len]]
 
 
-
-            num_cuts = max(30, len(requests))
-            num_restarts = 10
-            stagnant_limit = 20
-            min_loss = float("inf")
-            # num_steps = 100
-
-            for restart in range(num_restarts):
-                cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
-                loss = self.get_loss_from_cuts(cuts, current_percept)
-                print(f"Restart {restart} Loss: {loss}")
-
-                stagnant_steps = 0
-                prev_loss = loss
-
-                if loss < min_loss:
-                    best_cuts = copy.deepcopy(cuts)
-                    min_loss = loss
-
-                cuts = best_cuts
-
-                # Gradient descent
-                learning_rate = 0.1
-
-                step = 0
-                # while step < num_steps:
-                while loss > 0.01 and stagnant_steps < stagnant_limit:
-                    gradients = self.get_gradient(loss, cuts, current_percept)
-
-                    cur_x, cur_y = cuts[0]
-                    for j in range(len(cuts)):
-                        cuts[j] = get_shifted_cut(
-                            cuts[j],
-                            -learning_rate * gradients[j],
-                            (cake_width, cake_len),
-                            (cur_x, cur_y),
-                        )
-                        cur_x, cur_y = cuts[j]
-                    loss = self.get_loss_from_cuts(cuts, current_percept)
-                    if loss < min_loss:
-                        best_cuts = copy.deepcopy(cuts)
-                        min_loss = loss
-
-                    # Check for stagnation
-                    if prev_loss - loss < 0.01:
-                        stagnant_steps += 1
-                    else:
-                        stagnant_steps = 0
-                    prev_loss = loss
-
-                    print(f"Step: {step}, Loss: {loss}")
-                    step += 1
-
-            print(f"Best penalty: {min_loss * 100}")
-
-            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
+            
+            self.cuts = vertical_cut([1, 2, 3], 0, 0)
             return constants.INIT, self.cuts[0]
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
