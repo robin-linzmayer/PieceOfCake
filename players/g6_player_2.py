@@ -210,7 +210,7 @@ class Player:
             required = vertical_stack - len(areas)%vertical_stack
             while required > 0:
                 new_slice = min(self.get_max_diff_average(areas, excess), excess)
-                print("added slice", new_slice)
+                # print("added slice", new_slice)
                 areas += [new_slice]
                 areas = sorted(areas)
                 excess -= new_slice
@@ -252,8 +252,8 @@ class Player:
                     if excess < 0:
                         break
                 if sum_new_slices < excess:
-                    print("Old areas", areas)
-                    print("New areas", new_areas)
+                    # print("Old areas", areas)
+                    # print("New areas", new_areas)
                     areas = new_areas
                     excess -= sum_new_slices
                 elif diff > 4:
@@ -274,7 +274,7 @@ class Player:
             else:
                 k+=1
 
-        print("Groups", groups)
+        # print("Groups", groups)
 
         # Increase the size of last piece of each stack to accommodate for crumbs
         if vertical_stack > 1:
@@ -390,9 +390,9 @@ class Player:
             ])
                     
             _, assignment = linear_sum_assignment(c)
-            print(assignment.tolist()[:len(requests)])
-            for i in range(len(requests)):
-                print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
+            # print(assignment.tolist()[:len(requests)])
+            # for i in range(len(requests)):
+            #     print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
 
             # print("Unassigned")
             # for i in range(len(polygons)):
