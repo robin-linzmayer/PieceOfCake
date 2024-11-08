@@ -110,8 +110,6 @@ class Player:
                         best_cuts = copy.deepcopy(cuts)
                         min_loss = loss
 
-                    cuts = best_cuts
-
                     # Gradient descent
                     learning_rate = 0.1
 
