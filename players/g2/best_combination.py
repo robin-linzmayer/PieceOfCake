@@ -1,6 +1,7 @@
 from typing import Callable
 from shapely.geometry import Polygon
 from tqdm import tqdm
+import time
 import constants
 from players.g2.assigns import (
     sorted_assign,
@@ -9,6 +10,10 @@ from players.g2.assigns import (
 )
 from players.g2.helpers import sneak, divide_polygon, can_cake_fit_in_plate
 import random
+
+# distribution of time spent on 1. search, 2. spam, 3. shake
+DISTRIBUTION = [2 / 6, 2 / 6, 2 / 6]
+TIME_SEC = 60 * 3
 
 
 def get_cuts_spread(requests: list[float]) -> tuple[int, int]:
@@ -132,11 +137,33 @@ def penalty(
     )
 
 
+def avg_round_time(min_cuts, max_cuts, cake_len, cake_width, requests):
+    start = time.time()
+
+    penalty(
+        generate_cuts(min_cuts, cake_len, cake_width, 6),
+        requests,
+        cake_len,
+        cake_width,
+        0,
+    )
+    penalty(
+        generate_cuts(max_cuts, cake_len, cake_width, 6),
+        requests,
+        cake_len,
+        cake_width,
+        0,
+    )
+    end = time.time()
+    return (end - start) * ((max_cuts - min_cuts) / 2)
+
+
 def best_combo(
     requests: list[float],
     cake_len: float,
     cake_width: float,
     tolerance: int,
+    start,
 ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
     # 1. SEARCH
     # search for optimal no. of cuts
@@ -146,17 +173,21 @@ def best_combo(
     best_cuts = []
     min_penalty = curr_penalty = float("inf")
     best_cut_no = min_cuts
-    for cuts in range(min_cuts, max_cuts + 1):
+
+    round_time = avg_round_time(min_cuts, max_cuts, cake_len, cake_width, requests)
+    total_rounds = int(DISTRIBUTION[0] * TIME_SEC / round_time) + 1
+    print(f"avg round time is {round_time}, going for {total_rounds} rounds")
+    for cuts in range(min_cuts, max_cuts):
         # we've probably crossed the optimal no. of cuts
-        if best_cut_no + 5 < cuts:
+        if best_cut_no + 5 < cuts or time.time() - start > DISTRIBUTION[0] * TIME_SEC:
             break
-        print(f"{cuts} cuts: ", end="")
+        print(f"{cuts} cuts: ", end="", flush=True)
 
         curr_best_cuts = []
         best_contender = best_curr_penalty = float("inf")
         # try 100 combinations for each cut,
         # use best one
-        for _ in range(200):
+        for _ in range(total_rounds):
             cuts_contender = generate_cuts(cuts, cake_len, cake_width, 6)
             curr_penalty = penalty(
                 cuts_contender, requests, cake_len, cake_width, tolerance
@@ -176,21 +207,26 @@ def best_combo(
     # found the optimal no. of cuts
     # spam combinations for that number
     print(f"\n 2. SPAM\nspamming optimal cut ({best_cut_no})")
-    for _ in tqdm(range(2000)):
+    while time.time() - start < sum(DISTRIBUTION[:2]) * TIME_SEC:
         cuts_contender = generate_cuts(cuts, cake_len, cake_width, 12)
         curr_penalty = penalty(
             cuts_contender, requests, cake_len, cake_width, tolerance
         )
 
         if curr_penalty < min_penalty:
-            tqdm.write(f"found lower penalty ({round(curr_penalty, 2)})")
+            print(f"\nfound lower penalty ({round(curr_penalty, 2)})")
             best_cuts = cuts_contender
             min_penalty = curr_penalty
+        else:
+            print(f"H", end="", flush=True)
 
     # 3. SHAKE
     # shift line's around in the optimal set
     # of cuts for slightly lower penalties
-    best_cuts = shake(best_cuts, requests, min_penalty, cake_len, cake_width, tolerance)
+    print(f"\n 3. SHAKE")
+    best_cuts = shake(
+        best_cuts, requests, min_penalty, cake_len, cake_width, tolerance, start
+    )
 
     return best_cuts
 
@@ -289,6 +325,7 @@ def shake(
     cake_len: float,
     cake_width: float,
     tolerance,
+    start,
 ):
     # number of candidates in tribe
     NUM_CANDIDATES = 20
@@ -312,7 +349,7 @@ def shake(
     min_penalty = pen
     best_epoc = 0
     curr_epoc = 0
-    while 0 < min_penalty and curr_epoc < best_epoc + MAX_UNCHANGED_EPOCS:
+    while 0 < min_penalty and time.time() - start < sum(DISTRIBUTION) * TIME_SEC:
         while len(candidates) < NUM_CANDIDATES:
             offspring = create_offspring(
                 cuts, *random.sample(candidates, 2), cake_len, cake_width

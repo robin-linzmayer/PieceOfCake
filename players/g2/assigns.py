@@ -90,8 +90,6 @@ def assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int
 
     # Find the assignment with the lowest penalty
     min_penalty_index = penalties.index(min(penalties))
-    print(f"The best method is: {assignment_functions[min_penalty_index]}")
-    print(f"Here is the total penalty: {min(penalties)}")
     return assignments[min_penalty_index]
 
 
@@ -128,13 +126,12 @@ def greedy_best_fit_assignment(
     used_polygons = set()
 
     for request_idx, request_size in sorted_requests:
-        print(f"req {request_idx}")
         best_fit_polygon_idx = None
         min_penalty = float("inf")
         closest_area_diff = float("inf")
 
         for poly_idx, polygon in sorted_polygons:
-            if poly_idx in used_polygons or polygon.area < (10-d):
+            if poly_idx in used_polygons or polygon.area < (10 - d):
                 continue
 
             # Check if the polygon fits on the plate

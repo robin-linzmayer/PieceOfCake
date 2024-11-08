@@ -1,4 +1,5 @@
 from typing import List, Callable
+import time
 import numpy as np
 import logging
 import constants
@@ -40,6 +41,7 @@ class G2_Player:
             cake_len (int): Length of the smaller side of the cake
         """
 
+        self.start = time.time()
         self.rng = rng
         self.logger = logger
         self.tolerance = tolerance
@@ -136,7 +138,11 @@ class G2_Player:
 
             print(f"I'll think for a while now..")
             best_cuts = best_combo(
-                self.requests, self.cake_len, self.cake_width, self.tolerance
+                self.requests,
+                self.cake_len,
+                self.cake_width,
+                self.tolerance,
+                self.start,
             )
 
             self.move_queue = cuts_to_moves(
@@ -167,44 +173,53 @@ class G2_Player:
             # self.move_object = UnevenCuts(self.requests, self.cake_width, self.cake_len, self.tolerance)
         else:  # Default
             self.strategy = Strategy.UNEVEN
-            
+
     def uneven_cuts(self):
         if self.turn_number == 1:
-            self.all_uneven_cuts = get_all_uneven_cuts(self.requests, self.tolerance, self.cake_width, self.cake_len)
+            self.all_uneven_cuts = get_all_uneven_cuts(
+                self.requests, self.tolerance, self.cake_width, self.cake_len
+            )
             self.i = 0
             self.hkh_move_queue = []
             return constants.INIT, [0.01, 0]
-        
+
         if len(self.hkh_move_queue) == 0 and self.i < len(self.all_uneven_cuts):
             start = self.all_uneven_cuts[self.i][0]
             end = self.all_uneven_cuts[self.i][1]
             self.i += 1
-            
-            dist_from_start = abs(self.cur_pos[0]-start[0]) + abs(self.cur_pos[1]-start[1])
-            dist_from_end = abs(self.cur_pos[0]-end[0]) + abs(self.cur_pos[1]-end[1])
+
+            dist_from_start = abs(self.cur_pos[0] - start[0]) + abs(
+                self.cur_pos[1] - start[1]
+            )
+            dist_from_end = abs(self.cur_pos[0] - end[0]) + abs(
+                self.cur_pos[1] - end[1]
+            )
             if dist_from_start < dist_from_end:
-                self.hkh_move_queue.extend(sneak(self.cur_pos, start, self.cake_width, self.cake_len))
+                self.hkh_move_queue.extend(
+                    sneak(self.cur_pos, start, self.cake_width, self.cake_len)
+                )
                 self.hkh_move_queue.append(end)
             else:
-                self.hkh_move_queue.extend(sneak(self.cur_pos, end, self.cake_width, self.cake_len))
+                self.hkh_move_queue.extend(
+                    sneak(self.cur_pos, end, self.cake_width, self.cake_len)
+                )
                 self.hkh_move_queue.append(start)
 
         if len(self.hkh_move_queue) > 0:
             next_val = self.hkh_move_queue.pop(0)
             cut = [round(next_val[0], 2), round(next_val[1], 2)]
             return constants.CUT, cut
-        
-        penalty = estimate_uneven_penalty(self.requests, self.cake_width, self.cake_len, self.tolerance)
-        print("EXPECTED PENALTY=",penalty)
-        assigment = greedy_best_fit_assignment(self.polygons, self.requests, self.tolerance)
+
+        penalty = estimate_uneven_penalty(
+            self.requests, self.cake_width, self.cake_len, self.tolerance
+        )
+        print("EXPECTED PENALTY=", penalty)
+        assigment = greedy_best_fit_assignment(
+            self.polygons, self.requests, self.tolerance
+        )
         return constants.ASSIGN, assigment
 
-    def move(self, current_percept: PieceOfCakeState) -> tuple[int, List[int]]:
-        """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
-        self.process_percept(current_percept)
-        if self.turn_number == 1:
-            self.decide_strategy()
-
+    def sawtooth(self):
         # for only 1 request:
         if self.requestlength == 1:
             if self.turn_number == 1:
@@ -274,6 +289,7 @@ class G2_Player:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
         if self.turn_number == 1:
+            # self.strategy = Strategy.BEST_CUTS
             self.decide_strategy()
 
         if self.strategy == Strategy.SAWTOOTH:
