@@ -115,7 +115,7 @@ class G8_Player:
     def solve(self) -> list[tuple[float, float]]:
         """Find optimal cutting sequence using beam search"""
         beam_width = min(50, len(self.requests) * 5)
-        max_depth = len(self.requests) + 1
+        max_depth = len(self.requests) + 10
         counter = 0
 
         # Initialize beam with possible first points
@@ -124,6 +124,8 @@ class G8_Player:
 
         best_solution = None
         best_score = float("inf")
+        best_beam_score = float("inf")
+        best_score_depth = 0
 
         with tqdm(total=max_depth) as pbar:
             while counter < max_depth:
@@ -145,12 +147,11 @@ class G8_Player:
                         )
                         score = penalty + cut_length * 1e-6
 
-                        if penalty > best_score:
+                        if penalty > best_score + 250:
                             continue
 
                         if penalty <= best_score:
                             best_score = penalty
-                            best_solution = new_points
 
                         new_beam.append((score, new_points, new_beam_uuid))
 
@@ -160,6 +161,22 @@ class G8_Player:
 
                 # Keep best beam_width solutions
                 beam = sorted(new_beam, key=lambda x: x[0])[:beam_width]
+
+                # Early return if score is not improving
+                if beam[0][0] < best_beam_score:
+                    best_score_depth = counter
+                    best_beam_score = beam[0][0]
+                    best_solution = beam[0][1]
+                    print(f"Best score depth: {best_score_depth}")
+                    print(f"Best score : {beam[0][0]}")
+                print(f"Counter: {counter}")
+
+                if best_score_depth + 5 == counter:
+                    break
+
+                if best_beam_score < 0.1:
+                    break
+
                 counter += 1
                 pbar.update(1)
 
@@ -183,13 +200,16 @@ class G8_Player:
 
         new_pieces = []
         for piece in pieces:
-            if cut.intersects(piece):
-                split_result = split(piece, cut)
-                new_pieces.extend(list(split_result.geoms))
-            else:
+            try:
+                if cut.intersects(piece):
+                    split_result = split(piece, cut)
+                    new_pieces.extend(list(split_result.geoms))
+                else:
+                    new_pieces.append(piece)
+            except Exception:
                 new_pieces.append(piece)
-        pieces = new_pieces
 
+        pieces = new_pieces
         new_beam_uuid = uuid4()
         self.beam_uuid_to_pieces[new_beam_uuid] = pieces
 
@@ -213,7 +233,7 @@ class G8_Player:
     def generate_next_points(self, current_point: tuple[float, float]):
         """Generate possible next points on valid edges"""
         points = []
-        samples = 12
+        samples = 13
 
         current_edge = self.get_edge(current_point)
 
@@ -294,26 +314,23 @@ class G8_Player:
 
             area = piece.area
             for j, request in enumerate(self.requests):
-                # Calculate exactly as game does
                 percentage_diff = 100 * abs(area - request) / request
                 if percentage_diff <= self.tolerance:
                     cost_matrix[i, j] = 0  # No penalty within tolerance
                 else:
-                    cost_matrix[i, j] = percentage_diff  # Full percentage as penalty
+                    cost_matrix[i, j] = percentage_diff
 
         # Find optimal assignment
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-        # Calculate total penalty exactly as game would
-        total_penalty = 0
+        # Convert to assignment list format that game uses
         assignments = [-1] * n_requests
-
-        # Make assignments and calculate penalties
         for piece_idx, request_idx in zip(row_ind, col_ind):
             if piece_idx < n_pieces and request_idx < n_requests:
                 assignments[request_idx] = piece_idx
 
         # Calculate penalty exactly as game does
+        total_penalty = 0
         for request_idx, piece_idx in enumerate(assignments):
             if piece_idx == -1 or not self.fits_on_plate(pieces[piece_idx]):
                 total_penalty += 100
