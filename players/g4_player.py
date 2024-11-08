@@ -222,13 +222,22 @@ class Player:
 
             if zig_zag_loss > 0:
                 try:
-                    grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
+                    grid_cut_strat = grid_cut_strategy(cake_width, cake_len, requests)
                     best_x_cuts, best_y_cuts, grid_cut_losses = (
-                        grid_cut.gradient_descent()
+                        grid_cut_strat.gradient_descent()
                     )
-                    grid_loss = grid_cut_losses.min()
-                    strategies.append(([], grid_loss))
-                    print(f"Grid cut loss: {grid_loss}")
+                    
+                    # grid_cuts = []  @Yoni store the cuts here, make sure that the initial coordinates is the first item in the array
+                    
+                    # Uncomment below after cuts are generated
+                    # grid_loss = self.get_loss_from_cuts(
+                    #     grid_cuts,
+                    #     current_percept,
+                    #     plate=True,
+                    #     tolerance=self.tolerance,
+                    # )
+                    # strategies.append(([], grid_loss))
+                    # print(f"Grid cut loss: {grid_loss}")
                 except Exception as e:
                     print(e)
 
