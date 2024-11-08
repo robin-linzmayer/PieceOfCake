@@ -12,7 +12,130 @@ from shapely.ops import split
 import copy
 from tqdm import tqdm
 
+
+class grid_cut_strategy:
+    def __init__(self, width, height, requests):
+        self.width = width
+        self.height = height
+        self.requests = requests
+        self.factors = self.factor_pairs(len(requests))
+
+    def factor_pairs(self, x):
+        pairs = []
+        limit = int(abs(x) ** 0.5) + 1
+        for i in range(1, limit):
+            if x % i == 0:
+                pairs.append((i, x // i))
+        return pairs
+
+    def calculate_piece_areas(self, x_cuts, y_cuts):
+        x_coords = np.sort(np.concatenate(([0], x_cuts, [self.width])))
+        y_coords = np.sort(np.concatenate(([0], y_cuts, [self.height])))
+
+        piece_widths = np.diff(x_coords)
+        piece_heights = np.diff(y_coords)
+
+        areas = np.concatenate(np.outer(piece_widths, piece_heights))
+
+        return areas
+
+    def loss_function(self, areas, requests):
+        R = requests
+        V = areas
+
+        num_requests = len(R)
+        num_values = len(V)
+
+        cost_matrix = np.zeros((num_requests, num_values))
+
+        for i, r in enumerate(R):
+            for j, v in enumerate(V):
+                cost_matrix[i][j] = abs(r - v) / r
+
+        row_indices, col_indices = linear_sum_assignment(cost_matrix)
+
+        total_cost = sum(
+            cost_matrix[row_indices[i], col_indices[i]] for i in range(len(row_indices))
+        )
+
+        return total_cost
+
+    def calculate_gradient(self, x_cuts, y_cuts, curr_loss, epsilon=1e-3):
+        grad_x_cuts = np.zeros_like(x_cuts, dtype=float)
+        grad_y_cuts = np.zeros_like(y_cuts, dtype=float)
+
+        for i in range(len(x_cuts)):
+            x_cuts_eps = x_cuts.copy()
+            x_cuts_eps[i] += epsilon
+            areas_eps = self.calculate_piece_areas(x_cuts_eps, y_cuts)
+            loss_eps = self.loss_function(areas_eps, self.requests)
+            grad_x_cuts[i] = (loss_eps - curr_loss) / epsilon
+
+        for i in range(len(y_cuts)):
+            y_cuts_eps = y_cuts.copy()
+            y_cuts_eps[i] += epsilon
+            areas_eps = self.calculate_piece_areas(x_cuts, y_cuts_eps)
+            loss_eps = self.loss_function(areas_eps, self.requests)
+            grad_y_cuts[i] = (loss_eps - curr_loss) / epsilon
+
+        return grad_x_cuts, grad_y_cuts
+
+    def gradient_descent(
+        self,
+        learning_rate=1,
+        num_iterations=500,
+        epsilon=1e-3,
+        learning_rate_decay=0.99,
+    ):
+        best_loss = float("inf")
+        best_x_cuts = None
+        best_y_cuts = None
+        all_losses = []
+
+        for factor in self.factors:
+            # print(f"Factor pair: {factor}")
+            num_horizontal, num_vertical = factor
+
+            x_cuts = np.array(
+                np.random.randint(1, self.width, num_vertical), dtype=float
+            )
+            y_cuts = np.array(
+                np.random.randint(1, self.height, num_horizontal), dtype=float
+            )
+
+            best_x_cuts = x_cuts.copy()
+            best_y_cuts = y_cuts.copy()
+
+            losses = []
+            lr = learning_rate
+            for i in range(num_iterations):
+                lr = max(lr * learning_rate_decay, 1e-2)
+
+                areas = self.calculate_piece_areas(x_cuts, y_cuts)
+                loss = self.loss_function(areas, self.requests)
+                losses.append(loss)
+
+                if loss < best_loss:
+                    best_loss = loss
+                    best_x_cuts = x_cuts.copy()
+                    best_y_cuts = y_cuts.copy()
+
+                grad_x_cuts, grad_y_cuts = self.calculate_gradient(
+                    x_cuts, y_cuts, loss, epsilon
+                )
+
+                x_cuts -= lr * grad_x_cuts
+                y_cuts -= lr * grad_y_cuts
+                # print(f'Iteration {i + 1}: Loss = {loss}, Best loss = {best_loss}')
+            all_losses.append(losses)
+        all_losses = np.array(all_losses)
+
+        return best_x_cuts, best_y_cuts, all_losses
+
+
 EASY_LENGTH = 23.5
+
+
 class Player:
     def __init__(
         self,
@@ -88,6 +211,11 @@ class Player:
 
         else:
             if turn_number == 1:
+
+                grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
+                best_x_cuts, best_y_cuts, grid_cut_losses = grid_cut.gradient_descent()
+                print(f"Best loss: {grid_cut_losses.min()}")
+
                 cake_len = current_percept.cake_len
                 cake_width = current_percept.cake_width
 
