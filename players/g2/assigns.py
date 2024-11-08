@@ -90,9 +90,9 @@ def assign(polygons: list[Polygon], requests: list[float], d: float) -> list[int
 
     # Find the assignment with the lowest penalty
     min_penalty_index = penalties.index(min(penalties))
-    print(f"Best assignment: {assignment_functions[min_penalty_index]}")
-    print(f"Penalty of hungarian_min_penalty: {penalties[0]}")
-    print(f"Penalty of greedy_best_fit_assignment: {penalties[1]}")
+    # print(f"Best assignment: {assignment_functions[min_penalty_index]}")
+    # print(f"Penalty of hungarian_min_penalty: {penalties[0]}")
+    # print(f"Penalty of greedy_best_fit_assignment: {penalties[1]}")
     return assignments[min_penalty_index]
 
 
@@ -401,11 +401,11 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
     if num_polygons > num_requests:
         num_dummy_requests = num_polygons - num_requests
         requests_copy += [0] * num_dummy_requests  # Add dummy requests with no penalty
-        print(f"Added {num_dummy_requests} dummy requests.")
+        # print(f"Added {num_dummy_requests} dummy requests.")
     elif num_requests > num_polygons:
         num_dummy_polygons = num_requests - num_polygons
         polygons_copy += [Polygon([(0, 0), (0, 0), (0, 0), (0, 0)])] * num_dummy_polygons  # Add zero area polygons to inflict full penalty
-        print(f"Added {num_dummy_polygons} dummy polygons.")
+        # print(f"Added {num_dummy_polygons} dummy polygons.")
 
     # Build cost matrix (penalties)
     cost_matrix = []
@@ -433,8 +433,8 @@ def hungarian_min_penalty(polygons: list[Polygon], requests: list[float], d: flo
         if row_ind[i] < num_requests and col_ind[i] < num_polygons:
             assignment[row_ind[i]] = valid_indices[col_ind[i]]  # Map to original index
 
-    print("Assignment:", assignment)
-    print("Type of assignment:", type(assignment))
+    # print("Assignment:", assignment)
+    # print("Type of assignment:", type(assignment))
 
     return assignment[:]
 

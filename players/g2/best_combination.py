@@ -13,7 +13,7 @@ import random
 
 # distribution of time spent on 1. search, 2. spam, 3. shake
 DISTRIBUTION = [3 / 5, 2 / 5]
-TIME_SEC = 60 * 3
+TIME_SEC = 60 * 45
 
 
 def get_cuts_spread(requests: list[float]) -> tuple[int, int]:
@@ -205,7 +205,7 @@ def best_combo(
 # 1. SEARCH
 # search for optimal no. of cuts
 
-
+    '''
     print("\n1. SEARCH\nsearch optimal no. of cuts")
     min_cuts, max_cuts = get_cuts_spread(requests)
 
@@ -217,7 +217,7 @@ def best_combo(
     # Iterate over each number of cuts
     for cuts in range(min_cuts, max_cuts):
         print(f"{cuts} cuts: ", end="", flush=True)
-        number_of_repeats = 30
+        number_of_repeats = 20
         # Track penalties for exactly number_of_repeats runs to compute the average penalty for this cut number
         penalties = []
         best_contender_for_cut = None
@@ -246,19 +246,70 @@ def best_combo(
             best_cut_no = cuts
 
     print(f"Best number of cuts: {best_cut_no} with an average penalty of {round(min_avg_penalty, 2)} and a minimum penalty of {round(min_penalty, 2)}")
+    '''
+
+    # print("\n1. SEARCH\nsearch optimal no. of cuts")
+    min_cuts, max_cuts = get_cuts_spread(requests)
+
+    best_cuts = []
+    min_avg_penalty = float("inf")
+    min_penalty = float("inf")
+    best_cut_no = min_cuts
+    consecutive_higher_avg_count = 0  # Counter to track consecutive higher average penalties
+
+    # Iterate over each number of cuts
+    for cuts in range(min_cuts, max_cuts):
+        # print(f"{cuts} cuts: ", end="", flush=True)
+        number_of_repeats = 20
+        penalties = []
+        best_contender_for_cut = None
+        min_penalty_for_cut = float("inf")
+        
+        for _ in range(number_of_repeats):
+            cuts_contender = generate_cuts(cuts, cake_len, cake_width, 30)
+            curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width, tolerance)
+            
+            if curr_penalty < min_penalty_for_cut:
+                min_penalty_for_cut = curr_penalty
+                best_contender_for_cut = cuts_contender
+                
+            penalties.append(curr_penalty)
+
+        avg_penalty = sum(penalties) / len(penalties)
+        # print(f"average penalty = {round(avg_penalty, 2)}")
+
+        # Update best cuts if this cut number has the lowest average penalty
+        if avg_penalty < min_avg_penalty:
+            min_avg_penalty = avg_penalty
+            best_cuts = best_contender_for_cut
+            min_penalty = min_penalty_for_cut
+            best_cut_no = cuts
+            consecutive_higher_avg_count = 0  # Reset the counter if a new minimum is found
+        else:
+            consecutive_higher_avg_count += 1
+
+        # Break the loop early if five consecutive higher average penalties are encountered
+        if consecutive_higher_avg_count >= 5:
+            # print("Breaking early as the next five minimum average penalties did not improve.")
+            break
+
+    # print(f"Best number of cuts: {best_cut_no} with an average penalty of {round(min_avg_penalty, 2)} and a minimum penalty of {round(min_penalty, 2)}")
 
 
 
     # 2. SPAM
     # found the optimal no. of cuts
     # spam combinations for that number
-    print(f"\n 2. SPAM\nspamming optimal cut ({best_cut_no})")
-    while time.time() - start < sum(DISTRIBUTION[:1]) * TIME_SEC:
+    # print(f"\n 2. SPAM\nspamming optimal cut ({best_cut_no})")
+    while time.time() - start < DISTRIBUTION[0] * TIME_SEC:
+        # print(time.time() - start)
+        # print("Total time to end at is:")
+        # print(DISTRIBUTION[0] * TIME_SEC)
         cuts_contender = generate_cuts(cuts, cake_len, cake_width, 30)
-        curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width, tolerance )
+        curr_penalty = penalty(cuts_contender, requests, cake_len, cake_width, tolerance)
 
         if curr_penalty < min_penalty:
-            print(f"\nfound lower penalty ({round(curr_penalty, 2)})")
+            # print(f"\nfound lower penalty ({round(curr_penalty, 2)})")
             best_cuts = cuts_contender
             min_penalty = curr_penalty
         #else:
@@ -267,8 +318,8 @@ def best_combo(
     # 3. SHAKE
     # shift line's around in the optimal set
     # of cuts for slightly lower penalties
-    print(f"\n 3. SHAKE")
-    print(f"initial penalty: {round(min_penalty, 2)}")
+    # print(f"\n 3. SHAKE")
+    # print(f"initial penalty: {round(min_penalty, 2)}")
     best_cuts = shake(
         best_cuts, requests, min_penalty, cake_len, cake_width, tolerance, start
     )
@@ -403,9 +454,9 @@ def shake(
 
         sort_candidates(cuts, candidates, requests, cake_len, cake_width, tolerance)
         candidates = candidates[:-CUTOFF]  # cut worst candidates
-        print(
-            f"epoc {curr_epoc}: {round(penalty(cuts, requests, cake_len, cake_width, tolerance), 2)} -> {round(penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance), 2)}"
-        )
+        #print(
+        #    f"epoc {curr_epoc}: {round(penalty(cuts, requests, cake_len, cake_width, tolerance), 2)} -> {round(penalty(combined_cuts(cuts, candidates[0]), requests, cake_len, cake_width, tolerance), 2)}"
+        #)
 
         curr_epoc += 1
         if (
