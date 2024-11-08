@@ -83,7 +83,6 @@ class Player:
                     requests, cake_len, cake_width, cake_area, noise, self.tolerance
                 )
 
-            print(f"Cut coordinates {len(self.cut_coords)}: {self.cut_coords}")
             return constants.INIT, self.cut_coords[turn_number - 1]
 
         # Cut the cake
@@ -112,14 +111,11 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     coordinates = []
     sorted_requests = sorted(requests)
     lower_bound_sizes = [request * (1 - tolerance / 100) for request in sorted_requests]
-    print(sorted_requests)
-    print(lower_bound_sizes)
-    print(f"cake_len: {cake_len}, cake_width: {cake_width}, cake_area: {cake_area}")
+
     # might be necessary to subtract noise from the left_area
     # because each piece is being cut little bit bigger than the lower bounds
     left_area = cake_area - sum(lower_bound_sizes)
     left_area = left_area - (left_area * 0.04)
-    print(f"left_area {left_area}")
 
     # calculate the starting coordinate for the first piece to be a rectangle
     x_coord = math.ceil(100 * lower_bound_sizes[0] / cake_len) / 100
@@ -136,7 +132,6 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     # calculate the last coordinate based on the leftover area if the cut is not possible
     prev_x = coordinates[-1][0]
     prev_y = coordinates[-1][1]
-    print(f"prev_x: {prev_x}, prev_y: {prev_y}")
     tri_h = (2 *left_area) / (cake_width - prev_x)
     # Calculate y coordinate for right triangle with left_area
     if prev_y == 0:
@@ -144,7 +139,6 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     else:
         y_coord = math.ceil(100 * (cake_len - tri_h)) / 100
 
-    print(f"y_coord: {y_coord}")
     if 0 <= y_coord <= cake_len:
         coordinates.append([cake_width, round(y_coord, 2)])
     else:
