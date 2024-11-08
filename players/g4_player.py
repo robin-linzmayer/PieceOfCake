@@ -207,13 +207,19 @@ class Player:
 
             try:
                 if cake_len < 24:
-                    zig_zag_cuts, zig_zag_loss = self.zig_zag(current_percept, requests)
+                    zig_zag_cuts = self.zig_zag(current_percept, requests)
+                    zig_zag_loss = self.get_loss_from_cuts(
+                        zig_zag_cuts,
+                        current_percept,
+                        plate=True,
+                        tolerance=self.tolerance,
+                    )
                     strategies.append((zig_zag_cuts, zig_zag_loss))
                     print(f"Zig zag loss: {zig_zag_loss}")
             except Exception as e:
                 print(e)
 
-            if zig_zag_loss > 0.05:
+            if zig_zag_loss > 0:
                 try:
                     grid_cut = grid_cut_strategy(cake_width, cake_len, requests)
                     best_x_cuts, best_y_cuts, grid_cut_losses = (
@@ -226,8 +232,14 @@ class Player:
                     print(e)
 
                 try:
-                    gd_cuts, gd_loss = self.gradient_descent(
+                    gd_cuts = self.gradient_descent(
                         requests, start_time, current_percept
+                    )
+                    gd_loss = self.get_loss_from_cuts(
+                        gd_cuts,
+                        current_percept,
+                        plate=True,
+                        tolerance=self.tolerance,
                     )
                     strategies.append((gd_cuts, gd_loss))
                     print(f"Gradient descent loss: {gd_loss}")
@@ -293,7 +305,7 @@ class Player:
             except:
                 pass
 
-        return best_cuts, min_loss
+        return best_cuts
 
     def gradient_descent(self, requests, start_time, current_percept):
         cake_len = current_percept.cake_len
@@ -368,9 +380,9 @@ class Player:
             except:
                 pass
 
-        return best_cuts, min_loss
+        return best_cuts
 
-    def get_loss_from_cuts(self, cuts, current_percept, plate=True):
+    def get_loss_from_cuts(self, cuts, current_percept, plate=True, tolerance=0):
         new_percept = copy.deepcopy(current_percept)
         new_polygons = new_percept.polygons
 
@@ -382,8 +394,7 @@ class Player:
                 new_polygons,
                 new_percept,
             )
-        loss = cost_function(new_polygons, current_percept.requests, plate)
-
+        loss = cost_function(new_polygons, current_percept.requests, plate, tolerance)
         return loss
 
     def get_gradient(self, loss, cuts, current_percept):
@@ -496,7 +507,7 @@ def generate_random_cuts(num_cuts, cake_dims):
     return cuts
 
 
-def cost_function(polygons, requests, plate=True):
+def cost_function(polygons, requests, plate, tolerance):
     if plate:
         V = []
         for polygon in polygons:
@@ -519,7 +530,9 @@ def cost_function(polygons, requests, plate=True):
     # Fill the cost matrix with relative differences
     for i, r in enumerate(R):
         for j, v in enumerate(V):
-            cost_matrix[i][j] = abs(r - v) / r
+            penalty = abs(r - v) / r * 100
+            if penalty > tolerance:
+                cost_matrix[i][j] = abs(r - v) / r
 
     # Solving the assignment problem
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
