@@ -194,7 +194,7 @@ class Player:
         # print(self.cake_len, self.cake_width)
         area = self.cake_len * self.cake_width
         areas = sorted(self.requests)
-        excess = 4.76*area/100
+        excess = 4*area/100
         allcuts = []
 
         if area < 945:
@@ -490,9 +490,9 @@ class Player:
             ])
                     
             _, assignment = linear_sum_assignment(c)
-            # print(assignment.tolist()[:len(requests)])
-            # for i in range(len(requests)):
-            #     print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
+            print(assignment.tolist()[:len(requests)])
+            for i in range(len(requests)):
+                print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
 
             # print("Unassigned")
             # for i in range(len(polygons)):
