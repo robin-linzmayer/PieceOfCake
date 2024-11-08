@@ -20,12 +20,27 @@ class grid_cut_strategy:
         self.requests = requests
         self.factors = self.factor_pairs(len(requests))
 
-    def factor_pairs(self, x):
-        pairs = []
-        limit = int(abs(x) ** 0.5) + 1
-        for i in range(1, limit):
-            if x % i == 0:
-                pairs.append((i, x // i))
+    def factor_pairs(x):
+        min_pairs = 5
+
+        def get_factor_pairs(n):
+            pairs = []
+            limit = int(abs(n) ** 0.5) + 1
+            for i in range(1, limit):
+                if n % i == 0 and i != 1:
+                    pairs.append((i, n // i))
+            return pairs
+
+        pairs = get_factor_pairs(x)
+
+        offset = 1
+        while len(pairs) < min_pairs:
+            higher_pairs = get_factor_pairs(x + offset)
+            for pair in higher_pairs:
+                if (1 not in pair) and (pair not in pairs):
+                    pairs.append(pair)
+            offset += 1
+
         return pairs
 
     def calculate_piece_areas(self, x_cuts, y_cuts):
