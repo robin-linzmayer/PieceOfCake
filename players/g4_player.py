@@ -228,6 +228,9 @@ class Player:
                     )
 
                     # grid_cuts = []  @Yoni store the cuts here, make sure that the initial coordinates is the first item in the array
+                    grid_cuts = []
+                    grid_cuts += self.vertical_cut(best_x_cuts, current_percept)
+                    grid_cuts += self.horizontal_cut(best_y_cuts, current_percept)
 
                     # Uncomment below after cuts are generated
                     grid_loss = self.get_loss_from_cuts(
@@ -240,6 +243,8 @@ class Player:
                     print(f"Grid cut loss: {grid_loss}")
                 except Exception as e:
                     print(e)
+
+                # Frank's tester code
 
                 # try:
                 #     gd_cuts = self.gradient_descent(
@@ -255,6 +260,9 @@ class Player:
                 #     print(f"Gradient descent loss: {gd_loss}")
                 # except Exception as e:
                 #     print(e)
+
+            # ----------------------------
+
 
             best_loss = float("inf")
             best_cuts = []
@@ -315,7 +323,6 @@ class Player:
                 pass
 
         return best_cuts
-
     def gradient_descent(self, requests, start_time, current_percept):
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
