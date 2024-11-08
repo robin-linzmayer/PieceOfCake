@@ -13,6 +13,7 @@ import copy
 from tqdm import tqdm
 import time
 import miniball
+import math
 
 
 SAVE_DATA = False
@@ -313,13 +314,6 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
 
-        if len(requests) > 50:
-            num_cuts = len(requests) // 3
-        elif len(requests) > 20:
-            num_cuts = len(requests) // 2
-        else:
-            num_cuts = max(12, len(requests))
-
         num_restarts = 30
         stagnant_limit = 20
         min_loss = float("inf")
@@ -328,6 +322,12 @@ class Player:
         all_losses = []
 
         while True:
+            if len(requests) > 50:
+                num_cuts = math.floor(np.abs(np.random.normal(len(requests) // 3, 5)))
+            elif len(requests) > 20:
+                num_cuts = math.floor(np.abs(np.random.normal(len(requests) // 2, 5)))
+            else:
+                num_cuts = math.floor(np.abs(np.random.normal(len(requests), 2)))
 
             # Time check
             if current_percept.time_remaining - time.time() + start_time < 60:
