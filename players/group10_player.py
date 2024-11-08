@@ -132,8 +132,7 @@ class Player:
                 #IS PRIME
                 list_of_factors = self.find_factors(len(self.requests) - 1, False)
 
-
-            list_of_factors.pop(-1) #Remoe last element, since it is always (1, something)
+            list_of_factors.pop(-1) #Remove last element, since it is always (1, something)
 
             factor_penalty = dict()
             factor_cuts = dict()
