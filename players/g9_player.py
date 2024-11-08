@@ -1,10 +1,13 @@
 import bisect
-from itertools import accumulate
+from collections import defaultdict
+from functools import lru_cache
+import gc
+from itertools import accumulate, combinations_with_replacement
 import math
+import time
 from typing import List
 
 import numpy as np
-from sympy import divisors
 import logging
 import pulp
 
@@ -13,11 +16,11 @@ import constants
 
 class Player:
     def __init__(
-            self,
-            rng: np.random.Generator,
-            logger: logging.Logger,
-            precomp_dir: str,
-            tolerance: int,
+        self,
+        rng: np.random.Generator,
+        logger: logging.Logger,
+        precomp_dir: str,
+        tolerance: int,
     ) -> None:
         """Initialise the player with the basic information
 
@@ -41,13 +44,9 @@ class Player:
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
-        tol = self.tolerance/ 100
+        tol = self.tolerance / 100
         noise = 0.02
 
-        print(" ")
-        print(
-            f"----------------------------------- Turn {turn_number} -----------------------------------"
-        )
         if turn_number == 1:
 
             # Case: single piece. Cut smallest length to return valid size.
@@ -77,7 +76,9 @@ class Player:
                     self.cut_coords = self.cut_coords + [[cake_width, y]]
             # Case: small cake zoro cut.
             elif cake_len < 23.507:
-                self.cut_coords =  zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
+                self.cut_coords = zoro_cut(
+                    requests, cake_len, cake_width, cake_area, noise, self.tolerance
+                )
             else:
                 self.cut_coords = compute_cuts(
                     requests, cake_len, cake_width, cake_area, noise, self.tolerance
@@ -93,12 +94,8 @@ class Player:
         sorted_requests = sorted(
             [(requests[i], i) for i in range(len(requests))], reverse=True
         )
-        for p in polygons:
-            print(p.area)
         polygons_available = {(polygons[i].area, i) for i in range(len(polygons))}
         assignment = [-1] * len(requests)
-
-        print(polygons_available)
 
         for req, i in sorted_requests:
             closest_index = min(polygons_available, key=lambda x: abs(x[0] - req))[1]
@@ -107,15 +104,18 @@ class Player:
 
         return constants.ASSIGN, assignment
 
+
 def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     coordinates = []
     sorted_requests = sorted(requests)
-    lower_bound_sizes = [request * (1 - tolerance / 100) for request in sorted_requests]
+    lower_bound_sizes = [
+        request * (1 - tolerance / 100) for request in sorted_requests
+    ][:-1] + [sorted_requests[-1] * (1 + max(tolerance - 0.25, 0) / 100)]
 
     # might be necessary to subtract noise from the left_area
     # because each piece is being cut little bit bigger than the lower bounds
     left_area = cake_area - sum(lower_bound_sizes)
-    left_area = left_area - (left_area * 0.04)
+    # left_area = left_area - (left_area * 0.04)
 
     # calculate the starting coordinate for the first piece to be a rectangle
     x_coord = math.ceil(100 * lower_bound_sizes[0] / cake_len) / 100
@@ -127,12 +127,12 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
         base = math.ceil(100 * 2 * lower_bound_sizes[i] / cake_len) / 100
         x_coord = coordinates[-2][0] + base
         y_coord = coordinates[-2][1]
-        coordinates.append([round(x_coord,2), round(y_coord,2)])
+        coordinates.append([round(x_coord, 2), round(y_coord, 2)])
 
     # calculate the last coordinate based on the leftover area if the cut is not possible
     prev_x = coordinates[-1][0]
     prev_y = coordinates[-1][1]
-    tri_h = (2 *left_area) / (cake_width - prev_x)
+    tri_h = (2 * left_area) / (cake_width - prev_x)
     # Calculate y coordinate for right triangle with left_area
     if prev_y == 0:
         y_coord = math.floor(100 * tri_h) / 100
@@ -143,41 +143,12 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
         coordinates.append([cake_width, round(y_coord, 2)])
     else:
         # This means that the leftover area is too much to cut off. Cut the desired triangle for final piece.
-        if y_coord < 0:
-            coordinates.append([cake_width,0])
-        else:
-            coordinates.append([0, cake_len])
+        base = math.ceil(100 * 2 * lower_bound_sizes[-1] / cake_len) / 100
+        x_coord = coordinates[-2][0] + base
+        y_coord = coordinates[-2][1]
+        coordinates.append([round(x_coord, 2), round(y_coord, 2)])
 
     return coordinates
-
-
-def test_best_grid_cuts(requests, cake_len, cake_width, cake_area, tolerance):
-
-    # Bounds based on the size of cake that fits on a plate
-    min_horz_cuts = math.ceil(cake_len / 24.6)
-    max_horz_cuts = math.floor(math.sqrt(len(requests)))
-
-    # Get best grid cut with original list of requests
-    altered_piece = None
-    best_num_horz_cuts, best_x_coords, min_total_penalty = get_best_grid_cuts(
-        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
-    )
-
-    # Test if adding fake request pieces minimizes penalty to increase factors in cake cuts.
-    for r in set(requests):  # Use a set to avoid duplicate processing
-        altered_piece = r
-        altered_requests = requests + [altered_piece]
-        num_horz_cuts, x_coords, curr_penalty = get_best_grid_cuts(
-            altered_requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
-        )
-
-        if curr_penalty is not None and (min_total_penalty is None or curr_penalty <= min_total_penalty):
-            min_total_penalty = curr_penalty
-            best_x_coords = x_coords
-            best_num_horz_cuts = num_horz_cuts
-
-    return best_num_horz_cuts, best_x_coords, min_total_penalty
-
 
 
 def compute_cuts(requests, cake_len, cake_width, cake_area, noise, tolerance):
@@ -273,15 +244,113 @@ def get_horizontal_cuts(num_horz_cuts, cake_len, cake_width, ends_at_bottom):
     return horizontal_cuts
 
 
+@lru_cache
+def divisors(n):
+    divs = set()
+    for i in range(1, int(math.sqrt(n)) + 1):
+        if n % i == 0:
+            divs.add(i)
+            divs.add(n // i)
+    return sorted(divs)
+
+
+def test_best_grid_cuts(requests, cake_len, cake_width, cake_area, tolerance):
+
+    # Bounds based on the size of cake that fits on a plate
+    min_horz_cuts = math.ceil(cake_len / 24.6)
+    max_horz_cuts = math.floor(math.sqrt(len(requests)))
+
+    # Get best grid cut with original list of requests
+    altered_piece = None
+    best_num_horz_cuts, best_x_coords, min_total_penalty, most_recent_penalties = (
+        get_best_grid_cuts(
+            requests,
+            cake_len,
+            cake_width,
+            cake_area,
+            min_horz_cuts,
+            max_horz_cuts,
+            tolerance,
+            altered_piece,
+        )
+    )
+
+    if not most_recent_penalties:
+        most_recent_penalties = {r: 0.0 for r in requests}
+
+    used_requests = [(requests, most_recent_penalties)]
+
+    for diff in range(1, 5):
+        min_curr_penalty, best_altered_pieces = None, None
+
+        for prev_requests, prev_penalties in used_requests:
+            consecutive_missing = len(requests) + diff - len(prev_requests)
+
+            max_candidates = math.floor(300 ** (1 / consecutive_missing))
+
+            top_penalty_requests = sorted(
+                prev_penalties, key=prev_penalties.get, reverse=True
+            )[:max_candidates]
+
+            # Test if adding fake request pieces minimizes penalty to increase factors in cake cuts.
+            for r in combinations_with_replacement(
+                top_penalty_requests, consecutive_missing
+            ):
+                altered_pieces = r
+                altered_requests = prev_requests + list(altered_pieces)
+                max_horz_cuts = math.floor(math.sqrt(len(altered_requests)))
+                num_horz_cuts, x_coords, curr_penalty, curr_penalties = (
+                    get_best_grid_cuts(
+                        altered_requests,
+                        cake_len,
+                        cake_width,
+                        cake_area,
+                        min_horz_cuts,
+                        max_horz_cuts,
+                        tolerance,
+                        altered_pieces,
+                    )
+                )
+
+                if curr_penalty is None:
+                    break
+
+                if curr_penalty is not None and (
+                    min_total_penalty is None or curr_penalty <= min_total_penalty
+                ):
+                    min_total_penalty = curr_penalty
+                    best_x_coords = x_coords
+                    best_num_horz_cuts = num_horz_cuts
+
+                if curr_penalty is not None and (
+                    min_curr_penalty is None or curr_penalty <= min_curr_penalty
+                ):
+                    min_curr_penalty = curr_penalty
+                    best_altered_pieces = prev_requests + list(altered_pieces)
+                    most_recent_penalties = curr_penalties
+
+        if best_altered_pieces:
+            used_requests.append((best_altered_pieces, most_recent_penalties))
+
+    return best_num_horz_cuts, best_x_coords, min_total_penalty
+
+
 # num_horz_cuts truly means horizontal areas but we can pretend that we would need to make a cut along the top of the cake.
 # Would rather have it be this way so that it is consistent with num_vert_cuts (we do need to make a final cut for the extra 5%)
 def get_best_grid_cuts(
-        requests, cake_len, cake_width, cake_area, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
+    requests,
+    cake_len,
+    cake_width,
+    cake_area,
+    min_horz_cuts,
+    max_horz_cuts,
+    tolerance,
+    altered_pieces,
 ):
     requests_sorted = sorted(requests, reverse=True)
 
     # Adjusted tolerance for rounding errors
-    tolerance = max(1, tolerance - 1)
+    tolerance = max(0, tolerance - 0.75)
     t = tolerance / 100
 
     # Compute possible numbers of horizontal cuts (rows)
@@ -293,6 +362,7 @@ def get_best_grid_cuts(
     min_total_penalty = float("inf")
     best_num_horz_cuts = None
     best_vert_cut_diffs = None
+    best_request_penalties = None
 
     for num_horz_cuts in possible_horz_cuts:
         num_vert_cuts = len(requests) // num_horz_cuts
@@ -322,8 +392,14 @@ def get_best_grid_cuts(
         )
 
         # Objective Function
-        alt_index = requests.index(altered_piece) if altered_piece is not None else -1
-        prob += pulp.lpSum([s_j[j] for j in range(len(requests)) if j != alt_index])
+        alt_indices = (
+            [requests.index(piece) for piece in altered_pieces]
+            if altered_pieces
+            else []
+        )
+        prob += pulp.lpSum(
+            [s_j[j] for j in range(len(requests)) if j not in alt_indices]
+        )
 
         # Total Width Constraint (Adjusted)
         prob += pulp.lpSum([x[i] for i in range(num_vert_cuts)]) <= cake_width
@@ -333,7 +409,7 @@ def get_best_grid_cuts(
         # Constraints
         request_idx = 0
         for i in range(num_vert_cuts):
-            curr_requests = requests_sorted[i * num_horz_cuts: (i + 1) * num_horz_cuts]
+            curr_requests = requests_sorted[i * num_horz_cuts : (i + 1) * num_horz_cuts]
             A_i = h * x[i]
 
             for r in curr_requests:
@@ -345,10 +421,10 @@ def get_best_grid_cuts(
 
                 # Deviation Constraints (Only active when y_j == 1)
                 prob += delta_j[request_idx] >= A_i - r_value - M * (
-                        1 - y_j[request_idx]
+                    1 - y_j[request_idx]
                 )
                 prob += delta_j[request_idx] >= r_value - A_i - M * (
-                        1 - y_j[request_idx]
+                    1 - y_j[request_idx]
                 )
                 prob += delta_j[request_idx] >= 0
 
@@ -359,8 +435,18 @@ def get_best_grid_cuts(
 
                 request_idx += 1
 
-        # Solve the MILP
-        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+        # Solve the MILP with optimized solver parameters
+        prob.solve(
+            pulp.PULP_CBC_CMD(
+                msg=False,
+                threads=4,  # Utilize multiple threads
+                options=[
+                    "-presolve",
+                    "-strong",
+                    "5",  # Set number of strong branching candidates
+                ],
+            )
+        )
 
         # Check if a feasible solution was found
         if prob.status != pulp.LpStatusOptimal:
@@ -370,21 +456,33 @@ def get_best_grid_cuts(
         vert_cut_diffs = [pulp.value(x[i]) for i in range(num_vert_cuts)]
         total_penalty = sum(pulp.value(s_j[j]) for j in range(len(requests)))
 
-        print(
-            f"Number of Horizontal Cuts: {num_horz_cuts}, Total Penalty: {total_penalty}"
-        )
-
         if total_penalty <= min_total_penalty:
             min_total_penalty = total_penalty
             best_num_horz_cuts = num_horz_cuts
             best_vert_cut_diffs = vert_cut_diffs.copy()
 
+            # Calculate penalties for each request size in the best solution
+            penalties_per_request = defaultdict(float)
+            for idx, r in enumerate(requests):
+                penalty = pulp.value(s_j[idx])
+                if penalty is not None:
+                    penalties_per_request[r] += penalty
+
+            best_request_penalties = penalties_per_request
+
+        del prob
+        gc.collect()
+
     if best_num_horz_cuts is None:
         print("No feasible solution found.")
-        return None, None, None
+        return None, None, None, None
 
-    print("MIN PENALTY", min_total_penalty)
-    print("BEST VERT", best_vert_cut_diffs)
     accum_vert_cuts = list(accumulate(best_vert_cut_diffs))
     accum_vert_cuts = [round(diff, 2) for diff in accum_vert_cuts]
-    return best_num_horz_cuts, accum_vert_cuts, min_total_penalty
+
+    return (
+        best_num_horz_cuts,
+        accum_vert_cuts,
+        min_total_penalty,
+        best_request_penalties,
+    )
