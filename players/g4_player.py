@@ -15,6 +15,9 @@ import time
 import miniball
 
 
+SAVE_DATA = True
+
+
 class grid_cut_strategy:
     def __init__(self, width, height, requests):
         self.width = width
@@ -302,6 +305,8 @@ class Player:
         min_loss = float("inf")
         best_cuts = None
 
+        all_losses = []
+
         for restart in range(num_restarts):
 
             # Time check
@@ -310,6 +315,7 @@ class Player:
 
             cuts = generate_random_cuts(num_cuts, (cake_width, cake_len))
             loss = self.get_loss_from_cuts(cuts, current_percept)
+            losses = [loss]
 
             stagnant_steps = 0
             prev_loss = loss
@@ -337,6 +343,7 @@ class Player:
                     )
                     cur_x, cur_y = cuts[j]
                 loss = self.get_loss_from_cuts(cuts, current_percept)
+                losses.append(loss)
                 if loss < min_loss:
                     best_cuts = copy.deepcopy(cuts)
                     min_loss = loss
@@ -353,6 +360,14 @@ class Player:
                     break
 
                 step += 1
+            all_losses.append(losses)
+
+        if SAVE_DATA:
+            try:
+                np.save(f"loss_{num_cuts}_{len(requests)}.npy", all_losses)
+            except:
+                pass
+
         return best_cuts, min_loss
 
     def get_loss_from_cuts(self, cuts, current_percept, plate=False):
