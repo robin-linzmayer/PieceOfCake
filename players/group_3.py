@@ -67,7 +67,7 @@ class Player:
                 requests=requests,
                 tolerance=self.tolerance,
             )
-            self.grid_optimizer.run_optimization(max_evals=1500)
+            self.grid_optimizer.run_optimization(max_evals=2000)
             
             return constants.INIT, [0, 0.01]
         
@@ -235,6 +235,54 @@ class GridOptimizer:
         if len(polygons) > self.num_col_divisions * self.num_row_divisions:
             total_penalty += 100000
         return total_penalty
+    
+    def get_best_grid_cuts(self):
+        num_requests = len(self.requests)
+        min_penalty = float("inf")
+        best_horizontal_cuts = []
+        best_vertical_cuts = []
+        
+        for rows in range(1, 11):
+            cols = (num_requests + rows - 1) // rows
+            
+            self.num_row_divisions = rows
+            self.num_col_divisions = cols
+
+            row_height = self.cake_len / rows
+            col_width = self.cake_width / cols
+
+            horizontal_cuts = [row_height * i for i in range(1, rows)]
+            vertical_cuts = [col_width * i for i in range(1, cols)]
+
+            self.horizontal_cuts = [
+                [(0, y), (self.cake_width, y)] for y in horizontal_cuts
+            ]
+            self.vertical_cuts = [
+                [(x, 0), (x, self.cake_len)] for x in vertical_cuts
+            ]
+
+            penalty = self.cost_function()
+
+            if penalty < min_penalty:
+                min_penalty = penalty
+                best_horizontal_cuts = horizontal_cuts
+                best_vertical_cuts = vertical_cuts
+                best_rows = rows
+                best_cols = cols
+
+        self.num_row_divisions = best_rows
+        self.num_horizontal_cuts = best_rows - 1
+        self.num_col_divisions = best_cols
+        self.num_vertical_cuts = best_cols - 1
+        
+        self.horizontal_cuts = [
+            [(0, y), (self.cake_width, y)] for y in best_horizontal_cuts
+        ]
+        self.vertical_cuts = [
+            [(x, 0), (x, self.cake_len)] for x in best_vertical_cuts
+        ]
+        
+        return best_vertical_cuts, best_horizontal_cuts, min_penalty
 
     def objective(self, params):
         for key in params:
@@ -261,14 +309,7 @@ class GridOptimizer:
 
         Updates the cut positions to minimize the total penalty.
         """
-        v_x_positions, h_y_positions = compute_cuts(
-            self.requests, self.cake_len, self.cake_width, self.tolerance
-        )
-        
-        self.num_col_divisions = len(v_x_positions) + 1
-        self.num_vertical_cuts = len(v_x_positions)
-        self.num_row_divisions = len(h_y_positions) + 1
-        self.num_horizontal_cuts = len(h_y_positions)
+        v_x_positions, h_y_positions, _ = self.get_best_grid_cuts()
 
         temp_x = [0] + v_x_positions.copy() + [self.cake_width]
         temp_y = [0] + h_y_positions.copy() + [self.cake_len]
@@ -398,135 +439,3 @@ def can_cake_fit_in_plate(cake_piece, radius=12.5):
     cake_points = np.array(list(zip(*cake_piece.exterior.coords.xy)), dtype=np.double)
     res = miniball.miniball(cake_points)
     return res["radius"] <= radius
-
-def get_best_grid_cuts(
-        requests, cake_len, cake_width, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
-):
-    requests_sorted = sorted(requests, reverse=True)
-
-    tolerance = max(1, tolerance - 1)
-    t = tolerance / 100
-
-    requests_factors = divisors(len(requests))
-    l_i = bisect.bisect_left(requests_factors, min_horz_cuts)
-    r_i = bisect.bisect_right(requests_factors, max_horz_cuts)
-    possible_horz_cuts = requests_factors[l_i:r_i]
-
-    min_total_penalty = float("inf")
-    best_num_horz_cuts = None
-    best_vert_cut_diffs = None
-
-    for num_horz_cuts in possible_horz_cuts:
-        num_vert_cuts = len(requests) // num_horz_cuts
-        horz_cut_diff = cake_len / num_horz_cuts
-
-        h = horz_cut_diff
-
-        prob = pulp.LpProblem("Minimize_Penalty", pulp.LpMinimize)
-
-        x_int = pulp.LpVariable.dicts(
-            "x_int", (i for i in range(num_vert_cuts)), lowBound=1, cat="Integer"
-        )
-        x = {i: 0.01 * x_int[i] for i in range(num_vert_cuts)}
-
-        s_j = pulp.LpVariable.dicts(
-            "s_j", (j for j in range(len(requests))), lowBound=0, cat="Continuous"
-        )
-
-        y_j = pulp.LpVariable.dicts(
-            "y_j", (j for j in range(len(requests))), cat="Binary"
-        )
-
-        delta_j = pulp.LpVariable.dicts(
-            "delta_j", (j for j in range(len(requests))), lowBound=0, cat="Continuous"
-        )
-
-        alt_index = requests.index(altered_piece) if altered_piece is not None else -1
-        prob += pulp.lpSum([s_j[j] for j in range(len(requests)) if j != alt_index])
-
-        prob += pulp.lpSum([x[i] for i in range(num_vert_cuts)]) <= cake_width
-
-        M = 1e6
-
-        request_idx = 0
-        for i in range(num_vert_cuts):
-            curr_requests = requests_sorted[i * num_horz_cuts: (i + 1) * num_horz_cuts]
-            A_i = h * x[i]
-
-            for r in curr_requests:
-                r_value = r
-
-                prob += A_i >= (1 - t) * r_value - M * y_j[request_idx]
-                prob += A_i <= (1 + t) * r_value + M * y_j[request_idx]
-
-                prob += delta_j[request_idx] >= A_i - r_value - M * (
-                        1 - y_j[request_idx]
-                )
-                prob += delta_j[request_idx] >= r_value - A_i - M * (
-                        1 - y_j[request_idx]
-                )
-                prob += delta_j[request_idx] >= 0
-
-                beta_j = 100 / r_value
-                prob += s_j[request_idx] >= delta_j[request_idx] * beta_j
-                prob += s_j[request_idx] <= M * y_j[request_idx]
-
-                request_idx += 1
-
-        prob.solve(pulp.PULP_CBC_CMD(msg=False))
-
-        if prob.status != pulp.LpStatusOptimal:
-            continue
-
-        vert_cut_diffs = [pulp.value(x[i]) for i in range(num_vert_cuts)]
-        total_penalty = sum(pulp.value(s_j[j]) for j in range(len(requests)))
-
-        if total_penalty <= min_total_penalty:
-            min_total_penalty = total_penalty
-            best_num_horz_cuts = num_horz_cuts
-            best_vert_cut_diffs = vert_cut_diffs.copy()
-
-    if best_num_horz_cuts is None:
-        return None, None, None
-
-    accum_vert_cuts = list(accumulate(best_vert_cut_diffs))
-    accum_vert_cuts = [round(diff, 2) for diff in accum_vert_cuts]
-    return best_num_horz_cuts, accum_vert_cuts, min_total_penalty
-
-def test_best_grid_cuts(requests, cake_len, cake_width, tolerance):
-    min_horz_cuts = math.ceil(cake_len / 24.6)
-    max_horz_cuts = math.floor(math.sqrt(len(requests)))
-
-    altered_piece = None
-    best_num_horz_cuts, best_x_coords, min_total_penalty = get_best_grid_cuts(
-        requests, cake_len, cake_width, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
-    )
-
-    for r in set(requests):
-        altered_piece = r
-        altered_requests = requests + [altered_piece]
-        num_horz_cuts, x_coords, curr_penalty = get_best_grid_cuts(
-            altered_requests, cake_len, cake_width, min_horz_cuts, max_horz_cuts, tolerance, altered_piece
-        )
-
-        if curr_penalty is not None and (min_total_penalty is None or curr_penalty <= min_total_penalty):
-            min_total_penalty = curr_penalty
-            best_x_coords = x_coords
-            best_num_horz_cuts = num_horz_cuts
-
-    return best_num_horz_cuts, best_x_coords, min_total_penalty
-
-def compute_cuts(requests, cake_len, cake_width, tolerance):
-    num_horz_cuts, x_coords, total_penalty = test_best_grid_cuts(
-        requests,
-        cake_len,
-        cake_width,
-        tolerance,
-    )
-    
-    y_coords = []
-    delta = cake_len / num_horz_cuts
-    for i in range(1, num_horz_cuts):
-        y_coords.append(delta * i)
-        
-    return x_coords, y_coords
