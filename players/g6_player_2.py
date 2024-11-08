@@ -209,7 +209,7 @@ class Player:
         if len(areas)%vertical_stack != 0:
             required = vertical_stack - len(areas)%vertical_stack
             while required > 0:
-                new_slice = self.get_max_diff_average(areas, excess)
+                new_slice = min(self.get_max_diff_average(areas, excess), excess)
                 print("added slice", new_slice)
                 areas += [new_slice]
                 areas = sorted(areas)
