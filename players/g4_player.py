@@ -206,19 +206,19 @@ class Player:
             strategies = []
             zig_zag_loss = float("inf")
 
-            # try:
-            #     if cake_len < 24:
-            #         zig_zag_cuts = self.zig_zag(current_percept, requests)
-            #         zig_zag_loss = self.get_loss_from_cuts(
-            #             zig_zag_cuts,
-            #             current_percept,
-            #             plate=True,
-            #             tolerance=self.tolerance,
-            #         )
-            #         strategies.append((zig_zag_cuts, zig_zag_loss))
-            #         print(f"Zig zag loss: {zig_zag_loss}")
-            # except Exception as e:
-            #     print(e)
+            try:
+                if cake_len < 24:
+                    zig_zag_cuts = self.zig_zag(current_percept, requests)
+                    zig_zag_loss = self.get_loss_from_cuts(
+                        zig_zag_cuts,
+                        current_percept,
+                        plate=True,
+                        tolerance=self.tolerance,
+                    )
+                    strategies.append((zig_zag_cuts, zig_zag_loss))
+                    print(f"Zig zag loss: {zig_zag_loss}")
+            except Exception as e:
+                print(e)
 
             if zig_zag_loss > 0:
                 try:
@@ -264,32 +264,32 @@ class Player:
                 except Exception as e:
                     print(e)
 
-                # try:
-                #     gd_cuts = self.gradient_descent(
-                #         requests, start_time, current_percept
-                #     )
-                #     gd_loss = self.get_loss_from_cuts(
-                #         gd_cuts,
-                #         current_percept,
-                #         plate=True,
-                #         tolerance=self.tolerance,
-                #     )
-                #     strategies.append((gd_cuts, gd_loss))
-                #     print(f"Gradient descent loss: {gd_loss}")
-                # except Exception as e:
-                #     print(e)
+                try:
+                    gd_cuts = self.gradient_descent(
+                        requests, start_time, current_percept
+                    )
+                    gd_loss = self.get_loss_from_cuts(
+                        gd_cuts,
+                        current_percept,
+                        plate=True,
+                        tolerance=self.tolerance,
+                    )
+                    strategies.append((gd_cuts, gd_loss))
+                    print(f"Gradient descent loss: {gd_loss}")
+                except Exception as e:
+                    print(e)
 
-            # if grid_loss == gd_loss:
-            #     self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in gd_cuts]
-            # else:
-            best_loss = float("inf")
-            best_cuts = []
-            for cuts, loss in strategies:
-                if loss < best_loss and len(cuts) > 0:
-                    best_loss = loss
-                    best_cuts = cuts
-            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
-            return constants.INIT, self.cuts[0]
+            if grid_loss == gd_loss:
+                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in gd_cuts]
+            else:
+                best_loss = float("inf")
+                best_cuts = []
+                for cuts, loss in strategies:
+                    if loss < best_loss and len(cuts) > 0:
+                        best_loss = loss
+                        best_cuts = cuts
+                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
+                return constants.INIT, self.cuts[0]
 
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
