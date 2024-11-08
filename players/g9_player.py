@@ -42,7 +42,7 @@ class Player:
         cake_width = current_percept.cake_width
         cake_area = cake_len * cake_width
         tol = self.tolerance/ 100
-        noise = 0
+        noise = 0.02
 
         print(" ")
         print(
@@ -94,8 +94,12 @@ class Player:
         sorted_requests = sorted(
             [(requests[i], i) for i in range(len(requests))], reverse=True
         )
+        for p in polygons:
+            print(p.area)
         polygons_available = {(polygons[i].area, i) for i in range(len(polygons))}
         assignment = [-1] * len(requests)
+
+        print(polygons_available)
 
         for req, i in sorted_requests:
             closest_index = min(polygons_available, key=lambda x: abs(x[0] - req))[1]
@@ -108,16 +112,20 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     coordinates = []
     sorted_requests = sorted(requests)
     lower_bound_sizes = [request * (1 - tolerance / 100) for request in sorted_requests]
-
+    print(sorted_requests)
+    print(lower_bound_sizes)
+    print(f"cake_len: {cake_len}, cake_width: {cake_width}, cake_area: {cake_area}")
     # might be necessary to subtract noise from the left_area
     # because each piece is being cut little bit bigger than the lower bounds
     left_area = cake_area - sum(lower_bound_sizes)
-    left_area = left_area + (left_area*0.02)
+    left_area = left_area - (left_area * 0.04)
+    print(f"left_area {left_area}")
 
     # calculate the starting coordinate for the first piece to be a rectangle
     x_coord = math.ceil(100 * lower_bound_sizes[0] / cake_len) / 100
     coordinates.append([x_coord, 0])
     coordinates.append([x_coord, cake_len])
+
     # cut other pieces in triangles except the last one
     for i in range(1, len(lower_bound_sizes) - 1):
         base = math.ceil(100 * 2 * lower_bound_sizes[i] / cake_len) / 100
@@ -128,11 +136,24 @@ def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
     # calculate the last coordinate based on the leftover area if the cut is not possible
     prev_x = coordinates[-1][0]
     prev_y = coordinates[-1][1]
+    print(f"prev_x: {prev_x}, prev_y: {prev_y}")
+    tri_h = (2 *left_area) / (cake_width - prev_x)
+    # Calculate y coordinate for right triangle with left_area
     if prev_y == 0:
-        y_coord = math.ceil(100 * (2 * left_area / (cake_width - prev_x))) / 100
+        y_coord = math.floor(100 * tri_h) / 100
     else:
-        y_coord = math.ceil(100 * (cake_len - ((2 * left_area) / (cake_width - prev_x)))) / 100
-    coordinates.append([cake_width, round(y_coord, 2)])
+        y_coord = math.ceil(100 * (cake_len - tri_h)) / 100
+
+    print(f"y_coord: {y_coord}")
+    if 0 <= y_coord <= cake_len:
+        coordinates.append([cake_width, round(y_coord, 2)])
+    else:
+        # This means that the leftover area is too much to cut off. Cut the desired triangle for final piece.
+        if y_coord < 0:
+            coordinates.append([cake_width,0])
+        else:
+            coordinates.append([0, cake_len])
+
     return coordinates
 
 
