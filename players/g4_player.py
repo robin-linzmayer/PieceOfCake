@@ -319,7 +319,7 @@ class Player:
 
         all_losses = []
 
-        for restart in range(num_restarts):
+        while True:
 
             # Time check
             if current_percept.time_remaining - time.time() + start_time < 60:
