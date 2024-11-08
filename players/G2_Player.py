@@ -53,6 +53,9 @@ class G2_Player:
         self.strategy = None
         self.requestscut = 0
         self.move_object = None
+        self.hkh_move_queue = []
+        self.i = 0
+        self.all_uneven_cuts = []
 
     def cut(self, cake_len, cake_width, cur_pos) -> tuple[int, List[int]]:
         if cur_pos[0] == 0:
@@ -210,14 +213,12 @@ class G2_Player:
             cut = [round(next_val[0], 2), round(next_val[1], 2)]
             return constants.CUT, cut
 
-        penalty = estimate_uneven_penalty(
-            self.requests, self.cake_width, self.cake_len, self.tolerance
-        )
-        print("EXPECTED PENALTY=", penalty)
-        assigment = greedy_best_fit_assignment(
-            self.polygons, self.requests, self.tolerance
-        )
-        return constants.ASSIGN, assigment
+        # penalty = estimate_uneven_penalty(
+        #     self.requests, self.cake_width, self.cake_len, self.tolerance
+        # )
+        # print("EXPECTED PENALTY=", penalty)
+        # assigment = assign(self.polygons, self.requests, self.tolerance)
+        return self.assign(assign)
 
     def sawtooth(self):
         # for only 1 request:
@@ -289,8 +290,8 @@ class G2_Player:
         """Function which retrieves the current state of the amoeba map and returns an amoeba movement"""
         self.process_percept(current_percept)
         if self.turn_number == 1:
-            # self.strategy = Strategy.BEST_CUTS
-            self.decide_strategy()
+            self.strategy = Strategy.BEST_CUTS
+            # self.decide_strategy()
 
         if self.strategy == Strategy.SAWTOOTH:
             return self.sawtooth()
