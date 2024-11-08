@@ -6,14 +6,12 @@ import numpy as np
 import logging
 import traceback
 
-#from numpy.distutils.system_info import wx_info
+from numpy.distutils.system_info import wx_info
 
 import constants
 import math
 import itertools
-from scipy.optimize import linear_sum_assignment, fsolve
-from shapely.geometry import Polygon, LineString
-from shapely.ops import split
+from scipy.optimize import linear_sum_assignment
 
 class Player:
     def __init__(self, rng: np.random.Generator, logger: logging.Logger,
@@ -194,8 +192,7 @@ class Player:
         # print(self.cake_len, self.cake_width)
         area = self.cake_len * self.cake_width
         areas = sorted(self.requests)
-        excess = 4*area/100
-        allcuts = []
+        excess = 4.76*area/100
 
         if area < 945:
             vertical_stack = 1
@@ -348,103 +345,6 @@ class Player:
                 else:
                     self.cutList.append([breadcrumb_goto, round(self.cake_len-0.03,2)])
         
-        allcuts.append(self.cutList.copy())
-        
-        if self.cake_len< 23.5:
-            self.cutList =[[0,0]]
-            areas = sorted(self.requests)
-            h = self.cake_len
-            top_w =-1
-            bottom_w =-1
-            for i,area in enumerate(areas):
-                edge = 0 if i%2 else round(self.cake_len,2)
-                w = round((area*2)/h,2)
-                if i%2 == 0:
-                    if top_w==-1:
-                        top_w = w
-                    else:
-                        top_w+=w
-                    if top_w > self.cake_width:
-                        b2 = self.cake_width - bottom_w
-                        b1 = self.cake_width - (top_w-w)
-                        area_trapizium = 0.5*(b1+b2)*h
-                        y = round((2*(area_trapizium-area)/b2),2)
-                        self.cutList.append([round(self.cake_width,2), y])
-                    else:
-                        self.cutList.append([round(top_w,2),edge])
-                else:
-                    if bottom_w ==-1:
-                        bottom_w = w
-                    else:
-                        bottom_w+=w
-                    if bottom_w > self.cake_width:
-                        b1 = self.cake_width - top_w
-                        b2 = self.cake_width - (bottom_w-w)
-                        area_trapizium = 0.5*(b1+b2)*h
-                        y = round(self.cake_len-(2*(area_trapizium-area)/b1),2)
-                        self.cutList.append([round(self.cake_width,2), y])
-                    else:
-                        self.cutList.append([round(bottom_w,2),edge])
-            
-            allcuts.append(self.cutList.copy())
-            self.find_best_cuts(allcuts)
-
-
-    def get_polygons(self, cutlist):
-        polygons = [Polygon([(0, 0), (0, self.cake_len), (self.cake_width, self.cake_len), (self.cake_width, 0)])]
-        for i in range(len(cutlist) - 1):
-            x1, y1 = cutlist[i]
-            x2, y2 = cutlist[i + 1]
-            line = LineString([(x1, y1), (x2, y2)])
-            newPieces = []
-            for polygon in polygons:
-                if not line.intersects(polygon):
-                    slices = [polygon]
-                else:
-                    result = split(polygon, line)
-                    slices = []
-                    for i in range(len(result.geoms)):
-                        slices.append(result.geoms[i])
-                for slice in slices:
-                    newPieces.append(slice)
-            polygons = newPieces.copy()
-        return polygons
-            
-
-    def find_best_cuts(self,cutlists):
-        if len(cutlists)==1:
-            self.cutList = cutlists[0]
-        penalties =[]
-        lengths =[]
-        for cutList in cutlists:
-            total_length =sum(math.sqrt((x2 - x1)**2 + (y2 - y1)**2) for (x1, y1), (x2, y2) in zip(cutList, cutList[1:]))
-            lengths.append(total_length)
-            polygons = self.get_polygons(cutList)
-
-            areas =[round(i.area,2) for i in polygons]          
-            c = np.array([
-                    [abs(request - area) / request * 100 if abs(request - area) / request * 100 > self.tolerance else 0
-                    for area in areas] for request in self.requests
-                ])
-                        
-            _, assignment = linear_sum_assignment(c)
-            penalty = 0
-            for i in range(len(self.requests)):
-                penalty += abs(self.requests[i] - areas[assignment[i]]) / self.requests[i] * 100 if abs(self.requests[i] - areas[assignment[i]]) / self.requests[i] * 100 > self.tolerance else 0
-            penalties.append(penalty)
-        
-        # print(penalties)
-        # print(lengths)
-
-        min_penalty = min(penalties)
-        min_length = float('inf')
-        best_cuts  = -1
-        for i in range(len(penalties)):
-            if penalties[i] == min_penalty:
-                if lengths[i]< min_length:
-                    min_length = lengths[i]
-                    best_cuts = i
-        self.cutList = cutlists[best_cuts]
 
     def move(self, current_percept) -> (int, List[int]):
         """Function which retrieves the current state of the cake
@@ -490,9 +390,9 @@ class Player:
             ])
                     
             _, assignment = linear_sum_assignment(c)
-            print(assignment.tolist()[:len(requests)])
-            for i in range(len(requests)):
-                print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
+            # print(assignment.tolist()[:len(requests)])
+            # for i in range(len(requests)):
+            #     print(f"Request: {requests[i]} Assigned: {areas[assignment[i]]} Percent Error: {abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 if abs(requests[i] - areas[assignment[i]]) / requests[i] * 100 > self.tolerance else 0}")
 
             # print("Unassigned")
             # for i in range(len(polygons)):
