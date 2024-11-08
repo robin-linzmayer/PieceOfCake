@@ -75,9 +75,10 @@ class Player:
                     tri_height = (2 * area_to_chop) / (cake_width - x)
                     y = round(cake_len - tri_height, 2)
                     self.cut_coords = self.cut_coords + [[cake_width, y]]
+
             # Case: small cake zoro cut.
             elif cake_area < 23.507:
-                self.cut_coords =  [] # zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
+                self.cut_coords =  zoro_cut(requests, cake_len, cake_width, cake_area, noise, self.tolerance)
             else:
                 self.cut_coords = compute_cuts(
                     requests, cake_len, cake_width, cake_area, noise, self.tolerance
@@ -103,6 +104,37 @@ class Player:
             assignment[i] = closest_index
 
         return constants.ASSIGN, assignment
+
+def zoro_cut(requests, cake_len, cake_width, cake_area, noise, tolerance):
+    coordinates = []
+    sorted_requests = sorted(requests)
+    lower_bound_sizes = [request * (1 - tolerance / 100) for request in sorted_requests]
+
+    # might be necessary to subtract noise from the left_area
+    # because each piece is being cut little bit bigger than the lower bounds
+    left_area = cake_area - sum(lower_bound_sizes)
+    left_area = left_area + (left_area*0.02)
+
+    # calculate the starting coordinate for the first piece to be a rectangle
+    x_coord = math.ceil(100 * lower_bound_sizes[0] / cake_len) / 100
+    coordinates.append([x_coord, 0])
+    coordinates.append([x_coord, cake_len])
+    # cut other pieces in triangles except the last one
+    for i in range(1, len(lower_bound_sizes) - 1):
+        base = math.ceil(100 * 2 * lower_bound_sizes[i] / cake_len) / 100
+        x_coord = coordinates[-2][0] + base
+        y_coord = coordinates[-2][1]
+        coordinates.append([round(x_coord,2), round(y_coord,2)])
+
+    # calculate the last coordinate based on the leftover area if the cut is not possible
+    prev_x = coordinates[-1][0]
+    prev_y = coordinates[-1][1]
+    if prev_y == 0:
+        y_coord = math.ceil(100 * (2 * left_area / (cake_width - prev_x))) / 100
+    else:
+        y_coord = math.ceil(100 * (cake_len - ((2 * left_area) / (cake_width - prev_x)))) / 100
+    coordinates.append([cake_width, round(y_coord, 2)])
+    return coordinates
 
 
 def test_best_grid_cuts(requests, cake_len, cake_width, cake_area, tolerance):
