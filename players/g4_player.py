@@ -246,15 +246,17 @@ class Player:
                 except Exception as e:
                     print(e)
 
-            best_loss = float("inf")
-            best_cuts = []
-            for cuts, loss in strategies:
-                if loss < best_loss and len(cuts) > 0:
-                    best_loss = loss
-                    best_cuts = cuts
-
-            self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
-            return constants.INIT, self.cuts[0]
+            if grid_loss == gd_loss:
+                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in gd_cuts]
+            else:
+                best_loss = float("inf")
+                best_cuts = []
+                for cuts, loss in strategies:
+                    if loss < best_loss and len(cuts) > 0:
+                        best_loss = loss
+                        best_cuts = cuts
+                self.cuts = [[round(cut[0], 2), round(cut[1], 2)] for cut in best_cuts]
+                return constants.INIT, self.cuts[0]
 
         elif turn_number <= len(self.cuts):
             return constants.CUT, self.cuts[turn_number - 1]
