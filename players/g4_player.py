@@ -57,8 +57,94 @@ class Player:
             cake_len = current_percept.cake_len
             cake_width = current_percept.cake_width
 
-            num_cuts = len(requests)
-            num_restarts = 30
+
+
+
+            # @yoni adds here code
+            def vertical_cut(x_cuts_indices, x_location, y_location):
+                cuts = []
+
+                # add cut to (index, 0)
+                cuts.append([x_cuts_indices[0], 0])
+
+                for cut in x_cuts_indices:
+
+                    # if location is on top edge, add cut to (index, cake_len)
+                    if y_location == 0:
+                        cuts.append([cut, cake_len])
+                    # if location is on bottom edge, add cut to (index, 0)
+                    elif y_location == cake_len:
+                        cuts.append([cut, 0])
+
+                    # cut vertically has been made
+
+                    # traverse to the next cut
+
+                    # if next index is on left half of the cake and current index is on top edge
+                    if cut < cake_width / 2 and y_location == 0:
+                        next_cut = go_to_top_left_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on right half of the cake and current index is on top edge
+                    elif cut >= cake_width / 2 and y_location == 0:
+                        next_cut = go_to_top_right_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on left half of the cake and current index is on bottom edge
+                    elif cut < cake_width / 2 and y_location == cake_len:
+                        next_cut = go_to_bottom_left_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on right half of the cake and current index is on bottom edge
+                    elif cut > cake_width / 2 and x_cuts_indices[1] == cake_len:
+                        next_cut = go_to_bottom_right_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on left half of the cake and current index is on top edge
+                    elif cut < cake_width / 2 and x_cuts_indices[1] == 0:
+                        next_cut = go_to_top_left_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on right half of the cake and current index is on top edge
+                    elif cut > cake_width / 2 and x_cuts_indices[1] == 0:
+                        next_cut = go_to_top_right_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on left half of the cake and current index is on bottom edge 
+                    elif cut < cake_width / 2 and x_cuts_indices[1] == cake_len:
+                        next_cut = go_to_bottom_left_corner()
+                        cuts.append(next_cut[0])
+
+                    # if next index is on right half of the cake and current index is on bottom edge
+                    elif cut > cake_width / 2 and x_cuts_indices[1] == cake_len:
+                        next_cut = go_to_bottom_right_corner()
+                        cuts.append(next_cut[0])
+
+                    # Go to next index
+
+                return cuts
+            
+            def go_to_top_right_corner():
+                return [[cake_width, cake_len - 0.01]]
+            
+            def go_to_top_left_corner():
+                return [[0, 0.1]]
+            def go_to_bottom_right_corner():
+                return [[cake_width, 0]]
+            def go_to_bottom_left_corner():
+                return [[0, 0]]
+            def go_to_location(x_index):
+                # if current location is on top half of cake, go to (x,0)
+                if x_index < cake_width / 2:
+                    return [[x_index, 0]]
+                # if current location is on bottom half of cake, go to (x,cake_len)
+                else:
+                    return [[x_index, cake_len]]
+
+
+
+            num_cuts = max(30, len(requests))
+            num_restarts = 10
             stagnant_limit = 20
             min_loss = float("inf")
             # num_steps = 100
