@@ -165,29 +165,36 @@ class Player:
     def make_cuts(self):
         # print(self.cake_len, self.cake_width)
         area = self.cake_len * self.cake_width
-        
-        # TODO: If less than area do easy zigzag
-        if area < 0:
-            pass
+        areas = sorted(self.requests)
 
-        #TODO: Find number of horizontal stacks
+        # TODO: If less than area do easy zigzag
+        if area < 945:
+            vertical_stack = 1
+            areas += [4.76*area/100]
+            areas = sorted(areas)
         # print(f"Area: {area}")
-        if area < 4000:
+        elif area < 4000:
             vertical_stack = 2
         elif area < 6500:
             vertical_stack = 3
         else:
             vertical_stack = 4
-        num_stacks = len(self.requests)//vertical_stack + (1 if len(self.requests)%vertical_stack != 0 else 0)
 
-        # print(f"Vertical Stacks: {vertical_stack} Horizontal Stacks: {num_stacks}")
-        areas = sorted(self.requests)
         #TODO: Handle extras
-        if len(areas)%num_stacks != 0:
-            required = num_stacks - len(areas)%num_stacks
+        if len(areas)%vertical_stack != 0:
+            required = vertical_stack - len(areas)%vertical_stack
             areas += [min(areas)]*required
-
-        areas = sorted(areas)
+            areas = sorted(areas)
+        elif vertical_stack > 1:
+            for i in range(vertical_stack):
+                if vertical_stack == 1:
+                    areas.append(4.76*area/100)
+                elif vertical_stack == 2:
+                    areas.append(2*area/100)
+                elif vertical_stack == 3:
+                    areas.append(1*area/100)
+                elif vertical_stack == 4:
+                    areas.append(0.5*area/100)
 
         groups = {i: [] for i in range(vertical_stack)}
         
@@ -199,34 +206,41 @@ class Player:
             i+=1
             k=(k+1)%vertical_stack
 
-        lengths = [round(sum(groups[group])/self.cake_width,2) for group in groups]
+        # Increase the size of last piece of each stack to accommodate for crumbs
+        if vertical_stack > 1:
+            for i in range(vertical_stack):
+                groups[i][-1] = 1.005*groups[i][-1]
+
+        lengths = [round(sum(groups[group]) / self.cake_width, 2) for group in groups]
         cum_lengths = [round(s, 2) for s in itertools.accumulate(lengths)]
+        if vertical_stack > 1:
+            for i,l in enumerate(cum_lengths):
+                # Place knife
+                if i==0:
+                    self.cutList.append([0, l])
+                    continue
+                cur = self.cutList[-1]
+                breadcrumb_goto =  round(0 if l < self.cake_len//2 else self.cake_len, 2)
 
-        for i,l in enumerate(cum_lengths):
-            # Place knife
-            if i==0:
-                self.cutList.append([0, l])
-                continue
+                #Right to left
+                if i%2 == 0:
+                    self.cutList.append(self.move_straight(cur, 'L'))
+                    self.cutList.append([0.02, breadcrumb_goto])
+                    self.cutList.append([0, l])
+                #Left to right
+                else:
+                    self.cutList.append(self.move_straight(cur, 'R'))
+                    self.cutList.append([round(self.cake_width-0.02, 2), breadcrumb_goto])
+                    self.cutList.append([self.cake_width, l])
+
             cur = self.cutList[-1]
-            breadcrumb_goto =  round(0 if l < self.cake_len//2 else self.cake_len, 2)
-
-            #Right to left
-            if i%2 == 0:
+            if vertical_stack % 2 == 0:
                 self.cutList.append(self.move_straight(cur, 'L'))
-                self.cutList.append([0.02, breadcrumb_goto])
-                self.cutList.append([0, l])
-            #Left to right
             else:
                 self.cutList.append(self.move_straight(cur, 'R'))
-                self.cutList.append([round(self.cake_width-0.02, 2), breadcrumb_goto])
-                self.cutList.append([self.cake_width, l])
-
-        cur = self.cutList[-1]
-        if vertical_stack % 2 == 0:
-            self.cutList.append(self.move_straight(cur, 'L'))
         else:
-            self.cutList.append(self.move_straight(cur, 'R'))
-        # #Horizontal cuts!
+            self.cutList.append([0, round(self.cake_len - 0.01, 2)])
+        # For vertical cuts
         l1 = [round(small / lengths[0], 2) for i, small in enumerate(groups[0])]
         l2 = [round(big / lengths[vertical_stack - 1], 2) for i, big in enumerate(groups[vertical_stack - 1])]
         cum_l1 = [round(s, 2) for s in itertools.accumulate(l1)]
