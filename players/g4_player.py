@@ -228,6 +228,9 @@ class Player:
                     )
 
                     # grid_cuts = []  @Yoni store the cuts here, make sure that the initial coordinates is the first item in the array
+                    grid_cuts = []
+                    grid_cuts += self.vertical_cut(best_x_cuts, current_percept)
+                    grid_cuts += self.horizontal_cut(best_y_cuts, current_percept)
 
                     # Uncomment below after cuts are generated
                     grid_loss = self.get_loss_from_cuts(
@@ -241,20 +244,20 @@ class Player:
                 except Exception as e:
                     print(e)
 
-                # try:
-                #     gd_cuts = self.gradient_descent(
-                #         requests, start_time, current_percept
-                #     )
-                #     gd_loss = self.get_loss_from_cuts(
-                #         gd_cuts,
-                #         current_percept,
-                #         plate=True,
-                #         tolerance=self.tolerance,
-                #     )
-                #     strategies.append((gd_cuts, gd_loss))
-                #     print(f"Gradient descent loss: {gd_loss}")
-                # except Exception as e:
-                #     print(e)
+                try:
+                    gd_cuts = self.gradient_descent(
+                        requests, start_time, current_percept
+                    )
+                    gd_loss = self.get_loss_from_cuts(
+                        gd_cuts,
+                        current_percept,
+                        plate=True,
+                        tolerance=self.tolerance,
+                    )
+                    strategies.append((gd_cuts, gd_loss))
+                    print(f"Gradient descent loss: {gd_loss}")
+                except Exception as e:
+                    print(e)
 
             best_loss = float("inf")
             best_cuts = []
@@ -316,7 +319,7 @@ class Player:
 
         return best_cuts
 
-    def vertical_cut(x_cuts_indices, current_percept):
+    def vertical_cut(self, x_cuts_indices, current_percept):
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
             
@@ -409,7 +412,7 @@ class Player:
 
         return cuts
 
-    def horizontal_cut(y_cuts_indices, current_percept):
+    def horizontal_cut(self, y_cuts_indices, current_percept):
         cake_len = current_percept.cake_len
         cake_width = current_percept.cake_width
         cuts = []
