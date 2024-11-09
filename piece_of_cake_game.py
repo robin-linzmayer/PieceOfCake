@@ -16,16 +16,16 @@ from constants import *
 import constants
 from utils import *
 from players.default_player import Player as DefaultPlayer
-# from players.G2_Player import G2_Player
-# from players.g6_player import Player as G6_Player
-# from players.g1_player import Player as G1_Player
-# from players.g8_player import G8_Player
-# from players.group10_player import Player as G10_Player
-# from players.player_7 import Player as G7_Player
+from players.G2_Player import G2_Player
+from players.g6_player import Player as G6_Player
+from players.g1_player import Player as G1_Player
+from players.g8_player import G8_Player
+from players.group10_player import Player as G10_Player
+from players.player_7 import Player as G7_Player
 from players.g9_player import Player as G9_Player
-# from players.g5_player import Player as G5_Player
-# from players.group_3 import Player as G3_Player
-# from players.g4_player import Player as G4_Player
+from players.g5_player import Player as G5_Player
+from players.group_3 import Player as G3_Player
+from players.g4_player import Player as G4_Player
 from shapely.geometry import Polygon, LineString, Point
 from shapely.ops import split
 import tkinter as tk
@@ -99,16 +99,19 @@ class PieceOfCakeGame:
         self.cur_pos = None
         self.prev_pos = None
         self.penalty = None
+        self.solution_length = None
         self.polygon_list = None
         self.goal_reached = False
         self.assignment = None
         self.x_offset = 50
         self.y_offset = 50
         self.cake_cuts = []
+        self.cake_cuts1 = []
         self.turns = 0
         self.valid_moves = 0
         self.timeout_warning_count = 0
         self.max_turns = 1e9
+        self.file = args.requests
 
         self.add_player(args.player)
         self.initialize(args.requests)
@@ -347,10 +350,10 @@ class PieceOfCakeGame:
 
         if self.penalty is not None:
             self.game_state = "over"
-            total_length = 0
-            for cut in self.cake_cuts:
-                total_length += self.euclidean_distance((cut[0], cut[1]), (cut[2], cut[3]))
-            print("Assignment completed!\n\n Total Penalty: {}\n Total Length: {}\n".format(self.penalty, total_length))
+            # Add results to a csv file
+            print("Player name: {}\nTolerance: {}\nFile: {}\nPenalty: {}\n Total Length: {}\nTime taken: {}\n".format(self.player_name, self.tolerance, self.file, self.penalty, self.solution_length, constants.timeout - self.player_time))
+            with open(self.player_name+".csv", "a") as f:
+                f.write("{},{},{},{},{},{}\n".format(self.player_name, self.tolerance, self.file, self.penalty, self.solution_length, constants.timeout - self.player_time))
             self.end_time = time.time()
             print("\nTime taken: {}\n".format(self.end_time - self.start_time))
             return
@@ -366,6 +369,11 @@ class PieceOfCakeGame:
                 self.play_game()
         else:
             print("Timeout: Pieces not assigned...\n\n")
+            print("Player name: {}\nTolerance: {}\nFile: {}\nPenalty: {}\n Total Length: {}\nTime taken: {}\n".format(
+                self.player_name, self.tolerance, self.file, len(self.requests)*100, 1e8,
+                constants.timeout - self.player_time))
+            with open(self.player_name+".csv", "a") as f:
+                f.write("{},{},{},{},{},{}\n".format(self.player_name, self.tolerance, self.file, self.penalty, total_length, constants.timeout - self.player_time))
             self.game_state = "over"
             self.end_time = time.time()
             print("\nTime taken: {}\nValid moves: {}\n".format(self.end_time - self.start_time, self.valid_moves))
@@ -444,7 +452,7 @@ class PieceOfCakeGame:
                 return False
 
             # If the cut has already been made then it's invalid
-            if self.prev_pos is not None and ((self.prev_pos[0], self.prev_pos[1], cur_x, cur_y) in self.cake_cuts or (cur_x, cur_y, self.prev_pos[0], self.prev_pos[1]) in self.cake_cuts):
+            if self.prev_pos is not None and ((self.prev_pos[0], self.prev_pos[1], cur_x, cur_y) in self.cake_cuts1 or (cur_x, cur_y, self.prev_pos[0], self.prev_pos[1]) in self.cake_cuts1):
                 return False
 
             # Check if the cut is horizontal across the cake boundary
@@ -468,6 +476,8 @@ class PieceOfCakeGame:
             self.polygon_list = newPieces
             self.prev_pos = self.cur_pos
             self.cur_pos = action[1]
+            self.cake_cuts1.append((self.prev_pos[0], self.prev_pos[1],
+                                       self.cur_pos[0], self.cur_pos[1]))
             return True
         elif action[0] == constants.ASSIGN:
             self.penalty = 0
@@ -480,6 +490,9 @@ class PieceOfCakeGame:
                     penalty_percentage = 100 * abs(self.polygon_list[assignment].area - self.requests[request_index])/self.requests[request_index]
                     if penalty_percentage > self.tolerance:
                         self.penalty += penalty_percentage
+            self.solution_length = 0
+            for cut in self.cake_cuts1:
+                self.solution_length += self.euclidean_distance((cut[0], cut[1]), (cut[2], cut[3]))
             self.prev_pos = None
             return True
         return False

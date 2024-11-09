@@ -51,12 +51,12 @@ tolerance[2]=12
 tolerance[3]=5
 tolerance[4]=1
 
-# Run the player code on each map
+# Run the player code on each map and save the results in results/tournament folder
 for i in {1..16}
 do
     for t in {1..4}
     do
-      echo "Running player $1 on map $i with radius $r"
-      python3.10 main.py -p $1 -rq ${requests[$i]} -d ${tolerance[$t]} -ng --disable_logging > results/tournament/p${1}/p${1}_g${i}_t${t}.json
+      echo "Running player $1 on requests $i with tolerance $t"
+      python3.10 main.py -p $1 -rq ${map[$i]} -d ${tolerance[$t]} -ng --disable_logging > results/tournament/p${1}/p${1}_g${i}_t${t}.json
     done
 done
