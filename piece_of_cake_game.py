@@ -6,6 +6,7 @@ import numpy as np
 import math
 import traceback
 import matplotlib.pyplot as plt
+import signal
 
 from shapely import points, centroid
 
@@ -132,10 +133,17 @@ class PieceOfCakeGame:
 
             start_time = 0
             is_timeout = False
+            if self.use_timeout:
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(int(self.player_time))
             try:
                 start_time = time.time()
                 player = player_class(rng=self.rng, logger=self.get_player_logger(player_name),
                                       precomp_dir=precomp_dir, tolerance=self.tolerance)
+                player_time_taken = time.time() - start_time
+                self.player_time -= player_time_taken
+                if self.use_timeout:
+                    signal.alarm(0)  # Clear alarm
             except TimeoutException:
                 is_timeout = True
                 player = None
@@ -313,10 +321,19 @@ class PieceOfCakeGame:
         if (not self.player_timeout) and self.timeout_warning_count < 3:
             player_start = time.time()
             try:
+                if self.use_timeout:
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(int(self.player_time))
                 # Call the player's move function for turn on this move
                 returned_action = self.player.move(
                     current_percept=before_state
                 )
+                if self.use_timeout:
+                    signal.alarm(0)
+            except TimeoutException:
+                self.player_timeout = True
+                self.logger.error(
+                    "Timeout {} since {:.3f}s reached.".format(self.player_name, constants.timeout))
             except Exception as e:
                 print(f"Exception in player code: {e}")
                 traceback.print_exc()
@@ -373,7 +390,7 @@ class PieceOfCakeGame:
                 self.player_name, self.tolerance, self.file, len(self.requests)*100, 1e8,
                 constants.timeout - self.player_time))
             with open(self.player_name+".csv", "a") as f:
-                f.write("{},{},{},{},{},{}\n".format(self.player_name, self.tolerance, self.file, self.penalty, total_length, constants.timeout - self.player_time))
+                f.write("{},{},{},{},{},{}\n".format(self.player_name, self.tolerance, self.file, self.penalty, 0, constants.timeout - self.player_time))
             self.game_state = "over"
             self.end_time = time.time()
             print("\nTime taken: {}\nValid moves: {}\n".format(self.end_time - self.start_time, self.valid_moves))
