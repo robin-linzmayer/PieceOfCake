@@ -182,7 +182,7 @@ class PieceOfCakeGame:
             # If no requests are provided, generate requests uniformly from the range 10 to 100
             self.generate_requests()
 
-        print("Requests generated successfully...")
+        # print("Requests generated successfully...")
 
         # Uncomment to save the maze in a json file
         # data = {
@@ -224,8 +224,8 @@ class PieceOfCakeGame:
 
     def validate_requests(self):
         # Check the sum of requests should be less than cake size.
-        print("Requests: ", self.requests)
-        print("Sum of requests: ", np.sum(self.requests))
+        # print("Requests: ", self.requests)
+        # print("Sum of requests: ", np.sum(self.requests))
         if np.sum(self.requests) > 10000:
             return False
 
@@ -243,7 +243,7 @@ class PieceOfCakeGame:
         self.cake_width = round(self.cake_len * 1.6, 2)
 
         self.scale = 700/self.cake_len
-        print("Cake size: ", self.cake_len * self.cake_width)
+        # print("Cake size: ", self.cake_len * self.cake_width)
         return True
 
     def resume(self):
@@ -321,36 +321,36 @@ class PieceOfCakeGame:
 
             player_time_taken = time.time() - player_start
             self.logger.debug("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
-            if player_time_taken > 10:
-                self.logger.warning("Player {} took {:.3f}s".format(self.player_name, player_time_taken))
-                self.timeout_warning_count += 1
 
             self.player_time -= player_time_taken
             if self.player_time <= 0:
                 self.player_timeout = True
                 returned_action = None
 
-        print("Move received: ", returned_action)
+        # print("Move received: ", returned_action)
         if self.check_action(returned_action):
             if self.check_and_apply_action(returned_action):
-                print("Move Accepted! New position", self.cur_pos)
+                # print("Move Accepted! New position", self.cur_pos)
                 self.logger.debug("Received move from {}".format(self.player_name))
                 self.valid_moves += 1
             else:
                 self.logger.info("Invalid move from {} as it does not follow the rules".format(self.player_name))
         else:
-            print("Invalid move")
+            # print("Invalid move")
             self.logger.info("Invalid move from {} as it doesn't follow the return format".format(self.player_name))
 
         if self.use_gui:
             self.draw_cake()
 
 
-        print("Turn {} complete".format(self.turns))
+        # print("Turn {} complete".format(self.turns))
 
         if self.penalty is not None:
             self.game_state = "over"
-            print("Assignment completed!\n\n Total Penalty: {}\n".format(self.penalty))
+            total_length = 0
+            for cut in self.cake_cuts:
+                total_length += self.euclidean_distance((cut[0], cut[1]), (cut[2], cut[3]))
+            print("Assignment completed!\n\n Total Penalty: {}\n Total Length: {}\n".format(self.penalty, total_length))
             self.end_time = time.time()
             print("\nTime taken: {}\n".format(self.end_time - self.start_time))
             return
@@ -373,10 +373,10 @@ class PieceOfCakeGame:
 
     # Verify the action returned by the player
     def check_action(self, action):
-        print(action)
-        print("Checking action: ", action)
+        # print(action)
+        # print("Checking action: ", action)
         if action is None:
-            print("No action returned")
+            # print("No action returned")
             return False
         if type(action) is not tuple:
             return False
